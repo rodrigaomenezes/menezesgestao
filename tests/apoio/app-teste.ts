@@ -3,7 +3,7 @@ import { randomBytes } from "node:crypto";
 import type { FastifyInstance, LightMyRequestResponse } from "fastify";
 import { criarApp, type AppMontado } from "../../apps/api/src/app.js";
 import { provedorDemonstracao } from "../../apps/api/src/modulos/avisos/avisos.js";
-import { criarBanco, type Banco } from "../../apps/api/src/infra/banco.js";
+import { comoSistema, criarBanco, type Banco } from "../../apps/api/src/infra/banco.js";
 import { iniciarJobs, type Jobs } from "../../apps/api/src/infra/jobs.js";
 import { TempoReal } from "../../apps/api/src/modulos/eventos/tempo-real.js";
 import { semearEmpresa, type DescricaoEmpresa, type EmpresaSemeada } from "../../apps/api/src/modulos/empresas/semear.js";
@@ -202,4 +202,20 @@ export function linkDoEmail(texto: string): string {
   const m = texto.match(/token=([\w-]+)/);
   if (!m) throw new Error("e-mail sem link");
   return m[1];
+}
+
+/** Cria N pessoas com o perfil-base indicado na empresa (para testes de concorrência). */
+export async function criarPessoas(banco: Banco, e: EmpresaSemeada, n: number, perfil: "vendedor" | "gestor" = "vendedor"): Promise<string[]> {
+  const hash = await gerarHashSenha(SENHA_TESTE);
+  const s = `${Date.now().toString(36)}${(contador++).toString(36)}`;
+  const emails: string[] = [];
+  await comoSistema(banco, async (tx) => {
+    for (let i = 0; i < n; i++) {
+      const email = `extra${i}.${s}@teste.example.com`;
+      const { rows } = await tx.cliente.query<{ id: string }>("INSERT INTO usuario (email, nome, senha_hash) VALUES ($1, $2, $3) RETURNING id", [email, `Pessoa ${i}`, hash]);
+      await tx.cliente.query("INSERT INTO vinculo (empresa_id, usuario_id, perfil_id, status) VALUES ($1, $2, $3, 'ativo')", [e.empresaId, rows[0].id, e.perfis[perfil]]);
+      emails.push(email);
+    }
+  });
+  return emails;
 }

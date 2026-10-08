@@ -65,6 +65,16 @@ beforeAll(async () => {
     const resposta = await dono.post("/api/respostas-rapidas", { atalho: `segredo${lado}`, texto: `Atalho secreto ${lado.toUpperCase()}` });
     await dono.pedir("PUT", "/api/automacoes/boas_vindas", { texto: `Boas-vindas secretas ${lado.toUpperCase()}`, ativa: false });
     const mensagens = await t.banco.pool.query<{ id: string }>("SELECT id FROM mensagem WHERE conversa_id = $1", [conversaId]);
+    // Fila e ligação: fila com o contato do CRM, item reservado, ligação encerrada.
+    const filaV = (await dono.post("/api/filas", { nome: `Fila secreta ${lado.toUpperCase()}` })).json();
+    await dono.post(`/api/filas/${filaV.id}/itens`, { contatoIds: [crm.contatoId] });
+    const itemV = (await dono.post(`/api/filas/${filaV.id}/proximo`)).json().item;
+    // Telefonia só existe no plano da empresa A (a B é "comercial", sem o módulo).
+    const temTelefonia = (await dono.get("/api/telefonia/resultados")).statusCode === 200;
+    const ligacaoV = temTelefonia ? (await dono.post("/api/ligacoes", { provedor: "treino", filaItemId: itemV.id })).json() : { id: undefined };
+    if (temTelefonia) await dono.post(`/api/ligacoes/${ligacaoV.id}/estado`, { estado: "encerrada" });
+    const resultadoV = temTelefonia ? (await dono.post("/api/telefonia/resultados", { nome: `Resultado secreto ${lado.toUpperCase()}`, acao: "nenhuma" })).json() : { id: undefined };
+    const tipoV = (await dono.post("/api/tipos-base", { nome: `Base secreta ${lado.toUpperCase()}` })).json();
     const sessao = await t.banco.pool.query<{ id: string }>(
       "SELECT id FROM sessao WHERE usuario_id = $1 AND encerrada_em IS NULL LIMIT 1",
       [v.pessoas.dono.usuarioId],
@@ -99,8 +109,17 @@ beforeAll(async () => {
       saida.json().id,
       resposta.json().id,
       ...mensagens.rows.map((m) => m.id),
+      filaV.id,
+      itemV.id,
+      tipoV.id,
+      ...(temTelefonia ? [ligacaoV.id as string, resultadoV.id as string] : []),
     ];
     crm.canalId = canalId;
+    crm.filaId = filaV.id;
+    crm.filaItemId = itemV.id;
+    crm.ligacaoId = ligacaoV.id;
+    crm.resultadoId = resultadoV.id;
+    crm.tipoBaseId = tipoV.id;
     vitimas[lado] = {
       crm,
       ids,
@@ -119,6 +138,9 @@ beforeAll(async () => {
         `Atalho secreto ${lado.toUpperCase()}`,
         `Boas-vindas secretas ${lado.toUpperCase()}`,
         telefoneConversa,
+        `Fila secreta ${lado.toUpperCase()}`,
+        ...(temTelefonia ? [`Resultado secreto ${lado.toUpperCase()}`] : []),
+        `Base secreta ${lado.toUpperCase()}`,
         ...v.d.pessoas.filter((p) => p.chave !== "consultor").flatMap((p) => [p.email, p.nome]),
       ],
     };
@@ -178,6 +200,15 @@ function corpoInvasor(v: EmpresasTeste[Lado], crm: CrmSemeado): Record<string, u
     atalho: "invasao",
     provedor: "demonstracao",
     telefone: "+5511966660000",
+    // Fila e telefonia
+    filaId: crm.filaId,
+    filaItemId: crm.filaItemId,
+    ligacaoId: crm.ligacaoId,
+    resultadoId: crm.resultadoId,
+    tipoBaseId: crm.tipoBaseId,
+    contatoIds: [crm.contatoId],
+    estado: "encerrada",
+    login: "invasor",
     nome: "Invasão",
     slug: `invasao-${Date.now()}`,
     email: `invasao.${Date.now()}@teste.example.com`,
@@ -236,8 +267,10 @@ for (const [atacante, alvo] of [
 
     it(`listagens de ${A} devolvem só dados de ${A}`, async () => {
       const dono = await logado(t.app, email(e[atacante], "dono"));
-      for (const url of ["/api/usuarios", "/api/equipes", "/api/unidades", "/api/perfis", "/api/auditoria", "/api/contatos", "/api/oportunidades", "/api/tarefas", "/api/importacoes", "/api/conversas", "/api/canais", "/api/respostas-rapidas"]) {
+      for (const url of ["/api/usuarios", "/api/equipes", "/api/unidades", "/api/perfis", "/api/auditoria", "/api/contatos", "/api/oportunidades", "/api/tarefas", "/api/importacoes", "/api/conversas", "/api/canais", "/api/respostas-rapidas", "/api/filas", "/api/ligacoes", "/api/telefonia/resultados"]) {
         const res = await dono.get(url);
+        // Módulo fora do plano da empresa: a API recusa (e isso também não vaza nada).
+        if (res.statusCode === 403 && res.json().error.code === "MODULO_INATIVO") continue;
         expect(res.statusCode, url).toBe(200);
         const corpo = res.json();
         expect((Array.isArray(corpo) ? corpo : corpo.itens).length, url).toBeGreaterThan(0);

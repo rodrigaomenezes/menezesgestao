@@ -1,6 +1,6 @@
 // Filas de discagem ativa. Regra central: um item da fila só fica reservado para uma pessoa por vez — a trava é
 // do banco (SELECT … FOR UPDATE SKIP LOCKED + UPDATE condicionado), não da tela. A reserva expira sozinha.
-import { and, asc, count, desc, eq, inArray, isNull, ne, sql, type SQL } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, isNull, ne, sql, type AnyColumn, type SQL } from "drizzle-orm";
 import type { Escopo, FilaDto, FilaItemDto, FilaLoteDto, Pagina, TipoBaseDto } from "@mg/shared";
 import { comEmpresa, type Tx } from "../../infra/banco.js";
 import {
@@ -27,8 +27,8 @@ import { registrar, type Origem } from "../auditoria/registro.js";
 type LinhaItem = typeof filaItem.$inferSelect;
 
 /** Contato da fila visível para quem pede: sem dono (fila de todos) ou dentro do escopo. */
-const contatoVisivel = (ctx: ContextoEmpresa, escopo: Escopo): SQL =>
-  escopo === "empresa" ? sql`true` : sql`(${contato.responsavelId} IS NULL OR ${filtroUsuariosVisiveis(ctx, escopo, contato.responsavelId)})`;
+const contatoVisivel = (ctx: ContextoEmpresa, escopo: Escopo, coluna: AnyColumn | SQL = contato.responsavelId): SQL =>
+  escopo === "empresa" ? sql`true` : sql`(${coluna} IS NULL OR ${filtroUsuariosVisiveis(ctx, escopo, coluna)})`;
 
 export type ResultadoInclusao = "adicionado" | "ja_ligado" | "em_outra_fila" | "ja_na_fila";
 
@@ -211,7 +211,7 @@ export function criarServicoFila(s: Servicos) {
              AND (fi.status = 'pendente' OR (fi.status = 'reservado' AND fi.reservado_ate < now()))
              AND (fi.retornar_em IS NULL OR fi.retornar_em <= now())
              AND c.telefone IS NOT NULL AND NOT c.nao_contatar AND c.arquivado_em IS NULL
-             AND ${contatoVisivel(ctx, escopo)}
+             AND ${contatoVisivel(ctx, escopo, sql.raw("c.responsavel_id"))}
            ORDER BY fi.prioridade DESC, fi.retornar_em NULLS FIRST, fi.criado_em, fi.id
            LIMIT 1
            FOR UPDATE OF fi SKIP LOCKED)
