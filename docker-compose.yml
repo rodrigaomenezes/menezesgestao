@@ -10,6 +10,6 @@ services:
       - "5432:5432"
     volumes:
       - dados-postgres:/var/lib/postgresql/data
-      - ./docker/criar-banco-teste.sql:/docker-entrypoint-initdb.d/criar-banco-teste.sql:ro
+      - ./database/docker/criar-banco-teste.sql:/docker-entrypoint-initdb.d/criar-banco-teste.sql:ro
 volumes:
   dados-postgres:

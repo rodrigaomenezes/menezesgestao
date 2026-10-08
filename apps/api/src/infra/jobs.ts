@@ -1,0 +1,81 @@
+// Fila de jobs (pg-boss): rotinas e envios com trava e nova tentativa. Nada de setInterval no servidor.
+import PgBoss from "pg-boss";
+import type { Tx } from "./banco.js";
+import type { Config } from "../config.js";
+import type { ProvedorAvisos, MensagemEmail } from "../modulos/avisos/avisos.js";
+import { cifrar, decifrar } from "./seguranca/cripto.js";
+
+export const FILAS = {
+  email: "aviso.email",
+  limparSessoes: "manutencao.sessoes",
+} as const;
+
+/** Jobs que esgotaram as tentativas vão para cá (dead-letter), para análise e reenvio manual. */
+export const FILA_FALHAS = "falhas";
+
+export interface Jobs {
+  /** Enfileira um e-mail. Com `tx`, o job só existe se a transação confirmar. */
+  enviarEmail(tx: Tx | null, mensagem: MensagemEmail): Promise<void>;
+  parar(): Promise<void>;
+}
+
+export async function iniciarJobs(config: Config, avisos: ProvedorAvisos): Promise<Jobs> {
+  const boss = new PgBoss({ connectionString: config.databaseUrl, max: 3 });
+  boss.on("error", (err) => console.error("[jobs] erro:", err.message));
+  await boss.start();
+
+  // O código de empresa (papel mg_app) também enfileira, dentro da própria transação.
+  await boss.getDb().executeSql(
+    `GRANT USAGE ON SCHEMA pgboss TO mg_app;
+     GRANT SELECT ON pgboss.queue TO mg_app;
+     GRANT INSERT, SELECT (id) ON pgboss.job TO mg_app;`,
+    [],
+  );
+
+  // Tentativas limitadas com espera crescente; depois disso, o job vai para a fila de falhas.
+  await boss.createQueue(FILA_FALHAS, { name: FILA_FALHAS });
+  for (const fila of Object.values(FILAS)) {
+    const opcoes = { name: fila, retryLimit: 5, retryDelay: 30, retryBackoff: true, deadLetter: FILA_FALHAS };
+    await boss.createQueue(fila, opcoes);
+    await boss.updateQueue(fila, opcoes); // fila criada antes desta versão ganha a dead-letter
+
+  }
+
+  // O conteúdo do e-mail pode ter link de acesso: vai cifrado para a tabela de jobs.
+  await boss.work<{ cifrado: string }>(FILAS.email, { pollingIntervalSeconds: config.teste ? 0.5 : 2 }, async (lote) => {
+    for (const job of lote) {
+      try {
+        await avisos.enviarEmail(JSON.parse(decifrar(config.crmChave, job.data.cifrado)) as MensagemEmail);
+      } catch (err) {
+        // Nunca registra o conteúdo (tem link de acesso): só a fila, o id do job e o motivo.
+        console.error(JSON.stringify({ level: "error", event: "job.falhou", fila: FILAS.email, jobId: job.id, erro: (err as Error).message }));
+        throw err;
+      }
+    }
+  });
+
+  await boss.work(FILAS.limparSessoes, async () => {
+    await boss.getDb().executeSql(
+      `DELETE FROM sessao WHERE expira_em < now() - interval '30 days' OR encerrada_em < now() - interval '30 days';
+       DELETE FROM token_acesso WHERE expira_em < now() - interval '30 days';`,
+      [],
+    );
+  });
+  await boss.schedule(FILAS.limparSessoes, "17 3 * * *", {}, { tz: "America/Sao_Paulo" });
+
+  return {
+    async enviarEmail(tx, mensagem) {
+      const dados = { cifrado: cifrar(config.crmChave, JSON.stringify(mensagem)) };
+      if (tx) {
+        await boss.send(FILAS.email, dados, {
+          db: { executeSql: (texto, valores) => tx.cliente.query(texto, valores) },
+        });
+      } else {
+        await boss.send(FILAS.email, dados);
+      }
+    },
+    async parar() {
+      await boss.stop({ graceful: true, timeout: 5000, wait: true });
+    },
+  };
+}

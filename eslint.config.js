@@ -13,7 +13,7 @@ const proibidosEmTodoLugar = [
 ];
 
 export default tseslint.config(
-  { ignores: ["dist/", "node_modules/", "coverage/", "playwright-report/", "test-results/", "web/dev-dist/"] },
+  { ignores: ["**/dist/", "**/node_modules/", "coverage/", "playwright-report/", "test-results/", "**/dev-dist/"] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
@@ -23,7 +23,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ["src/**/*.ts", "e2e/**/*.ts", "*.config.{js,ts}"],
+    files: ["apps/api/**/*.ts", "packages/**/*.ts", "tests/**/*.ts", "*.config.{js,ts}"],
     languageOptions: { globals: globals.node },
     rules: {
       "no-restricted-syntax": [
@@ -37,7 +37,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ["web/**/*.{ts,tsx}"],
+    files: ["apps/web/**/*.{ts,tsx}"],
     languageOptions: { globals: globals.browser },
     plugins: { "react-hooks": reactHooks },
     rules: {

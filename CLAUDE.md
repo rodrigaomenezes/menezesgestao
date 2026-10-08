@@ -1,8 +1,13 @@
 # Menezes Gestão — regras do projeto
 
 Plataforma SaaS **white-label** de operações comerciais (CRM, WhatsApp, telefonia, fila de ligações, rotina e
-desempenho da equipe), em português do Brasil. A especificação completa está em `ESPECIFICACAO.md` e é a fonte
-da verdade: leia antes de começar qualquer fase.
+desempenho da equipe), em português do Brasil.
+
+Documentos de referência (leia antes de qualquer fase):
+- `PROMPT_MESTRE.md` — instrução permanente do agente: princípios, estrutura, definição de pronto, checklists.
+- `ESPECIFICACAO.md` — o produto (funcional). Fonte da verdade das regras de negócio.
+- `ARCHITECTURE.md` — como o sistema está montado hoje. `DECISIONS.md` — ADRs. `TECH_DEBT.md` — dívida registrada.
+- Precedência: regra funcional aprovada → especificação → arquitetura → decisões → implementação → preferência do agente.
 
 ## Princípios inegociáveis
 1. **Multiempresa desde a primeira linha:** `empresa_id` em toda tabela de negócio, filtro injetado numa camada
@@ -25,15 +30,21 @@ da verdade: leia antes de começar qualquer fase.
     sem `setInterval` para rotinas (use fila de jobs), sem listagem sem paginação, sem JSON acima de 1 MB
     (arquivos vão por upload próprio) e sem módulo que falhe em silêncio.
 
-## Pilha
-Node.js 20 + TypeScript, Fastify, PostgreSQL (Prisma ou Drizzle), React + Vite como PWA, SSE para tempo real,
-pg-boss para jobs, Vitest e Playwright. Mudanças de pilha: propor antes.
+## Pilha e estrutura
+Node.js 20 + TypeScript, Fastify, PostgreSQL + Drizzle, Zod, React + Vite como PWA, SSE, pg-boss, Vitest e Playwright
+(ADR-001). Monorepo npm workspaces (ADR-005): `apps/api` (módulos por domínio: rotas → serviço → repositório),
+`apps/web` (features), `packages/shared` (contrato da API e catálogos), `database/migrations`, `tests/`.
+Mudanças de pilha: propor antes.
 
 ## Como trabalhar
 - Siga o roteiro de fases de `ESPECIFICACAO.md`, uma por vez. No início de cada fase, apresente o plano
   (o que entra, tabelas, rotas, testes dos critérios de pronto) e espere o ok.
-- Commits pequenos; testes junto com o código. Antes de abrir PR: `npm run typecheck`, `npm test`, `npm run build`.
-- Ao fim de cada fase, atualize `README.md` (como rodar, variáveis, decisões) e `ROADMAP.md`.
+- Commits pequenos (`feat:`, `fix:`, `refactor:`, `test:`, `docs:`, `chore:`); testes junto com o código.
+  Antes de abrir PR: `npm run lint`, `npm run typecheck`, `npm test`, `npm run build`, `npm run test:e2e`.
+- Contrato da API em `@mg/shared` (Zod): toda rota valida entrada, devolve DTO e aparece no OpenAPI.
+  Erro sempre `{ error: { code, message, details } }`.
+- Ao fim de cada fase, atualize `README.md`, `ROADMAP.md`, `ARCHITECTURE.md`/`DECISIONS.md` quando mudar algo e
+  `TECH_DEBT.md`. Responda ao analista no formato da seção 157 do Prompt Mestre.
 - Nunca peça senha ou token no chat: diga qual variável de ambiente criar.
 - Ambiguidade: escolha o padrão mais simples, siga e anote; pergunte só se mudar o modelo de dados.
 - Antes de declarar pronto, releia o diff procurando vazamento entre empresas, rota sem permissão, duplicação por
