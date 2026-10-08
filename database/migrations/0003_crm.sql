@@ -238,11 +238,11 @@ BEGIN
     INSERT INTO funil (empresa_id, nome, ordem) VALUES (e.id, 'Vendas', 0) RETURNING id INTO f;
     INSERT INTO etapa (empresa_id, funil_id, nome, cor, ordem, probabilidade, tipo) VALUES
       (e.id, f, 'Novo contato', '#5b6470', 0, 10, 'aberta'),
-      (e.id, f, 'Em conversa',  '#1f5fbf', 1, 30, 'aberta'),
-      (e.id, f, 'Proposta',     '#7a3fbf', 2, 60, 'aberta'),
-      (e.id, f, 'Negociação',   '#e07a1f', 3, 80, 'aberta'),
-      (e.id, f, 'Ganho',        '#1e6b34', 4, 100, 'ganha'),
-      (e.id, f, 'Perdido',      '#b3261e', 5, 0, 'perdida');
+      (e.id, f, 'Em conversa',  '#1f5fbf', 10, 30, 'aberta'),
+      (e.id, f, 'Proposta',     '#7a3fbf', 20, 60, 'aberta'),
+      (e.id, f, 'Negociação',   '#e07a1f', 30, 80, 'aberta'),
+      (e.id, f, 'Ganho',        '#1e6b34', 40, 100, 'ganha'),
+      (e.id, f, 'Perdido',      '#b3261e', 50, 0, 'perdida');
   END LOOP;
   FOR e IN SELECT id FROM empresa WHERE NOT EXISTS (SELECT 1 FROM motivo_perda m WHERE m.empresa_id = empresa.id) LOOP
     INSERT INTO motivo_perda (empresa_id, nome, ordem) VALUES

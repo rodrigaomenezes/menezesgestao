@@ -6,6 +6,7 @@ import type { Marca, Modulo, PerfilBase, Plano } from "@mg/shared";
 import { comoSistema, type Banco } from "../../infra/banco.js";
 import { equipe, unidade, vinculo } from "../../infra/esquema.js";
 import { criarEmpresa } from "./criar-empresa.js";
+import { semearCrm, type DescricaoCrm } from "../crm/semear-crm.js";
 
 export interface DescricaoEmpresa {
   nome: string;
@@ -16,6 +17,8 @@ export interface DescricaoEmpresa {
   unidades: string[];
   equipes: { nome: string; unidade?: string; gestor?: string }[];
   pessoas: { chave: string; nome: string; email: string; perfil: PerfilBase; unidade?: string; equipe?: string }[];
+  /** Contatos, etiquetas e oportunidades de exemplo (opcional). */
+  crm?: DescricaoCrm;
 }
 
 export interface EmpresaSemeada {
@@ -85,6 +88,8 @@ export async function semearEmpresa(banco: Banco, d: DescricaoEmpresa, senhaHash
           .where(eq(vinculo.id, pessoas[p.chave].vinculoId));
       }
     }
+
+    if (d.crm) await semearCrm(tx, empresaId, d.crm, pessoas);
 
     return { empresaId, perfis: criada.perfis, unidades, equipes, pessoas };
   });

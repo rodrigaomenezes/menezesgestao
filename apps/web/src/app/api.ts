@@ -18,17 +18,19 @@ function tokenCsrf(): string {
   return par ? decodeURIComponent(par.slice("mg_csrf=".length)) : "";
 }
 
-type Metodo = "GET" | "POST" | "PATCH" | "DELETE";
+type Metodo = "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
 
 export async function api<T>(metodo: Metodo, caminho: string, corpo?: unknown): Promise<T> {
   const escrita = metodo !== "GET";
+  // Arquivo vai como multipart (o navegador monta o boundary); o resto, como JSON.
+  const arquivo = corpo instanceof FormData;
   let res: Response;
   try {
     res = await fetch(`/api${caminho}`, {
       method: metodo,
       credentials: "same-origin",
-      headers: escrita ? { "content-type": "application/json", "x-csrf-token": tokenCsrf() } : {},
-      body: escrita ? JSON.stringify(corpo ?? {}) : undefined,
+      headers: escrita ? { ...(arquivo ? {} : { "content-type": "application/json" }), "x-csrf-token": tokenCsrf() } : {},
+      body: escrita ? (arquivo ? corpo : JSON.stringify(corpo ?? {})) : undefined,
     });
   } catch {
     throw new ErroApi(0, "SEM_CONEXAO", "Sem conexão com o servidor. Confira a internet e tente de novo.");
@@ -44,7 +46,15 @@ export async function api<T>(metodo: Metodo, caminho: string, corpo?: unknown): 
 export const get = <T,>(caminho: string) => api<T>("GET", caminho);
 export const post = <T,>(caminho: string, corpo?: unknown) => api<T>("POST", caminho, corpo);
 export const patch = <T,>(caminho: string, corpo?: unknown) => api<T>("PATCH", caminho, corpo);
+export const put = <T,>(caminho: string, corpo?: unknown) => api<T>("PUT", caminho, corpo);
 export const del = <T,>(caminho: string) => api<T>("DELETE", caminho);
+
+/** Envia um arquivo (campo "arquivo") por multipart/form-data. */
+export function enviarArquivo<T>(caminho: string, arquivo: File): Promise<T> {
+  const dados = new FormData();
+  dados.append("arquivo", arquivo);
+  return api<T>("POST", caminho, dados);
+}
 
 export type { Pagina } from "@mg/shared";
 

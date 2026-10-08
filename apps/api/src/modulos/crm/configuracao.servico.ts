@@ -68,7 +68,7 @@ export async function criarFunilPadrao(tx: Tx, empresaId: string): Promise<void>
     ["Perdido", "#b3261e", 0, "perdida"],
   ];
   await tx.db.insert(etapa).values(
-    etapas.map(([nome, cor, probabilidade, tipo], ordem) => ({ empresaId, funilId, nome, cor, ordem, probabilidade, tipo })),
+    etapas.map(([nome, cor, probabilidade, tipo], i) => ({ empresaId, funilId, nome, cor, ordem: i * 10, probabilidade, tipo })),
   );
   await tx.db
     .insert(motivoPerda)
@@ -147,8 +147,17 @@ export function criarServicoConfiguracaoCrm(s: Servicos) {
   async function criarFunil(ctx: ContextoEmpresa, origem: Origem, dados: { nome: string; ordem: number }): Promise<FunilDto> {
     return comEmpresa(banco, ctx.empresaId, async (tx) => {
       const [f] = await tx.db.insert(funil).values({ empresaId: ctx.empresaId, ...dados, criadoPor: ctx.usuarioId }).returning();
+      // Nasce utilizável: uma etapa de entrada e as de ganho e perda; o administrador ajusta depois.
+      const etapas = await tx.db
+        .insert(etapa)
+        .values(
+          ([["Novo", "#5b6470", 10, "aberta"], ["Ganho", "#1e6b34", 100, "ganha"], ["Perdido", "#b3261e", 0, "perdida"]] as const).map(
+            ([nome, cor, probabilidade, tipo], ordem) => ({ empresaId: ctx.empresaId, funilId: f.id, nome, cor, ordem: ordem * 10, probabilidade, tipo }),
+          ),
+        )
+        .returning();
       await registrar(tx, origem, { acao: "funil.criado", entidade: "funil", entidadeId: f.id, depois: dados });
-      return funilDto(f, []);
+      return funilDto(f, etapas);
     });
   }
 

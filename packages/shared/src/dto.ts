@@ -71,7 +71,16 @@ export const AceitarConviteEntrada = z.object({
 export const EuDto = z.object({
   usuario: z.object({ id: Id, nome: z.string(), email: z.string() }),
   empresa: z
-    .object({ id: Id, nome: z.string(), slug: z.string(), plano: z.string(), fuso: z.string(), modulos: z.array(z.string()) })
+    .object({
+      id: Id,
+      nome: z.string(),
+      slug: z.string(),
+      plano: z.string(),
+      fuso: z.string(),
+      modulos: z.array(z.string()),
+      /** Termos próprios da empresa (ex.: { contato: "aluno" }). */
+      vocabulario: z.record(z.string(), z.string()),
+    })
     .nullable(),
   perfil: z.object({ id: Id, nome: z.string() }).nullable(),
   permissoes: PermissoesDto,

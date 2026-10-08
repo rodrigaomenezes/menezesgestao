@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
-import { FUSO_PADRAO, MARCA_PADRAO, formatarDataHora, type Acao, type EuDto, type Marca, type Modulo } from "@mg/shared";
+import { FUSO_PADRAO, MARCA_PADRAO, formatarDataHora, moduloAtivo, type Acao, type EuDto, type Marca, type Modulo } from "@mg/shared";
 import { ErroApi, get, post } from "./api";
 import { aplicarMarca } from "./tema";
 
@@ -53,7 +53,11 @@ export function ProvedorSessao({ children }: { children: ReactNode }) {
     [recarregar],
   );
 
-  const pode = useCallback((modulo: Modulo, acao: Acao) => Boolean(eu?.permissoes[modulo]?.[acao]), [eu]);
+  // Permissão do perfil E módulo contratado no plano (o servidor confere o mesmo em toda rota).
+  const pode = useCallback(
+    (modulo: Modulo, acao: Acao) => Boolean(eu?.permissoes[modulo]?.[acao]) && moduloAtivo(modulo, eu?.empresa?.modulos ?? []),
+    [eu],
+  );
 
   return (
     <ContextoSessao.Provider value={{ eu, carregando, recarregar, sair, trocarEmpresa, pode }}>

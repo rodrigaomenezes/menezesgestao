@@ -120,6 +120,7 @@ export function criarServicoAuth(s: Servicos) {
             plano: ctx.plano ?? "",
             fuso: ctx.fuso ?? "America/Sao_Paulo",
             modulos: ctx.modulos,
+            vocabulario: ctx.vocabulario,
           }
         : null,
       perfil: ctx.perfilId ? { id: ctx.perfilId, nome: ctx.perfilNome ?? "" } : null,

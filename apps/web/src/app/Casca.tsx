@@ -8,12 +8,21 @@ import { conectarTempoReal, useTempoReal } from "./tempo-real";
 
 interface ItemMenu {
   para: string;
-  texto: string;
+  /** Texto fixo ou montado com o vocabulário da empresa (ex.: "Alunos" em vez de "Contatos"). */
+  texto: string | ((termos: Record<string, string>) => string);
   exige?: [Modulo, Acao];
 }
 
+const plural = (s: string) => (/ão$/.test(s) ? s.replace(/ão$/, "ões") : /[aeiou]$/.test(s) ? `${s}s` : /[rsz]$/.test(s) ? `${s}es` : `${s}s`);
+const maiuscula = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
 const MENU: ItemMenu[] = [
   { para: "/", texto: "Início" },
+  { para: "/contatos", texto: (t) => maiuscula(plural(t.contato ?? "contato")), exige: ["crm", "ver"] },
+  { para: "/funil", texto: "Funil", exige: ["crm", "ver"] },
+  { para: "/tarefas", texto: "Tarefas", exige: ["crm", "ver"] },
+  { para: "/importar", texto: "Importar planilha", exige: ["crm", "criar"] },
+  { para: "/crm/configuracoes", texto: "Configurar CRM", exige: ["crm", "administrar"] },
   { para: "/usuarios", texto: "Usuários", exige: ["usuarios", "ver"] },
   { para: "/equipes", texto: "Equipes", exige: ["usuarios", "ver"] },
   { para: "/perfis", texto: "Perfis e permissões", exige: ["usuarios", "ver"] },
@@ -116,7 +125,7 @@ export function Casca({ children }: { children: ReactNode }) {
           {itens.map((i) => (
             <li key={i.para}>
               <NavLink to={i.para} end={i.para === "/"}>
-                {i.texto}
+                {typeof i.texto === "string" ? i.texto : i.texto(eu.empresa?.vocabulario ?? {})}
               </NavLink>
             </li>
           ))}

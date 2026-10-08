@@ -210,3 +210,38 @@ O RLS impede ver os slugs das outras empresas; a unicidade é garantida pelo ín
 - **Estados e catálogos fechados:** constantes em `@mg/shared` + `CHECK` no banco. Listas que a empresa configura
   (etapas, resultados, tipos de base) viram tabelas, nunca enum.
 - **Identificadores:** UUID em toda entidade; nada sequencial exposto.
+
+---
+
+# ADR-013 — Arquivos atrás de interface; primeiro provedor guarda no banco
+
+## Contexto
+A importação precisa guardar a planilha enviada para o job processar (e reprocessar em nova tentativa). O Railway
+não tem disco persistente compartilhado sem volume, e o Prompt Mestre pede fornecedores atrás de interfaces.
+
+## Decisão
+`ProvedorArquivos` (`gravar`, `ler`) com o provedor `banco`: conteúdo em `arquivo.conteudo` (bytea), isolado por
+empresa com RLS. Upload por multipart (até 10 MB), separado do limite de 1 MB do JSON.
+
+## Alternativas
+S3/R2 desde já (exige conta e segredo externos antes de haver mídia); disco local (some a cada deploy).
+
+## Consequências
+Simples e transacional para planilhas. Mídia de conversas (fase 2) troca para um provedor de objetos sem mudar
+quem usa a interface (ver `TECH_DEBT.md`).
+
+---
+
+# ADR-014 — Importação idempotente pelo telefone, em fila
+
+## Decisão
+Envio → prévia (cabeçalho e 5 linhas) → mapeamento confirmado → job `crm.importacao` em lotes de 500. Cada linha é
+decidida pelo telefone normalizado: novo, atualizado (se a opção estiver marcada e algo mudou), sem mudança ou
+ignorado com motivo (sem nome, telefone inválido, contato na lixeira, contato da carteira de outra pessoa). Repetir
+a importação ou o job não duplica nada. Eventos da importação são "silenciosos" (não disparam tempo real linha a
+linha); ao fim, um evento `importacao.concluida` e uma notificação para quem importou.
+
+## Consequências
+O relatório guarda até 200 motivos de linhas ignoradas. Duas importações simultâneas do mesmo telefone são
+resolvidas pelo índice único do banco (uma delas falha e o job tenta de novo).
+

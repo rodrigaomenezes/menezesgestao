@@ -13,3 +13,7 @@ histórico do git.
 | 6 | Primeiro acesso em produção depende do terminal (SSH) | MÉDIA | `apps/api/src/cli/criar-empresa.ts` | Assistente de primeiro acesso (fase 6) |
 | 7 | Logs de negócio estruturados (evento, empresa, ator, entidade) ainda não existem fora da auditoria | BAIXA | API | Registrar no log os eventos publicados, sem dados pessoais (fase 7) |
 | 8 | Backup do PostgreSQL de produção não verificado | ALTA | Railway | Ativar backups do Railway e testar restauração (fase 7; checar já) |
+| 9 | Arquivos (planilhas importadas) ficam no PostgreSQL para sempre | BAIXA | `modulos/arquivos` | Job de limpeza das planilhas de importações concluídas há mais de 30 dias; S3/R2 quando chegar mídia (fase 2) |
+| 10 | Kanban mostra até 50 oportunidades por etapa (o resto, pela busca) | BAIXA | `modulos/crm/oportunidades.servico.ts` | "Carregar mais" por coluna |
+| 11 | Mudanças de configuração do CRM não chegam em tempo real a perfis de escopo "próprio" | BAIXA | `modulos/eventos/tempo-real.ts` | Evento de configuração com destino "todos que têm o módulo" |
+| 12 | Plural do vocabulário é uma regra simples (aluno → alunos) | BAIXA | `apps/web/src/features/crm/comum.tsx` | Guardar singular e plural na configuração (fase 6) |

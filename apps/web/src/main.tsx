@@ -18,6 +18,12 @@ import { Empresa } from "./features/empresa/Empresa";
 import { Auditoria } from "./features/auditoria/Auditoria";
 import { Notificacoes } from "./features/notificacoes/Notificacoes";
 import { Dispositivos } from "./features/conta/Dispositivos";
+import { Contatos } from "./features/crm/Contatos";
+import { Contato } from "./features/crm/Contato";
+import { Funil } from "./features/crm/Funil";
+import { Tarefas } from "./features/crm/Tarefas";
+import { Importar } from "./features/crm/Importar";
+import { ConfigCrm } from "./features/crm/ConfigCrm";
 import "./app/estilos.css";
 
 function App() {
@@ -49,6 +55,12 @@ function App() {
           <Casca>
             <Routes>
               <Route path="/" element={<Inicio />} />
+              <Route path="/contatos" element={<Contatos />} />
+              <Route path="/contatos/:id" element={<Contato />} />
+              <Route path="/funil" element={<Funil />} />
+              <Route path="/tarefas" element={<Tarefas />} />
+              <Route path="/importar" element={<Importar />} />
+              <Route path="/crm/configuracoes" element={<ConfigCrm />} />
               <Route path="/usuarios" element={<Usuarios />} />
               <Route path="/equipes" element={<Equipes />} />
               <Route path="/perfis" element={<Perfis />} />

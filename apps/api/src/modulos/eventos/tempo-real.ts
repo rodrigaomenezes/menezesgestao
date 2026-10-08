@@ -22,6 +22,9 @@ export const MODULO_DA_ENTIDADE: Record<string, Modulo> = {
   importacao: "crm",
   funil: "crm",
   etapa: "crm",
+  etiqueta: "crm",
+  motivo_perda: "crm",
+  campo_personalizado: "crm",
 };
 
 interface Conexao {
