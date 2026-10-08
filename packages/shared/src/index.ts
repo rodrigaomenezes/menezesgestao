@@ -5,3 +5,4 @@ export * from "./erros.js";
 export * from "./slug.js";
 export * from "./datas.js";
 export * from "./dto.js";
+export * from "./telefone.js";
