@@ -5,4 +5,5 @@ dist/
 coverage/
 test-results/
 playwright-report/
-web/dev-dist/
+dev-dist/
+*.tsbuildinfo
