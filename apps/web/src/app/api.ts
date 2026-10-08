@@ -50,8 +50,9 @@ export const put = <T,>(caminho: string, corpo?: unknown) => api<T>("PUT", camin
 export const del = <T,>(caminho: string) => api<T>("DELETE", caminho);
 
 /** Envia um arquivo (campo "arquivo") por multipart/form-data. */
-export function enviarArquivo<T>(caminho: string, arquivo: File): Promise<T> {
+export function enviarArquivo<T>(caminho: string, arquivo: File, campos: Record<string, string> = {}): Promise<T> {
   const dados = new FormData();
+  for (const [nome, valor] of Object.entries(campos)) dados.append(nome, valor);
   dados.append("arquivo", arquivo);
   return api<T>("POST", caminho, dados);
 }

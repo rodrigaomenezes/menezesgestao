@@ -14,7 +14,8 @@ apps/api (Fastify) ── rotas finas ─► serviços (regras) ─► repositó
         │                                  ├─► registrar(): auditoria + evento (mesma transação)
         │                                  └─► jobs (pg-boss): e-mail cifrado, rotinas agendadas
         ▼
-provedores atrás de interfaces (avisos: demonstração | SMTP; arquivos: banco; próximos: mensagens, telefonia)
+provedores atrás de interfaces (avisos: demonstração | SMTP; arquivos: banco; mensagens: demonstração | API oficial | QR;
+próximo: telefonia)
 ```
 
 Um único serviço no Railway: o Fastify serve a API e o front compilado (`apps/web/dist`).
@@ -37,6 +38,9 @@ apps/api/src
     notificacoes/  sino
     avisos/        interface de e-mail + provedores, com status de saúde
     sistema/       saúde, marca pública, OpenAPI
+    conversas/     canais (credenciais cifradas, conexão, estado), provedores/ (interface ProvedorMensagens:
+                   demonstração, cloud-api, qr), entrada (deduplicação em cascata), envio (fila, follow-up),
+                   caixa de entrada, respostas rápidas e automações, junção de duplicadas, áudio WebM→Ogg
     arquivos/      interface ProvedorArquivos (provedor "banco": bytea por empresa, com RLS)
     crm/           configuração (funis, etapas, etiquetas, motivos, campos), contatos, oportunidades e kanban,
                    tarefas e notas, importação (planilha → fila crm.importacao), carteira, campos personalizados
@@ -71,6 +75,9 @@ tests/      integration/ (Vitest + PostgreSQL real), e2e/ (Playwright, 5 largura
 - `evento` e `auditoria` são somente inserção (gatilhos).
 - CRM: `contato` tem índice único `(empresa_id, telefone)` com telefone em E.164 (CHECK no banco) — a chave de
   deduplicação. A carteira é `contato.responsavel_id`, filtrada pelo escopo. `evento.contato_id` liga o histórico.
+- Conversas: `mensagem` tem índice único `(canal_id, id_externo)` — webhook repetido nunca duplica; `conversa` tem
+  índice único `(canal_id, telefone)` entre as ativas e `ids_externos text[]` (GIN) com todos os ids do cliente no
+  provedor. Duplicadas antigas são juntadas apontando `mesclada_em_id` (nada é apagado).
 - Campos personalizados: definição em `campo_personalizado`, valores em `campos jsonb` validados pelo serviço.
 - Sessões e tokens guardam só o HMAC (`SESSION_SECRET`); conteúdo sensível de jobs vai cifrado (`CRM_CHAVE`).
 

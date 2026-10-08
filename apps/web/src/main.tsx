@@ -24,6 +24,8 @@ import { Funil } from "./features/crm/Funil";
 import { Tarefas } from "./features/crm/Tarefas";
 import { Importar } from "./features/crm/Importar";
 import { ConfigCrm } from "./features/crm/ConfigCrm";
+import { Conversas } from "./features/conversas/Conversas";
+import { Canais } from "./features/conversas/Canais";
 import "./app/estilos.css";
 
 function App() {
@@ -55,6 +57,9 @@ function App() {
           <Casca>
             <Routes>
               <Route path="/" element={<Inicio />} />
+              <Route path="/conversas" element={<Conversas />} />
+              <Route path="/conversas/canais" element={<Canais />} />
+              <Route path="/conversas/:id" element={<Conversas />} />
               <Route path="/contatos" element={<Contatos />} />
               <Route path="/contatos/:id" element={<Contato />} />
               <Route path="/funil" element={<Funil />} />

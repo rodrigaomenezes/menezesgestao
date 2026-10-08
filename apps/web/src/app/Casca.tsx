@@ -18,11 +18,13 @@ const maiuscula = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 const MENU: ItemMenu[] = [
   { para: "/", texto: "Início" },
+  { para: "/conversas", texto: "Conversas", exige: ["conversas", "ver"] },
   { para: "/contatos", texto: (t) => maiuscula(plural(t.contato ?? "contato")), exige: ["crm", "ver"] },
   { para: "/funil", texto: "Funil", exige: ["crm", "ver"] },
   { para: "/tarefas", texto: "Tarefas", exige: ["crm", "ver"] },
   { para: "/importar", texto: "Importar planilha", exige: ["crm", "criar"] },
   { para: "/crm/configuracoes", texto: "Configurar CRM", exige: ["crm", "administrar"] },
+  { para: "/conversas/canais", texto: "Canais e automações", exige: ["conversas", "administrar"] },
   { para: "/usuarios", texto: "Usuários", exige: ["usuarios", "ver"] },
   { para: "/equipes", texto: "Equipes", exige: ["usuarios", "ver"] },
   { para: "/perfis", texto: "Perfis e permissões", exige: ["usuarios", "ver"] },
