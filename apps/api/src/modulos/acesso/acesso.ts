@@ -25,7 +25,12 @@ import { hashToken, iguaisSeguro } from "../../infra/seguranca/cripto.js";
 import { ErroApp, naoAutenticado, semPermissao } from "../../infra/erros.js";
 import type { Origem } from "../auditoria/registro.js";
 
-export type Acesso = { publica: true } | { autenticada: true } | { modulo: Modulo; acao: Acao };
+/**
+ * publica: sem sessão (com CSRF nas escritas). autenticada: só sessão. modulo/acao: permissão.
+ * webhook: chamada de servidor externo (ex.: Meta) — sem sessão nem CSRF; a própria rota TEM de conferir a
+ * assinatura do provedor antes de qualquer efeito.
+ */
+export type Acesso = { publica: true } | { autenticada: true } | { webhook: true } | { modulo: Modulo; acao: Acao };
 
 export interface Contexto {
   sessaoId: string;
@@ -243,6 +248,8 @@ export function registrarAcesso(app: FastifyInstance, banco: Banco, config: Conf
   app.addHook("preValidation", async (req: FastifyRequest, reply: FastifyReply) => {
     const acesso = req.routeOptions.config?.acesso;
     if (!acesso) return; // fora de /api (arquivos do front)
+
+    if ("webhook" in acesso) return; // autenticado pela assinatura, na própria rota
 
     if (!METODOS_SEGUROS.has(req.method)) {
       const cabecalho = req.headers[CABECALHO_CSRF];

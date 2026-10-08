@@ -25,6 +25,8 @@ export const MODULO_DA_ENTIDADE: Record<string, Modulo> = {
   etiqueta: "crm",
   motivo_perda: "crm",
   campo_personalizado: "crm",
+  canal: "conversas",
+  conversa: "conversas",
 };
 
 interface Conexao {
@@ -136,7 +138,8 @@ export class TempoReal {
     const escopo = c.escopos.get(modulo);
     if (!escopo) return false;
     if (escopo === "empresa") return true;
-    if (!aviso.responsavelId) return escopo !== "proprio";
+    // Sem dono: só quem vê além do próprio — exceto conversas, cuja fila sem dono é de todos que atendem.
+    if (!aviso.responsavelId) return escopo !== "proprio" || modulo === "conversas";
     const visiveis = c.visiveis.get(modulo);
     return visiveis === "todos" || Boolean(visiveis?.has(aviso.responsavelId));
   }

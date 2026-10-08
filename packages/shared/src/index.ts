@@ -7,3 +7,4 @@ export * from "./datas.js";
 export * from "./dto.js";
 export * from "./telefone.js";
 export * from "./dto-crm.js";
+export * from "./dto-conversas.js";

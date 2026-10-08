@@ -347,3 +347,116 @@ export const importacao = pgTable("importacao", {
   atualizadoEm: atualizadoEm(),
   concluidaEm: ts("concluida_em"),
 });
+
+// Conversas (fase 2) -------------------------------------------------------------------------------
+
+export type ProvedorCanal = "demonstracao" | "cloud_api" | "qr";
+export type StatusCanal = "desconectado" | "conectando" | "aguardando_qr" | "conectado" | "erro";
+export interface HorarioCanal {
+  dias: number[];
+  inicio: string;
+  fim: string;
+}
+
+export const canal = pgTable("canal", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  empresaId: uuid("empresa_id").notNull(),
+  nome: text("nome").notNull(),
+  provedor: text("provedor").$type<ProvedorCanal>().notNull(),
+  numero: text("numero"),
+  identificadorExterno: text("identificador_externo"),
+  credenciais: text("credenciais"),
+  status: text("status").$type<StatusCanal>().notNull().default("desconectado"),
+  statusDetalhe: text("status_detalhe"),
+  statusEm: ts("status_em").notNull().defaultNow(),
+  horario: jsonb("horario").$type<HorarioCanal>().notNull(),
+  equipeId: uuid("equipe_id"),
+  criadoPor: uuid("criado_por"),
+  criadoEm: criadoEm(),
+  atualizadoEm: atualizadoEm(),
+  arquivadoEm: ts("arquivado_em"),
+});
+
+export const canalSessao = pgTable(
+  "canal_sessao",
+  {
+    canalId: uuid("canal_id").notNull(),
+    empresaId: uuid("empresa_id").notNull(),
+    chave: text("chave").notNull(),
+    valor: text("valor").notNull(),
+    atualizadoEm: atualizadoEm(),
+  },
+  (t) => [primaryKey({ columns: [t.canalId, t.chave] })],
+);
+
+export type StatusConversa = "aberta" | "aguardando" | "resolvida";
+
+export const conversa = pgTable("conversa", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  empresaId: uuid("empresa_id").notNull(),
+  canalId: uuid("canal_id").notNull(),
+  contatoId: uuid("contato_id"),
+  telefone: text("telefone"),
+  idsExternos: text("ids_externos").array().notNull().default([]),
+  atribuidaA: uuid("atribuida_a"),
+  equipeId: uuid("equipe_id"),
+  status: text("status").$type<StatusConversa>().notNull().default("aberta"),
+  naoLidas: integer("nao_lidas").notNull().default(0),
+  ultimaMensagemEm: ts("ultima_mensagem_em"),
+  ultimaMensagem: text("ultima_mensagem"),
+  ultimaEntradaEm: ts("ultima_entrada_em"),
+  mescladaEmId: uuid("mesclada_em_id"),
+  criadoEm: criadoEm(),
+  atualizadoEm: atualizadoEm(),
+  arquivadoEm: ts("arquivado_em"),
+});
+
+export type DirecaoMensagem = "entrada" | "saida" | "nota";
+export type TipoMensagem = "texto" | "imagem" | "audio" | "video" | "documento" | "sistema";
+export type StatusMensagem = "pendente" | "enviada" | "entregue" | "lida" | "falhou" | "recebida";
+
+export const mensagem = pgTable("mensagem", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  empresaId: uuid("empresa_id").notNull(),
+  conversaId: uuid("conversa_id").notNull(),
+  canalId: uuid("canal_id").notNull(),
+  direcao: text("direcao").$type<DirecaoMensagem>().notNull(),
+  tipo: text("tipo").$type<TipoMensagem>().notNull(),
+  texto: text("texto"),
+  arquivoId: uuid("arquivo_id"),
+  midiaNome: text("midia_nome"),
+  midiaMime: text("midia_mime"),
+  midiaPendente: jsonb("midia_pendente").$type<Record<string, unknown>>(),
+  status: text("status").$type<StatusMensagem>().notNull(),
+  erro: text("erro"),
+  idExterno: text("id_externo"),
+  autorId: uuid("autor_id"),
+  automacao: text("automacao"),
+  criadoEm: criadoEm(),
+  atualizadoEm: atualizadoEm(),
+});
+
+export const respostaRapida = pgTable("resposta_rapida", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  empresaId: uuid("empresa_id").notNull(),
+  atalho: text("atalho").notNull(),
+  texto: text("texto").notNull(),
+  criadoPor: uuid("criado_por"),
+  criadoEm: criadoEm(),
+  atualizadoEm: atualizadoEm(),
+  arquivadoEm: ts("arquivado_em"),
+});
+
+export type TipoAutomacao = "boas_vindas" | "fora_horario" | "follow_up";
+
+export const automacao = pgTable("automacao", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  empresaId: uuid("empresa_id").notNull(),
+  tipo: text("tipo").$type<TipoAutomacao>().notNull(),
+  texto: text("texto").notNull(),
+  horas: integer("horas"),
+  ativa: boolean("ativa").notNull().default(true),
+  criadoPor: uuid("criado_por"),
+  criadoEm: criadoEm(),
+  atualizadoEm: atualizadoEm(),
+});

@@ -19,6 +19,10 @@ export interface Config {
   emailRemetente: string;
   limiteReqMinuto: number;
   limiteLoginMinuto: number;
+  /** Graph API da Meta (troque só em teste/homologação). */
+  whatsappGraphUrl: string;
+  /** Conexão por QR liga os sockets ao subir (desligue em réplicas extras: só uma instância pode segurar o número). */
+  whatsappQrAtivo: boolean;
 }
 
 export class ErroConfig extends Error {}
@@ -68,5 +72,7 @@ export function carregarConfig(env: NodeJS.ProcessEnv = process.env): Config {
     emailRemetente: env.EMAIL_REMETENTE?.trim() || "nao-responda@localhost",
     limiteReqMinuto: Number(env.LIMITE_REQ_MINUTO) || 300,
     limiteLoginMinuto: Number(env.LIMITE_LOGIN_MINUTO) || 10,
+    whatsappGraphUrl: env.WHATSAPP_GRAPH_URL?.trim() || "https://graph.facebook.com/v21.0",
+    whatsappQrAtivo: env.WHATSAPP_QR_ATIVO?.trim() !== "nao",
   };
 }

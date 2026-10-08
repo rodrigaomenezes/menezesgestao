@@ -38,6 +38,7 @@ import { rotasTarefas } from "./modulos/crm/tarefas.rotas.js";
 import { rotasImportacao } from "./modulos/crm/importacao.rotas.js";
 import { FILA_IMPORTACAO, criarServicoImportacao } from "./modulos/crm/importacao.servico.js";
 import { LIMITE_BYTES } from "./modulos/crm/planilha.js";
+import { montarConversas } from "./modulos/conversas/modulo.js";
 
 z.config(z.locales.pt());
 
@@ -88,7 +89,7 @@ export async function criarApp(servicos: Servicos): Promise<AppMontado> {
 
   await app.register(cookie);
   // Upload de arquivos (planilhas) fora do limite de 1 MB do JSON; um arquivo por envio.
-  await app.register(multipart, { limits: { fileSize: LIMITE_BYTES, files: 1, fields: 5, parts: 6 } });
+  await app.register(multipart, { limits: { fileSize: Math.max(LIMITE_BYTES, 16 * 1024 * 1024), files: 1, fields: 5, parts: 6 } });
   await app.register(helmet, {
     contentSecurityPolicy: {
       directives: {
@@ -158,6 +159,8 @@ export async function criarApp(servicos: Servicos): Promise<AppMontado> {
   await app.register(rotasOportunidades(servicos));
   await app.register(rotasTarefas(servicos));
   await app.register(rotasImportacao(servicos, arquivos));
+
+  await montarConversas(app, servicos, arquivos);
 
   // Trabalhadores das filas dos módulos.
   const importacoes = criarServicoImportacao(servicos, arquivos);
