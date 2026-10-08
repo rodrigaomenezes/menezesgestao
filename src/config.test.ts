@@ -31,3 +31,11 @@ describe("configuração", () => {
     expect(c.crmChave).toHaveLength(32);
   });
 });
+
+describe("logs", () => {
+  it("nunca registram o token dos links", async () => {
+    const { ocultarTokens } = await import("./app.js");
+    expect(ocultarTokens("/convite?token=abc123&x=1")).toBe("/convite?token=***&x=1");
+    expect(ocultarTokens("/api/auth/convite?a=1&token=segredo")).toBe("/api/auth/convite?a=1&token=***");
+  });
+});

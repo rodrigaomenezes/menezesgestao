@@ -1,7 +1,6 @@
 import { hash, verify } from "@node-rs/argon2";
 
-export const SENHA_MINIMO = 10;
-export const SENHA_MAXIMO = 128;
+export { SENHA_MAXIMO, SENHA_MINIMO } from "../compartilhado/limites.js";
 
 // Argon2id é o algoritmo padrão do @node-rs/argon2.
 export function gerarHashSenha(senha: string): Promise<string> {

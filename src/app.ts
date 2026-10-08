@@ -39,6 +39,10 @@ export interface AppMontado {
 const PASTA_WEB = fileURLToPath(new URL("../dist/web/", import.meta.url));
 const LIMITE_JSON = 1024 * 1024; // 1 MB: arquivos vão por upload próprio.
 
+export function ocultarTokens(url: string): string {
+  return url.replace(/([?&]token=)[^&]*/gi, "$1***");
+}
+
 function mensagemZod(erro: z.ZodError): string {
   const primeiro = erro.issues[0];
   const campo = primeiro?.path.join(".");
@@ -49,7 +53,15 @@ function mensagemZod(erro: z.ZodError): string {
 export async function criarApp(servicos: Servicos): Promise<AppMontado> {
   const { config } = servicos;
   const app = Fastify({
-    logger: config.teste ? process.env.LOG_TESTE === "1" && { level: "error" } : { level: config.producao ? "info" : "debug", redact: ["req.headers.cookie"] },
+    logger: config.teste
+      ? process.env.LOG_TESTE === "1" && { level: "error" }
+      : {
+          level: config.producao ? "info" : "debug",
+          // Links de convite e de senha levam o token na URL: nunca vão para o log.
+          serializers: {
+            req: (req) => ({ method: req.method, url: ocultarTokens(req.url), remoteAddress: req.ip }),
+          },
+        },
     bodyLimit: LIMITE_JSON,
     // Em produção há exatamente um proxy na frente (Railway): confia só nele para descobrir o IP real.
     trustProxy: config.producao ? (_endereco: string, salto: number) => salto === 0 : false,

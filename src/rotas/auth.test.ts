@@ -101,6 +101,13 @@ describe("login", () => {
     expect(res.json().erro).toMatch(/Recarregue a página/);
   });
 
+  it("entrar de novo no mesmo navegador encerra a sessão anterior", async () => {
+    const c = await logado(t.app, email(e.a, "gestor"));
+    const antes = (await c.get("/api/auth/sessoes")).json().itens.length;
+    await c.entrar(email(e.a, "gestor"));
+    expect((await c.get("/api/auth/sessoes")).json().itens.length).toBe(antes);
+  });
+
   it("sair encerra a sessão", async () => {
     const c = await logado(t.app, email(e.a, "gestor"));
     expect((await c.post("/api/auth/sair")).statusCode).toBe(200);

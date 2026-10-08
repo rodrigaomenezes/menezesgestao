@@ -49,6 +49,14 @@ export const rotasAuth =
       usuarioId: string,
       empresaId: string,
     ): Promise<void> {
+      // Quem entra de novo no mesmo navegador não deixa a sessão anterior aberta.
+      const anterior = req.cookies[COOKIE_SESSAO];
+      if (anterior) {
+        await tx.db
+          .update(sessao)
+          .set({ encerradaEm: new Date() })
+          .where(and(eq(sessao.tokenHash, hashToken(config.sessionSecret, anterior)), isNull(sessao.encerradaEm)));
+      }
       const valor = novoToken();
       await tx.db.insert(sessao).values({
         tokenHash: hashToken(config.sessionSecret, valor),
