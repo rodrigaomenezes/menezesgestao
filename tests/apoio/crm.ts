@@ -4,6 +4,8 @@ import type { Banco } from "../../apps/api/src/infra/banco.js";
 import type { Cliente } from "./app-teste.js";
 
 export interface CrmSemeado {
+  /** Preenchido pelo teste de isolamento depois de criar o canal. */
+  canalId?: string;
   funilId: string;
   etapas: { id: string; nome: string; tipo: string }[];
   motivoPerdaId: string;

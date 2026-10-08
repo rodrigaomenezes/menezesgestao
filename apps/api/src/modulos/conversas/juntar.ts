@@ -60,7 +60,7 @@ export async function juntarDuplicadas(banco: Banco, empresaId: string, atorId: 
       await tx.db.update(mensagem).set({ conversaId: principalId }).where(eq(mensagem.conversaId, id));
       await tx.db.execute(sql`
         UPDATE conversa p SET
-          ids_externos = ARRAY(SELECT DISTINCT unnest(p.ids_externos || ${dup.idsExternos}::text[])),
+          ids_externos = ARRAY(SELECT DISTINCT unnest(p.ids_externos || (SELECT d.ids_externos FROM conversa d WHERE d.id = ${id}))),
           telefone = COALESCE(p.telefone, ${dup.telefone}),
           contato_id = COALESCE(p.contato_id, ${dup.contatoId}::uuid),
           atribuida_a = COALESCE(p.atribuida_a, ${dup.atribuidaA}::uuid),

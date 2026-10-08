@@ -2,10 +2,10 @@
 // Quando um canal cai, os administradores de Conversas recebem uma notificação (nada falha em silêncio).
 import { createHmac } from "node:crypto";
 import QRCode from "qrcode";
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq, isNull, sql } from "drizzle-orm";
 import type { CanalDto, ConexaoDto } from "@mg/shared";
 import { comEmpresa, comoSistema, type Tx } from "../../infra/banco.js";
-import { canal, type HorarioCanal, type ProvedorCanal } from "../../infra/esquema.js";
+import { canal, equipe, type HorarioCanal, type ProvedorCanal } from "../../infra/esquema.js";
 import { conflito, codigoPg, invalido, naoEncontrado } from "../../infra/erros.js";
 import { iso } from "../../infra/paginacao.js";
 import { cifrar, decifrar } from "../../infra/seguranca/cripto.js";
@@ -74,6 +74,13 @@ export function criarServicoCanais(s: Servicos, provedores: RegistroProvedores) 
     return c;
   }
 
+  /** A equipe do canal tem de ser desta empresa (o RLS esconde as outras: vira "não encontrada"). */
+  async function validarEquipe(tx: Tx, empresaId: string, equipeId: string | null | undefined) {
+    if (!equipeId) return;
+    const [e] = await tx.db.select({ id: equipe.id }).from(equipe).where(and(eq(equipe.id, equipeId), eq(equipe.empresaId, empresaId), isNull(equipe.arquivadoEm)));
+    if (!e) throw invalido("Equipe não encontrada. Escolha uma equipe ativa desta empresa.");
+  }
+
   async function comQr(c: LinhaCanal, estado: EstadoConexao | null): Promise<ConexaoDto> {
     const qr = estado?.qr ? await QRCode.toDataURL(estado.qr, { margin: 1, width: 280 }) : null;
     return { canal: canalDto(c, config), qr };
@@ -120,6 +127,7 @@ export function criarServicoCanais(s: Servicos, provedores: RegistroProvedores) 
 
   async function criar(ctx: ContextoEmpresa, origem: Origem, dados: { nome: string; provedor: ProvedorCanal; equipeId?: string | null; horario?: HorarioCanal }): Promise<CanalDto> {
     return comEmpresa(banco, ctx.empresaId, async (tx) => {
+      await validarEquipe(tx, ctx.empresaId, dados.equipeId);
       const [c] = await tx.db
         .insert(canal)
         .values({
@@ -142,6 +150,7 @@ export function criarServicoCanais(s: Servicos, provedores: RegistroProvedores) 
       await provedores[c0.provedor].desconectar(paraProvedor(config.crmChave, c0)).catch(() => undefined);
     }
     return comEmpresa(banco, ctx.empresaId, async (tx) => {
+      await validarEquipe(tx, ctx.empresaId, dados.equipeId);
       const { arquivado, ...resto } = dados;
       const [c] = await tx.db
         .update(canal)
