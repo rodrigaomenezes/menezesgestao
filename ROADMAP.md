@@ -17,7 +17,10 @@ Detalhes e critérios de pronto de cada fase: `ESPECIFICACAO.md` ("Roteiro de co
       estados, resultados configuráveis e histórico automático; gravação cifrada com link temporário e retenção;
       filas com reserva exclusiva, ordem de chegada, pausa e escopo de carteira; importação e ação em massa
       alimentam a fila; conversão para o funil)
-- [ ] Fase 4 — Operação
+- [x] Fase 4 — Operação (rotina diária no Início com ponto, check-list por perfil, metas, compromissos, tarefas,
+      retornos e conversas sem resposta; agenda com lembrete; escala e horas com validação do gestor e fechamento
+      do mês travado no banco; metas e painel de desempenho e mapa de atividades calculados só dos eventos;
+      atividades manuais corrigíveis; biblioteca de scripts aberta na conversa e na ligação)
 - [ ] Fase 5 — Receita e qualidade
 - [ ] Fase 6 — White-label
 - [ ] Fase 7 — Endurecimento
@@ -30,6 +33,7 @@ Detalhes e critérios de pronto de cada fase: `ESPECIFICACAO.md` ("Roteiro de co
 
 ## Ficou para fases seguintes
 
+- Operação: scripts por oferta (quando o catálogo chegar na fase 5); agenda ligada ao contato pela ficha.
 - Telefonia: prefixo de discagem por empresa, URA/fila receptiva, preferência de "Ligar por" salva no servidor.
 - Mensagens modelo (templates) da API oficial para falar fora da janela de 24 h; mídia em S3/R2.
 - Fase 6: marca por domínio (usa `empresa.slug`), painel da plataforma (planos e módulos), vocabulário na interface,
