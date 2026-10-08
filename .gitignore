@@ -3,3 +3,6 @@ dist/
 .env
 *.log
 coverage/
+test-results/
+playwright-report/
+web/dev-dist/

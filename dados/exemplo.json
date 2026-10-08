@@ -1,0 +1,38 @@
+{
+  "empresas": [
+    {
+      "nome": "Escola de Idiomas Horizonte (exemplo)",
+      "plano": "completo",
+      "marca": { "corPrimaria": "#1f5fbf", "corDestaque": "#e07a1f" },
+      "vocabulario": { "contato": "aluno", "oferta": "curso", "entrega": "turma", "prestador": "professor" },
+      "unidades": ["Centro", "Zona Sul"],
+      "equipes": [
+        { "nome": "Comercial Centro", "unidade": "Centro", "gestor": "gestora" },
+        { "nome": "Comercial Zona Sul", "unidade": "Zona Sul" }
+      ],
+      "pessoas": [
+        { "chave": "dono", "nome": "Helena Prado", "email": "dono@escola.example.com", "perfil": "dono", "unidade": "Centro" },
+        { "chave": "gestora", "nome": "Marcos Lima", "email": "gestor@escola.example.com", "perfil": "gestor", "unidade": "Centro" },
+        { "chave": "vendedora", "nome": "Júlia Costa", "email": "vendas@escola.example.com", "perfil": "vendedor", "unidade": "Centro", "equipe": "Comercial Centro" },
+        { "chave": "vendedor2", "nome": "Rafael Souza", "email": "vendas2@escola.example.com", "perfil": "vendedor", "unidade": "Zona Sul", "equipe": "Comercial Zona Sul" },
+        { "chave": "professor", "nome": "Beatriz Nunes", "email": "professor@escola.example.com", "perfil": "operacao", "unidade": "Centro" },
+        { "chave": "financeiro", "nome": "Carlos Mendes", "email": "financeiro@escola.example.com", "perfil": "financeiro" },
+        { "chave": "consultor", "nome": "Paula Ribeiro", "email": "consultoria@example.com", "perfil": "gestor" }
+      ]
+    },
+    {
+      "nome": "Clínica Bem-Estar (exemplo)",
+      "plano": "comercial",
+      "marca": { "corPrimaria": "#0f7a5c", "corDestaque": "#7a3fbf" },
+      "vocabulario": { "contato": "paciente", "oferta": "procedimento", "entrega": "consulta", "prestador": "profissional" },
+      "unidades": ["Matriz"],
+      "equipes": [{ "nome": "Recepção", "unidade": "Matriz", "gestor": "gestor" }],
+      "pessoas": [
+        { "chave": "dono", "nome": "Roberto Alves", "email": "dono@clinica.example.com", "perfil": "dono", "unidade": "Matriz" },
+        { "chave": "gestor", "nome": "Fernanda Dias", "email": "gestor@clinica.example.com", "perfil": "gestor", "unidade": "Matriz" },
+        { "chave": "atendente", "nome": "Lucas Martins", "email": "atendimento@clinica.example.com", "perfil": "vendedor", "unidade": "Matriz", "equipe": "Recepção" },
+        { "chave": "consultor", "nome": "Paula Ribeiro", "email": "consultoria@example.com", "perfil": "financeiro" }
+      ]
+    }
+  ]
+}
