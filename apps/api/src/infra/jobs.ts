@@ -16,6 +16,10 @@ export const FILA_FALHAS = "falhas";
 export interface Jobs {
   /** Enfileira um e-mail. Com `tx`, o job só existe se a transação confirmar. */
   enviarEmail(tx: Tx | null, mensagem: MensagemEmail): Promise<void>;
+  /** Enfileira um job de módulo (dados sem segredo). Com `tx`, só existe se a transação confirmar. */
+  enfileirar(tx: Tx | null, fila: string, dados: object): Promise<void>;
+  /** Registra o trabalhador de uma fila de módulo (com tentativas limitadas e dead-letter). */
+  trabalhar<T extends object>(fila: string, fn: (dados: T) => Promise<void>): Promise<void>;
   parar(): Promise<void>;
 }
 
@@ -73,6 +77,24 @@ export async function iniciarJobs(config: Config, avisos: ProvedorAvisos): Promi
       } else {
         await boss.send(FILAS.email, dados);
       }
+    },
+    async enfileirar(tx, fila, dados) {
+      await boss.send(fila, dados, tx ? { db: { executeSql: (texto, valores) => tx.cliente.query(texto, valores) } } : {});
+    },
+    async trabalhar(fila, fn) {
+      const opcoes = { name: fila, retryLimit: 3, retryDelay: 30, retryBackoff: true, deadLetter: FILA_FALHAS };
+      await boss.createQueue(fila, opcoes);
+      await boss.updateQueue(fila, opcoes);
+      await boss.work<object>(fila, { pollingIntervalSeconds: config.teste ? 0.5 : 2 }, async (lote) => {
+        for (const job of lote) {
+          try {
+            await fn(job.data as never);
+          } catch (err) {
+            console.error(JSON.stringify({ level: "error", event: "job.falhou", fila, jobId: job.id, erro: (err as Error).message }));
+            throw err;
+          }
+        }
+      });
     },
     async parar() {
       await boss.stop({ graceful: true, timeout: 5000, wait: true });

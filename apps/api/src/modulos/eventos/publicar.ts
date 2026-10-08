@@ -16,6 +16,10 @@ export interface DadosEvento {
   responsavelId?: string | null;
   /** Evento pessoal (ex.: notificação): só essa pessoa recebe. */
   paraUsuarioId?: string | null;
+  /** Contato a que o evento se refere: alimenta o histórico único do contato. */
+  contatoId?: string | null;
+  /** Em operações em massa (importação), grava o evento sem aviso em tempo real a cada linha. */
+  silencioso?: boolean;
   dados?: Record<string, unknown>;
 }
 
@@ -43,8 +47,10 @@ export async function publicar(tx: Tx, origem: Origem, e: DadosEvento): Promise<
     entidadeId: e.entidadeId ?? null,
     responsavelId: e.responsavelId ?? null,
     paraUsuarioId: e.paraUsuarioId ?? null,
+    contatoId: e.contatoId ?? null,
     dados: e.dados ?? {},
   });
+  if (e.silencioso) return id;
   const aviso: AvisoEvento = {
     id,
     empresaId,
