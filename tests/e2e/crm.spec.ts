@@ -95,6 +95,8 @@ test("kanban: mover para Perdido pede o motivo e registra", async ({ page }, inf
   await expect(modal).toBeHidden();
   const colunaPerdido = page.getByRole("region", { name: "Perdido" });
   await expect(colunaPerdido.getByRole("link", { name: titulo })).toBeVisible();
+  // Cartões nas últimas colunas não podem alargar a página (só o quadro rola de lado).
+  await semRolagemLateral(page);
 });
 
 test("importação: a mesma planilha duas vezes não duplica ninguém", async ({ page }, info) => {

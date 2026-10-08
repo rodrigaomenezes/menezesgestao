@@ -875,6 +875,7 @@ textarea {
 }
 
 .coluna-kanban {
+  position: relative;
   flex: 0 0 min(86vw, 300px);
   scroll-snap-align: start;
   display: flex;
@@ -922,6 +923,8 @@ textarea {
 }
 
 .cartao-kanban {
+  /* Ancora os rótulos .sr-only (absolutos): sem isso, os das últimas colunas alargam a página. */
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 0.15rem;
