@@ -17,6 +17,23 @@ export function decifrar(chave: Buffer, valor: string): string {
   return Buffer.concat([decifra.update(bruto.subarray(28)), decifra.final()]).toString("utf8");
 }
 
+/** Arquivos (ex.: gravações de ligação): mesmo AES-256-GCM, em binário. Formato: "MG1" | iv[12] | tag[16] | dados. */
+const CABECALHO_BYTES = Buffer.from("MG1");
+
+export function cifrarBytes(chave: Buffer, dados: Buffer): Buffer {
+  const iv = randomBytes(12);
+  const cifra = createCipheriv("aes-256-gcm", chave, iv);
+  const corpo = Buffer.concat([cifra.update(dados), cifra.final()]);
+  return Buffer.concat([CABECALHO_BYTES, iv, cifra.getAuthTag(), corpo]);
+}
+
+export function decifrarBytes(chave: Buffer, valor: Buffer): Buffer {
+  if (!valor.subarray(0, 3).equals(CABECALHO_BYTES)) throw new Error("Arquivo cifrado em formato desconhecido");
+  const decifra = createDecipheriv("aes-256-gcm", chave, valor.subarray(3, 15));
+  decifra.setAuthTag(valor.subarray(15, 31));
+  return Buffer.concat([decifra.update(valor.subarray(31)), decifra.final()]);
+}
+
 /** Token aleatório para cookies e links (sessão, convite, recuperação). */
 export function novoToken(): string {
   return randomBytes(32).toString("base64url");

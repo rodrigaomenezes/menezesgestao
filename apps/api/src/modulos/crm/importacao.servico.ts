@@ -3,7 +3,9 @@
 import { and, desc, eq, sql } from "drizzle-orm";
 import { normalizarTelefone, type Escopo, type ImportacaoDto, type Pagina } from "@mg/shared";
 import { comEmpresa, type Tx } from "../../infra/banco.js";
-import { contato, contatoEtiqueta, importacao } from "../../infra/esquema.js";
+import { contato, contatoEtiqueta, fila, filaLote, importacao } from "../../infra/esquema.js";
+import { incluirNaFila } from "../fila/fila.servico.js";
+import { temPermissao } from "@mg/shared";
 import { invalido, naoEncontrado } from "../../infra/erros.js";
 import { condicaoCursor, iso, lerCursor, montarPagina } from "../../infra/paginacao.js";
 import type { Servicos } from "../../app.js";
@@ -38,7 +40,9 @@ interface OpcoesImportacao {
 
 type LinhaImportacao = typeof importacao.$inferSelect;
 
-const dto = (i: LinhaImportacao): ImportacaoDto => ({
+type RelatorioFila = ImportacaoDto["fila"];
+
+const dto = (i: LinhaImportacao, filaRelatorio: RelatorioFila = null): ImportacaoDto => ({
   id: i.id,
   nomeArquivo: i.nomeArquivo,
   status: i.status,
@@ -52,7 +56,16 @@ const dto = (i: LinhaImportacao): ImportacaoDto => ({
   erros: i.erros,
   criadoEm: iso(i.criadoEm),
   concluidaEm: iso(i.concluidaEm),
+  fila: filaRelatorio,
 });
+
+/** Relatório do lote da fila alimentada pela importação (se houver). */
+async function relatorioFila(tx: Tx, i: LinhaImportacao): Promise<RelatorioFila> {
+  if (!i.filaId) return null;
+  const [f] = await tx.db.select({ nome: fila.nome }).from(fila).where(eq(fila.id, i.filaId));
+  const [l] = await tx.db.select().from(filaLote).where(eq(filaLote.importacaoId, i.id)).limit(1);
+  return { id: i.filaId, nome: f?.nome ?? "", novos: l?.novos ?? 0, atualizados: l?.atualizados ?? 0, emOutraFila: l?.emOutraFila ?? 0, jaLigados: l?.jaLigados ?? 0 };
+}
 
 const EMAIL_SIMPLES = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -95,7 +108,15 @@ export function criarServicoImportacao(s: Servicos, arquivos: ProvedorArquivos) 
     escopo: Escopo,
     origem: Origem,
     id: string,
-    dados: { mapeamento: Record<string, string>; responsavelId?: string | null; etiquetaIds: string[]; origem?: string | null; atualizarExistentes: boolean },
+    dados: {
+      mapeamento: Record<string, string>;
+      responsavelId?: string | null;
+      etiquetaIds: string[];
+      origem?: string | null;
+      atualizarExistentes: boolean;
+      filaId?: string | null;
+      novaFila?: { nome: string; tipoBaseId?: string | null } | null;
+    },
   ): Promise<ImportacaoDto> {
     return comEmpresa(banco, ctx.empresaId, async (tx) => {
       const i = await carregar(tx, ctx, id);
@@ -120,14 +141,30 @@ export function criarServicoImportacao(s: Servicos, arquivos: ProvedorArquivos) 
         ip: origem.ip,
         dispositivo: origem.dispositivo,
       };
+      // Fase 3: os contatos importados podem alimentar uma fila (existente ou nova).
+      let filaId: string | null = null;
+      if (dados.novaFila) {
+        if (!temPermissao(ctx.permissoes, "fila", "administrar")) throw invalido("Seu perfil não cria filas. Escolha uma fila existente ou peça ao administrador.");
+        const [nova] = await tx.db
+          .insert(fila)
+          .values({ empresaId: ctx.empresaId, nome: dados.novaFila.nome, tipoBaseId: dados.novaFila.tipoBaseId ?? null, criadoPor: ctx.usuarioId })
+          .returning({ id: fila.id });
+        filaId = nova.id;
+        await auditar(tx, origem, { acao: "fila.criada", entidade: "fila", entidadeId: nova.id, depois: { nome: dados.novaFila.nome, importacaoId: id } });
+      } else if (dados.filaId) {
+        if (!temPermissao(ctx.permissoes, "fila", "criar")) throw invalido("Seu perfil não põe contatos em filas.");
+        const [f] = await tx.db.select().from(fila).where(and(eq(fila.id, dados.filaId), eq(fila.empresaId, ctx.empresaId)));
+        if (!f || f.arquivadoEm || f.status === "encerrada") throw invalido("Fila não encontrada ou encerrada.");
+        filaId = f.id;
+      }
       const [atualizada] = await tx.db
         .update(importacao)
-        .set({ status: "PENDENTE", mapeamento: dados.mapeamento, opcoes: opcoes as unknown as Record<string, unknown>, atualizadoEm: new Date() })
+        .set({ status: "PENDENTE", mapeamento: dados.mapeamento, opcoes: opcoes as unknown as Record<string, unknown>, filaId, atualizadoEm: new Date() })
         .where(eq(importacao.id, id))
         .returning();
       await s.jobs.enfileirar(tx, FILA_IMPORTACAO, { empresaId: ctx.empresaId, importacaoId: id });
       await auditar(tx, origem, { acao: "importacao.confirmada", entidade: "importacao", entidadeId: id, depois: { mapeamento: dados.mapeamento, atualizarExistentes: dados.atualizarExistentes } });
-      return dto(atualizada);
+      return dto(atualizada, await relatorioFila(tx, atualizada));
     });
   }
 
@@ -144,6 +181,24 @@ export function criarServicoImportacao(s: Servicos, arquivos: ProvedorArquivos) 
     const mapa = i.mapeamento;
     const indice = (destino: string) => (mapa[destino] ? i.colunas.indexOf(mapa[destino]) : -1);
     const contagem = { novos: 0, atualizados: 0, inalterados: 0, ignorados: 0 };
+    // Relatório da fila: cada linha válida cai em um grupo só.
+    const naFila = { novos: 0, atualizados: 0, emOutraFila: 0, jaLigados: 0 };
+    const loteId = i.filaId
+      ? await comEmpresa(banco, empresaId, async (tx) => {
+          const [existente] = await tx.db.select({ id: filaLote.id }).from(filaLote).where(eq(filaLote.importacaoId, importacaoId));
+          if (existente) return existente.id;
+          const [l] = await tx.db.insert(filaLote).values({ empresaId, filaId: i.filaId as string, importacaoId }).returning({ id: filaLote.id });
+          return l.id;
+        })
+      : null;
+    const alimentarFila = async (tx: Tx, contatoId: string, novo: boolean) => {
+      if (!i.filaId) return;
+      const r = await incluirNaFila(tx, empresaId, i.filaId, contatoId, loteId);
+      if (r === "em_outra_fila") naFila.emOutraFila++;
+      else if (r === "ja_ligado") naFila.jaLigados++;
+      else if (novo) naFila.novos++;
+      else naFila.atualizados++;
+    };
     const erros: { linha: number; motivo: string }[] = [];
     const ignorar = (linha: number, motivo: string) => {
       contagem.ignorados++;
@@ -228,6 +283,7 @@ export function criarServicoImportacao(s: Servicos, arquivos: ProvedorArquivos) 
                 dados: { importacaoId },
               });
               contagem.novos++;
+              await alimentarFila(tx, id, true);
               continue;
             }
 
@@ -248,6 +304,7 @@ export function criarServicoImportacao(s: Servicos, arquivos: ProvedorArquivos) 
             if (!opcoes.atualizarExistentes || !mudou) {
               await etiquetar(tx, empresaId, existente.id, opcoes.etiquetaIds);
               contagem.inalterados++;
+              await alimentarFila(tx, existente.id, false);
               continue;
             }
             await tx.db
@@ -273,6 +330,7 @@ export function criarServicoImportacao(s: Servicos, arquivos: ProvedorArquivos) 
               dados: { importacaoId },
             });
             contagem.atualizados++;
+            await alimentarFila(tx, existente.id, false);
           }
         });
       }
@@ -283,6 +341,7 @@ export function criarServicoImportacao(s: Servicos, arquivos: ProvedorArquivos) 
           .update(importacao)
           .set({ status, ...contagem, erros, concluidaEm: new Date(), atualizadoEm: new Date() })
           .where(eq(importacao.id, importacaoId));
+        if (loteId) await tx.db.update(filaLote).set({ ...naFila, ignorados: contagem.ignorados }).where(eq(filaLote.id, loteId));
         await registrar(tx, origemAtor, {
           acao: "importacao.concluida",
           entidade: "importacao",
@@ -310,7 +369,10 @@ export function criarServicoImportacao(s: Servicos, arquivos: ProvedorArquivos) 
   }
 
   async function obter(ctx: ContextoEmpresa, id: string): Promise<ImportacaoDto> {
-    return comEmpresa(banco, ctx.empresaId, async (tx) => dto(await carregar(tx, ctx, id)));
+    return comEmpresa(banco, ctx.empresaId, async (tx) => {
+      const i = await carregar(tx, ctx, id);
+      return dto(i, await relatorioFila(tx, i));
+    });
   }
 
   async function listar(ctx: ContextoEmpresa, cursor: string | undefined, limite: number): Promise<Pagina<ImportacaoDto>> {
@@ -327,7 +389,8 @@ export function criarServicoImportacao(s: Servicos, arquivos: ProvedorArquivos) 
         )
         .orderBy(desc(importacao.criadoEm), desc(importacao.id))
         .limit(limite + 1);
-      return montarPagina(linhas, limite, dto);
+      const relatorios = new Map(await Promise.all(linhas.map(async (l) => [l.id, await relatorioFila(tx, l)] as const)));
+      return montarPagina(linhas, limite, (l) => dto(l, relatorios.get(l.id) ?? null));
     });
   }
 
