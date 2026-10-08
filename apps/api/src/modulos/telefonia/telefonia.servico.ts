@@ -250,7 +250,12 @@ export function criarServicoTelefonia(s: Servicos, arquivos: ProvedorArquivos) {
     });
   }
 
-  async function mudarEstado(ctx: ContextoEmpresa, origem: Origem, id: string, d: { estado: EstadoLigacaoId; idExterno?: string | null; detalhe?: string | null }): Promise<LigacaoDto> {
+  async function mudarEstado(
+    ctx: ContextoEmpresa,
+    origem: Origem,
+    id: string,
+    d: { estado: EstadoLigacaoId; idExterno?: string | null; detalhe?: string | null; duracaoInformada?: number | null },
+  ): Promise<LigacaoDto> {
     return comEmpresa(banco, ctx.empresaId, async (tx) => {
       const l = await carregarMinha(tx, ctx, id);
       if (!transicaoValida(l.estado, d.estado)) {
@@ -258,7 +263,11 @@ export function criarServicoTelefonia(s: Servicos, arquivos: ProvedorArquivos) {
       }
       if (l.estado === d.estado && !d.idExterno) return carregarDto(tx, id); // repetido: nada muda
       const agora = new Date();
-      const atendidaEm = d.estado === "em_ligacao" && !l.atendidaEm ? agora : l.atendidaEm;
+      let atendidaEm = d.estado === "em_ligacao" && !l.atendidaEm ? agora : l.atendidaEm;
+      // Celular do vendedor: quem informa a duração é a pessoa, ao voltar para o sistema.
+      if (l.provedor === "celular" && d.estado === "encerrada" && d.duracaoInformada !== undefined && d.duracaoInformada !== null) {
+        atendidaEm = d.duracaoInformada > 0 ? new Date(agora.getTime() - d.duracaoInformada * 1000) : null;
+      }
       const encerrando = d.estado === "encerrada" && l.estado !== "encerrada";
       await tx.db
         .update(ligacao)

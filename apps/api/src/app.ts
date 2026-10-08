@@ -99,7 +99,9 @@ export async function criarApp(servicos: Servicos): Promise<AppMontado> {
         scriptSrc: ["'self'"],
         styleSrc: ["'self'"],
         imgSrc: ["'self'", "data:"],
-        connectSrc: ["'self'"],
+        // wss: servidor SIP da empresa (telefone pelo navegador); o endereço é configurado por empresa.
+        connectSrc: ["'self'", "wss:"],
+        mediaSrc: ["'self'", "blob:"],
         manifestSrc: ["'self'"],
         workerSrc: ["'self'"],
         objectSrc: ["'none'"],

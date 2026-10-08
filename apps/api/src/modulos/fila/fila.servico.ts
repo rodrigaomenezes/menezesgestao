@@ -212,7 +212,7 @@ export function criarServicoFila(s: Servicos) {
              AND (fi.retornar_em IS NULL OR fi.retornar_em <= now())
              AND c.telefone IS NOT NULL AND NOT c.nao_contatar AND c.arquivado_em IS NULL
              AND ${contatoVisivel(ctx, escopo, sql.raw("c.responsavel_id"))}
-           ORDER BY fi.prioridade DESC, fi.retornar_em NULLS FIRST, fi.criado_em, fi.id
+           ORDER BY fi.prioridade DESC, fi.retornar_em NULLS FIRST, fi.ordem
            LIMIT 1
            FOR UPDATE OF fi SKIP LOCKED)
         UPDATE fila_item SET status = 'reservado', reservado_por = ${ctx.usuarioId},

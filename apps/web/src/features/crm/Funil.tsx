@@ -8,6 +8,7 @@ import { useSessao } from "../../app/sessao";
 import { useTempoReal } from "../../app/tempo-real";
 import { Modal, useAviso } from "../../ui/sobreposicoes";
 import { Campo, Escolha, ListaVazia, Mensagem, Titulo, useEnvio } from "../../ui/ui";
+import { BotaoLigar } from "../telefonia/Telefone";
 import { CamposPersonalizados, centavosParaTexto, formatarDinheiro, lerDinheiro, useConfigCrm, useTermos, type ValoresCampos } from "./comum";
 
 type Config = ReturnType<typeof useConfigCrm>["config"];
@@ -77,6 +78,7 @@ function Cartao({ o, etapas, podeMover, aoPedirMover }: { o: OportunidadeDto; et
       <span className="item-detalhe">{o.contatoNome}</span>
       {o.valorCentavos !== null && <span className="valor">{formatarDinheiro(o.valorCentavos)}</span>}
       {o.responsavelNome && <span className="item-detalhe">{o.responsavelNome}</span>}
+      <BotaoLigar alvo={{ contatoId: o.contatoId, oportunidadeId: o.id, nome: o.contatoNome }} rotulo="Ligar" classe="botao botao-secundario botao-pequeno" />
       {podeMover && (
         <label className="mover-para">
           <span className="sr-only">Mover {o.titulo} para</span>

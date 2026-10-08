@@ -26,6 +26,10 @@ import { Importar } from "./features/crm/Importar";
 import { ConfigCrm } from "./features/crm/ConfigCrm";
 import { Conversas } from "./features/conversas/Conversas";
 import { Canais } from "./features/conversas/Canais";
+import { Filas } from "./features/fila/Filas";
+import { Discador } from "./features/fila/Discador";
+import { Ligacoes } from "./features/telefonia/Ligacoes";
+import { ConfigTelefonia } from "./features/telefonia/ConfigTelefonia";
 import "./app/estilos.css";
 
 function App() {
@@ -60,6 +64,10 @@ function App() {
               <Route path="/conversas" element={<Conversas />} />
               <Route path="/conversas/canais" element={<Canais />} />
               <Route path="/conversas/:id" element={<Conversas />} />
+              <Route path="/filas" element={<Filas />} />
+              <Route path="/filas/:id" element={<Discador />} />
+              <Route path="/ligacoes" element={<Ligacoes />} />
+              <Route path="/telefonia/configuracoes" element={<ConfigTelefonia />} />
               <Route path="/contatos" element={<Contatos />} />
               <Route path="/contatos/:id" element={<Contato />} />
               <Route path="/funil" element={<Funil />} />

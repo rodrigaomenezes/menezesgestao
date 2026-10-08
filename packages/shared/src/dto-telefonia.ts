@@ -79,6 +79,8 @@ export const EstadoLigacaoEntrada = z.object({
   idExterno: z.string().trim().max(200).nullish(),
   /** Motivo do fim (ex.: "ocupado", "não atendeu", "desligou") ou detalhe da mudança. */
   detalhe: z.string().trim().max(200).nullish(),
+  /** Só no celular do vendedor (o sistema não vê a ligação): duração informada ao voltar, em segundos. */
+  duracaoInformada: z.number().int().min(0).max(4 * 3600).nullish(),
 });
 
 export const FinalizarLigacaoEntrada = z.object({
@@ -231,6 +233,7 @@ export const AdicionarItensEntrada = z.object({
   contatoIds: z.array(Id).min(1, { error: "Escolha ao menos um contato." }).max(500, { error: "No máximo 500 por vez." }),
 });
 export const ResultadoAdicionarDto = z.object({ adicionados: z.number().int(), emOutraFila: z.number().int(), jaNaFila: z.number().int(), semTelefone: z.number().int() });
+export type ResultadoAdicionarDto = z.infer<typeof ResultadoAdicionarDto>;
 
 export const RegistrarResultadoEntrada = z.object({
   resultadoId: Id,
@@ -243,6 +246,7 @@ export const RegistrarResultadoDto = z.object({
   item: FilaItemDto,
   oportunidadeId: Id.nullable(),
 });
+export type RegistrarResultadoDto = z.infer<typeof RegistrarResultadoDto>;
 
 export const FilaLoteDto = z.object({
   id: Id,

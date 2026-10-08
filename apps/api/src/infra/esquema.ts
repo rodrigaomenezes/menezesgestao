@@ -548,6 +548,7 @@ export const filaItem = pgTable("fila_item", {
   contatoId: uuid("contato_id").notNull(),
   loteId: uuid("lote_id"),
   prioridade: integer("prioridade").notNull().default(0),
+  ordem: bigint("ordem", { mode: "number" }).generatedAlwaysAsIdentity(),
   status: text("status").$type<StatusItemFila>().notNull().default("pendente"),
   reservadoPor: uuid("reservado_por"),
   reservadoAte: ts("reservado_ate"),

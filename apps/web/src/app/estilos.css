@@ -1401,3 +1401,183 @@ textarea {
   background: var(--erro-fundo);
   color: var(--erro);
 }
+
+/* ---------------------------------------------------------------- Ligações e fila (fase 3) */
+/* Painel da ligação: no celular, folha presa embaixo; no computador, cartão no canto. */
+.painel-ligacao {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  max-height: 80dvh;
+  overflow-y: auto;
+  padding: 1rem 1rem calc(1rem + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--borda);
+  border-radius: var(--raio) var(--raio) 0 0;
+  background: var(--superficie);
+  box-shadow: 0 -8px 30px rgb(0 0 0 / 20%);
+}
+
+@media (min-width: 900px) {
+  .painel-ligacao {
+    left: auto;
+    right: 1.5rem;
+    bottom: 1.5rem;
+    width: 360px;
+    border: 1px solid var(--borda);
+    border-radius: var(--raio);
+  }
+}
+
+.painel-topo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  overflow-wrap: anywhere;
+}
+
+.estado-ligacao {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--cor-primaria);
+}
+
+.estado-em_ligacao {
+  color: var(--sucesso);
+}
+
+.estado-encerrada {
+  color: var(--texto-suave);
+}
+
+.painel-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.painel-gravacao,
+.painel-celular {
+  padding: 0.6rem 0.75rem;
+  border-radius: 8px;
+  background: var(--info-fundo);
+}
+
+.painel-gravacao p,
+.painel-celular p {
+  margin: 0 0 0.4rem;
+}
+
+.teclado {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.4rem;
+}
+
+.teclado .botao {
+  min-height: 48px;
+  font-size: 1.2rem;
+}
+
+.botao-grande {
+  min-height: 52px;
+  font-size: 1.1rem;
+}
+
+.botao-pequeno {
+  min-height: 36px;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.9rem;
+  align-self: flex-start;
+}
+
+/* Filas */
+.numeros-fila {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.4rem;
+  margin: 0.5rem 0 0;
+}
+
+.numeros-fila div {
+  padding: 0.4rem;
+  border-radius: 8px;
+  background: var(--fundo);
+  text-align: center;
+}
+
+.numeros-fila dt {
+  font-size: 0.75rem;
+  color: var(--texto-suave);
+}
+
+.numeros-fila dd {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.selo-fila-ativa {
+  background: var(--sucesso-fundo);
+  color: var(--sucesso);
+}
+
+.selo-fila-encerrada {
+  background: var(--erro-fundo);
+  color: var(--erro);
+}
+
+.discador {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.lead {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.lead-topo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.lead-topo > div {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.lead-nome {
+  font-size: 1.3rem;
+  font-weight: 700;
+}
+
+.resultado-fila h3 {
+  margin: 0 0 0.5rem;
+}
+
+.botoes-resultado {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.5rem;
+}
+
+.botoes-resultado .botao {
+  min-height: 48px;
+}
+
+audio.gravacao {
+  max-width: 100%;
+}

@@ -92,6 +92,19 @@ describe("reserva exclusiva (trava no banco)", () => {
     expect(tarde.statusCode).toBe(409);
   });
 
+  it("a fila respeita a ordem em que os contatos entraram (mesmo no mesmo lote)", async () => {
+    const f = (await dono.post("/api/filas", { nome: "Ordem" })).json().id;
+    const ids = await contatos(4);
+    await dono.post(`/api/filas/${f}/itens`, { contatoIds: ids });
+    const entregues: string[] = [];
+    for (let i = 0; i < 4; i++) {
+      const item = (await dono.post(`/api/filas/${f}/proximo`)).json().item;
+      entregues.push(item.contatoId);
+      await dono.post(`/api/fila-itens/${item.id}/resultado`, { resultadoId: resultado("Sem interesse") });
+    }
+    expect(entregues).toEqual(ids);
+  });
+
   it("fila pausada não entrega ninguém e devolve as reservas", async () => {
     const filaId = await novaFila("Pausável", {}, 2);
     const item = (await dono.post(`/api/filas/${filaId}/proximo`)).json().item;

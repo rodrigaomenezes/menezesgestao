@@ -90,6 +90,8 @@ CREATE TABLE IF NOT EXISTS fila_item (
   contato_id          uuid NOT NULL REFERENCES contato(id),
   lote_id             uuid REFERENCES fila_lote(id),
   prioridade          integer NOT NULL DEFAULT 0,
+  -- Ordem de chegada (contatos do mesmo lote têm o mesmo instante; a fila respeita a ordem em que entraram).
+  ordem               bigint GENERATED ALWAYS AS IDENTITY,
   status              text NOT NULL DEFAULT 'pendente' CHECK (status IN ('pendente', 'reservado', 'concluido', 'descartado')),
   reservado_por       uuid REFERENCES usuario(id),
   reservado_ate       timestamptz(3),
@@ -104,7 +106,7 @@ CREATE TABLE IF NOT EXISTS fila_item (
 -- O mesmo contato entra uma vez só em cada fila.
 CREATE UNIQUE INDEX IF NOT EXISTS fila_item_contato_uk ON fila_item (fila_id, contato_id);
 -- Próximo da fila: pendentes (ou reservas vencidas) por prioridade e ordem de chegada.
-CREATE INDEX IF NOT EXISTS fila_item_proximo_idx ON fila_item (fila_id, status, retornar_em, prioridade DESC, criado_em);
+CREATE INDEX IF NOT EXISTS fila_item_proximo_idx ON fila_item (fila_id, status, retornar_em, prioridade DESC, ordem);
 CREATE INDEX IF NOT EXISTS fila_item_contato_idx ON fila_item (contato_id);
 
 -- Ligações -----------------------------------------------------------------------------------------------

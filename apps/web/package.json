@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@mg/shared": "0.1.0",
+    "jssip": "3.13.8",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "react-router-dom": "^7.18.4"

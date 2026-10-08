@@ -17,6 +17,7 @@ import { useAviso } from "../../ui/sobreposicoes";
 import { Mensagem as Aviso } from "../../ui/ui";
 import { formatarTelefone, useConfigCrm, useTermos } from "../crm/comum";
 import { Audio, Gravador } from "./Gravador";
+import { BotaoLigar } from "../telefonia/Telefone";
 
 const MARCAS: Record<MensagemDto["status"], { texto: string; rotulo: string }> = {
   pendente: { texto: "🕓", rotulo: "Enviando" },
@@ -225,6 +226,9 @@ function Cabecalho({ c, aoMudar }: { c: ConversaDetalheDto; aoMudar(): void }) {
           {formatarTelefone(c.telefone)} · {c.canalNome} · {NOMES_STATUS_CONVERSA[c.status]}
         </span>
       </div>
+      {c.telefone && (
+        <BotaoLigar alvo={{ contatoId: c.contatoId, nome: c.contatoNome, numero: c.telefone }} rotulo="Ligar" classe="botao botao-secundario" />
+      )}
       {podeEditar && (
         <div className="chat-acoes">
           <label className="sr-only" htmlFor="atribuir">
