@@ -14,6 +14,7 @@ import {
   type EmpresasTeste,
 } from "../apoio/app-teste.js";
 import { semearCrm, type CrmSemeado } from "../apoio/crm.js";
+import { criarCanalDemo, esperar, simular } from "../apoio/conversas.js";
 
 type Lado = "a" | "b";
 
@@ -47,6 +48,23 @@ beforeAll(async () => {
     const dono = await logado(t.app, email(v, "dono"));
     // E um de cada coisa do CRM (contato, oportunidade, tarefa, nota, etiqueta, campo, importação…).
     const crm = await semearCrm(dono, t.banco, `secreto ${lado.toUpperCase()} ${v.empresaId.slice(0, 6)}`, lado === "a" ? "1001" : "2002");
+    // E conversas: canal de demonstração, cliente que escreveu, resposta enviada, resposta rápida e automação.
+    const canalId = await criarCanalDemo(dono, `Canal secreto ${lado.toUpperCase()}`);
+    const telefoneConversa = lado === "a" ? "+5511966661001" : "+5511966662002";
+    await simular(dono, canalId, { telefone: telefoneConversa, nome: `Conversa secreta ${lado.toUpperCase()}`, texto: `Mensagem secreta ${lado.toUpperCase()}` });
+    const conversaId = await esperar(
+      async () => (await t.banco.pool.query<{ id: string }>("SELECT id FROM conversa WHERE canal_id = $1", [canalId])).rows[0]?.id,
+      "conversa criada",
+    );
+    const saida = await dono.post(`/api/conversas/${conversaId}/mensagens`, { texto: `Resposta secreta ${lado.toUpperCase()}` });
+    // Espera o job entregar a resposta: o retrato da vítima precisa estar estável antes da varredura.
+    await esperar(
+      async () => (await t.banco.pool.query("SELECT status FROM mensagem WHERE id = $1", [saida.json().id])).rows[0]?.status === "entregue",
+      "resposta entregue",
+    );
+    const resposta = await dono.post("/api/respostas-rapidas", { atalho: `segredo${lado}`, texto: `Atalho secreto ${lado.toUpperCase()}` });
+    await dono.pedir("PUT", "/api/automacoes/boas_vindas", { texto: `Boas-vindas secretas ${lado.toUpperCase()}`, ativa: false });
+    const mensagens = await t.banco.pool.query<{ id: string }>("SELECT id FROM mensagem WHERE conversa_id = $1", [conversaId]);
     const sessao = await t.banco.pool.query<{ id: string }>(
       "SELECT id FROM sessao WHERE usuario_id = $1 AND encerrada_em IS NULL LIMIT 1",
       [v.pessoas.dono.usuarioId],
@@ -76,7 +94,13 @@ beforeAll(async () => {
       crm.notaId,
       crm.importacaoId,
       crm.importadoId,
+      canalId,
+      conversaId,
+      saida.json().id,
+      resposta.json().id,
+      ...mensagens.rows.map((m) => m.id),
     ];
+    crm.canalId = canalId;
     vitimas[lado] = {
       crm,
       ids,
@@ -88,6 +112,13 @@ beforeAll(async () => {
         `Segredo da empresa ${lado.toUpperCase()}`,
         ...Object.keys(v.equipes),
         ...crm.marcas,
+        `Canal secreto ${lado.toUpperCase()}`,
+        `Conversa secreta ${lado.toUpperCase()}`,
+        `Mensagem secreta ${lado.toUpperCase()}`,
+        `Resposta secreta ${lado.toUpperCase()}`,
+        `Atalho secreto ${lado.toUpperCase()}`,
+        `Boas-vindas secretas ${lado.toUpperCase()}`,
+        telefoneConversa,
         ...v.d.pessoas.filter((p) => p.chave !== "consultor").flatMap((p) => [p.email, p.nome]),
       ],
     };
@@ -139,6 +170,14 @@ function corpoInvasor(v: EmpresasTeste[Lado], crm: CrmSemeado): Record<string, u
     acao: "arquivar",
     responsavelId: v.pessoas.dono.usuarioId,
     mapeamento: { nome: "Nome", telefone: "Telefone" },
+    // Conversas
+    canalId: crm.canalId,
+    usuarioId: v.pessoas.dono.usuarioId,
+    status: "resolvida",
+    nota: false,
+    atalho: "invasao",
+    provedor: "demonstracao",
+    telefone: "+5511966660000",
     nome: "Invasão",
     slug: `invasao-${Date.now()}`,
     email: `invasao.${Date.now()}@teste.example.com`,
@@ -180,8 +219,9 @@ for (const [atacante, alvo] of [
       for (const rota of t.rotas) {
         const nome = `${rota.metodo} ${rota.url}`;
         if (FORA.has(nome)) continue;
-        const comId = rota.url.includes(":id");
-        const urls = comId ? vitima.ids.map((id) => rota.url.replace(":id", id)) : [rota.url];
+        // Todo parâmetro de caminho (:id, :canalId…) recebe cada identificador da outra empresa.
+        const comId = /:\w+/.test(rota.url);
+        const urls = comId ? vitima.ids.map((id) => rota.url.replace(/:\w+/g, id)) : [rota.url];
         for (const url of urls) {
           const res = await dono.pedir(rota.metodo as "GET", url, rota.metodo === "GET" ? undefined : corpoInvasor(e[alvo], vitima.crm));
           chamadas++;
@@ -196,10 +236,11 @@ for (const [atacante, alvo] of [
 
     it(`listagens de ${A} devolvem só dados de ${A}`, async () => {
       const dono = await logado(t.app, email(e[atacante], "dono"));
-      for (const url of ["/api/usuarios", "/api/equipes", "/api/unidades", "/api/perfis", "/api/auditoria", "/api/contatos", "/api/oportunidades", "/api/tarefas", "/api/importacoes"]) {
+      for (const url of ["/api/usuarios", "/api/equipes", "/api/unidades", "/api/perfis", "/api/auditoria", "/api/contatos", "/api/oportunidades", "/api/tarefas", "/api/importacoes", "/api/conversas", "/api/canais", "/api/respostas-rapidas"]) {
         const res = await dono.get(url);
         expect(res.statusCode, url).toBe(200);
-        expect(res.json().itens.length, url).toBeGreaterThan(0);
+        const corpo = res.json();
+        expect((Array.isArray(corpo) ? corpo : corpo.itens).length, url).toBeGreaterThan(0);
         semVazamento(vitimas[alvo], url, res.body);
       }
     });

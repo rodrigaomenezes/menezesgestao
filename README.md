@@ -46,6 +46,19 @@ Menu **Contatos** (ou o termo da empresa: "Alunos", "Pacientes"…), **Funil**, 
   ignorado com o motivo no relatório.
 - Vendedor vê só a própria carteira; gestor, a da equipe; dono, a da empresa (escopos do perfil).
 
+### Conversas (fase 2)
+
+Menu **Conversas** (caixa de entrada) e **Canais e automações** (administrador). Três tipos de canal:
+
+| Tipo | Para quê | Como conectar |
+| --- | --- | --- |
+| Demonstração | Testar sem número real | Criar → Conectar → "Simular cliente" faz o papel do celular |
+| API oficial (Meta) | Operação séria | Cadastrar Phone number ID, token permanente e chave secreta do app (ficam cifrados) → Conectar; no painel da Meta, cadastrar a URL e o token de verificação mostrados no canal e assinar "messages" |
+| QR code | Começar rápido | Conectar → ler o QR no celular (Aparelhos conectados). Biblioteca não oficial: risco de bloqueio do número (ADR-016) |
+
+A resposta do cliente cai sempre na mesma conversa (id do provedor, telefone com e sem nono dígito, contato) e
+webhook repetido não duplica nada. Conversa sem dono fica na fila de todos que atendem; quem responde assume.
+
 ## Testes
 
 ```bash
@@ -72,6 +85,8 @@ npm run build && npm run test:e2e   # Playwright em 360, 390, 768, 1024 e 1440 p
 | `LIMITE_REQ_MINUTO`, `LIMITE_LOGIN_MINUTO` | não | Limites por IP (padrão 300 e 10 por minuto) |
 | `DATABASE_URL_TESTE` | só testes | Banco descartável dos testes |
 | `SENHA_EXEMPLO` | só `db:seed` | Senha das pessoas de exemplo |
+| `WHATSAPP_QR_ATIVO` | não | `nao` desliga as conexões por QR nesta instância (só **uma** instância pode segurar cada número) |
+| `WHATSAPP_GRAPH_URL` | não | Endereço da Graph API da Meta (padrão `https://graph.facebook.com/v21.0`; troque só em testes) |
 
 ## Publicar no Railway
 

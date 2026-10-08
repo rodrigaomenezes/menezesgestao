@@ -42,7 +42,8 @@ test("cadastro e ficha: nota, tarefa e oportunidade aparecem no histórico", asy
   await page.getByRole("button", { name: "Cadastrar aluno" }).click();
 
   await expect(page.getByRole("heading", { name: nome, level: 1 })).toBeVisible();
-  await expect(page.getByRole("link", { name: "WhatsApp" })).toBeVisible();
+  // Com canal conectado, "Conversar" abre a conversa no sistema; sem canal, o link do WhatsApp.
+  await expect(page.getByRole("button", { name: "Conversar" }).or(page.getByRole("link", { name: "WhatsApp" }))).toBeVisible();
   await semRolagemLateral(page);
 
   await page.getByLabel("Nova nota").fill("Pediu para ligar depois das 18h.");

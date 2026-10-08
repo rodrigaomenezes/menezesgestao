@@ -10,7 +10,9 @@ Detalhes e critérios de pronto de cada fase: `ESPECIFICACAO.md` ("Roteiro de co
 - [x] Fase 1 — CRM (contatos com dedup por telefone, carteira por escopo, etiquetas, campos personalizados,
       funis/etapas configuráveis, kanban com campos obrigatórios e motivo de perda, oportunidades, tarefas, notas,
       histórico, lixeira, ações em massa, importação CSV/XLSX idempotente em fila, vocabulário da empresa na tela)
-- [ ] Fase 2 — Conversas
+- [x] Fase 2 — Conversas (canais demonstração, API oficial e QR; caixa de entrada por pessoa/equipe com atribuição
+      e status; texto, mídia e áudio gravado no navegador com velocidade; notas internas; respostas rápidas com
+      variáveis; boas-vindas, fora do horário e follow-up; deduplicação em cascata; junção de duplicadas)
 - [ ] Fase 3 — Ligações e fila
 - [ ] Fase 4 — Operação
 - [ ] Fase 5 — Receita e qualidade
@@ -25,8 +27,7 @@ Detalhes e critérios de pronto de cada fase: `ESPECIFICACAO.md` ("Roteiro de co
 
 ## Ficou para fases seguintes
 
-- Fase 2: armazenamento de mídia em S3/R2 (o provedor "banco" atende planilhas, não mídia pesada); conversas
-  reaproveitam `normalizarTelefone` e o histórico do contato.
+- Mensagens modelo (templates) da API oficial para falar fora da janela de 24 h; mídia em S3/R2.
 - Fase 6: marca por domínio (usa `empresa.slug`), painel da plataforma (planos e módulos), vocabulário na interface,
   assistente de primeiro acesso, ícones do PWA a partir do logo, edição do vocabulário (com plural) na tela.
 - Fase 7: duas etapas, Web Push, leitura offline, logs de negócio estruturados, limite de conexões de tempo real.

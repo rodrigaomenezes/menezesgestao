@@ -245,3 +245,40 @@ linha); ao fim, um evento `importacao.concluida` e uma notificação para quem i
 O relatório guarda até 200 motivos de linhas ignoradas. Duas importações simultâneas do mesmo telefone são
 resolvidas pelo índice único do banco (uma delas falha e o job tenta de novo).
 
+---
+
+# ADR-015 — Mensagens atrás de interface; entrada idempotente e deduplicada
+
+## Decisão
+`ProvedorMensagens` (conectar, estado, enviar texto/mídia/áudio, baixar mídia) com três provedores. Tudo que entra
+vira o mesmo `EventoEntrada`. A entrada procura a conversa em cascata: (1) id da mensagem já visto → ignora;
+(2) id do cliente no provedor (`ids_externos`); (3) telefone E.164 com e sem nono dígito; (4) contato com esse
+telefone. Só então cria contato e conversa. Corridas (dois webhooks do mesmo cliente novo) são resolvidas pelos
+índices únicos + nova tentativa. A saída é gravada como "pendente" e enviada por job (novas tentativas; erro
+definitivo, como número sem WhatsApp, não repete). Mídia recebida é baixada por job (o webhook responde rápido).
+
+## Consequências
+Trocar de provedor não muda caixa de entrada, automações nem histórico. Conversa sem dono é da fila de todos que
+atendem (o tempo real também avisa quem tem escopo "próprio"); quem responde assume a conversa.
+
+---
+
+# ADR-016 — Conexão por QR code (biblioteca não oficial)
+
+## Contexto
+Pedido do produto: além da API oficial, oferecer conexão por QR para empresas pequenas.
+
+## Decisão
+Provedor `qr` com a Baileys **6.7.24** (linha estável, versão fixa — a 7.0 ainda é candidata). O estado de
+autenticação fica na tabela `canal_sessao`, cifrado item a item com `CRM_CHAVE` (nada em disco). O socket vive no
+processo do servidor; ao subir, os canais conectados religam sozinhos; ao cair, tenta de novo com espera crescente
+e, se o celular desconectar, o administrador é notificado.
+
+## Riscos aceitos e mitigação
+- Vai contra os termos do WhatsApp: o número pode ser bloqueado. A tela avisa ao criar o canal; a API oficial é a
+  recomendação para operação séria.
+- Quebra quando o WhatsApp muda o protocolo: versão fixa, Dependabot e `npm audit` no CI.
+- Licença: a dependência `libsignal` é **GPL-3.0**. Rodar como SaaS no nosso servidor não distribui o software;
+  instalar o sistema no servidor de um cliente (on-premise) exigiria revisar a licença antes.
+- Só uma instância pode segurar cada número: em réplicas extras, `WHATSAPP_QR_ATIVO=nao` (ver `TECH_DEBT.md`).
+

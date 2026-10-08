@@ -17,9 +17,11 @@ export interface Jobs {
   /** Enfileira um e-mail. Com `tx`, o job só existe se a transação confirmar. */
   enviarEmail(tx: Tx | null, mensagem: MensagemEmail): Promise<void>;
   /** Enfileira um job de módulo (dados sem segredo). Com `tx`, só existe se a transação confirmar. */
-  enfileirar(tx: Tx | null, fila: string, dados: object): Promise<void>;
+  enfileirar(tx: Tx | null, fila: string, dados: object, opcoes?: { aposSegundos?: number; chaveUnica?: string }): Promise<void>;
   /** Registra o trabalhador de uma fila de módulo (com tentativas limitadas e dead-letter). */
   trabalhar<T extends object>(fila: string, fn: (dados: T) => Promise<void>): Promise<void>;
+  /** Agenda uma fila (já registrada com trabalhar) num horário fixo (cron, fuso de São Paulo). */
+  agendar(fila: string, cron: string): Promise<void>;
   parar(): Promise<void>;
 }
 
@@ -78,8 +80,13 @@ export async function iniciarJobs(config: Config, avisos: ProvedorAvisos): Promi
         await boss.send(FILAS.email, dados);
       }
     },
-    async enfileirar(tx, fila, dados) {
-      await boss.send(fila, dados, tx ? { db: { executeSql: (texto, valores) => tx.cliente.query(texto, valores) } } : {});
+    async enfileirar(tx, fila, dados, opcoes = {}) {
+      await boss.send(fila, dados, {
+        ...(opcoes.aposSegundos ? { startAfter: opcoes.aposSegundos } : {}),
+        // Mesma chave na fila = um job só (ex.: um follow-up por conversa).
+        ...(opcoes.chaveUnica ? { singletonKey: opcoes.chaveUnica } : {}),
+        ...(tx ? { db: { executeSql: (texto: string, valores: unknown[]) => tx.cliente.query(texto, valores) } } : {}),
+      });
     },
     async trabalhar(fila, fn) {
       const opcoes = { name: fila, retryLimit: 3, retryDelay: 30, retryBackoff: true, deadLetter: FILA_FALHAS };
@@ -95,6 +102,9 @@ export async function iniciarJobs(config: Config, avisos: ProvedorAvisos): Promi
           }
         }
       });
+    },
+    async agendar(fila, cron) {
+      await boss.schedule(fila, cron, {}, { tz: "America/Sao_Paulo" });
     },
     async parar() {
       await boss.stop({ graceful: true, timeout: 5000, wait: true });

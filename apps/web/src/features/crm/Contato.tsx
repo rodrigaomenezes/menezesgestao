@@ -1,6 +1,6 @@
 // Ficha do contato: dados, etiquetas, oportunidades, tarefas, notas e linha do tempo (histórico).
 import { useCallback, useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import type { ContatoDto, HistoricoDto, NotaDto, OportunidadeDto, TarefaDto } from "@mg/shared";
 import { ErroApi, get, patch, post, put, query } from "../../app/api";
 import { useDataHora, useEu, useSessao } from "../../app/sessao";
@@ -355,6 +355,59 @@ function Historico({ contatoId }: { contatoId: string }) {
   );
 }
 
+/** Abre a conversa do sistema (canal da empresa); sem canal ativo ou sem permissão, cai no wa.me. */
+function ConversarNoCanal({ contatoId, telefone }: { contatoId: string; telefone: string }) {
+  const { pode } = useSessao();
+  const navegar = useNavigate();
+  const avisar = useAviso();
+  const [canais, setCanais] = useState<{ id: string; nome: string; status: string }[] | null>(null);
+  const [canalId, setCanalId] = useState("");
+  useEffect(() => {
+    if (pode("conversas", "criar")) get<{ id: string; nome: string; status: string }[]>("/canais/ativos").then(setCanais, () => setCanais([]));
+  }, [pode]);
+  const conectados = (canais ?? []).filter((c) => c.status === "conectado");
+  if (!conectados.length) {
+    return (
+      <a className="botao botao-secundario" href={linkWhatsApp(telefone)} target="_blank" rel="noopener noreferrer">
+        WhatsApp
+      </a>
+    );
+  }
+  const abrir = async (id: string) => {
+    try {
+      const c = await post<{ id: string }>("/conversas", { canalId: id, contatoId });
+      navegar(`/conversas/${c.id}`);
+    } catch (e) {
+      avisar(e instanceof ErroApi ? e.message : "Não foi possível abrir a conversa.", "erro");
+    }
+  };
+  if (conectados.length === 1) {
+    return (
+      <button type="button" className="botao botao-secundario" onClick={() => void abrir(conectados[0].id)}>
+        Conversar
+      </button>
+    );
+  }
+  return (
+    <span className="form-linha">
+      <label className="sr-only" htmlFor="canal-conversa">
+        Canal
+      </label>
+      <select id="canal-conversa" value={canalId} onChange={(e) => setCanalId(e.target.value)}>
+        <option value="">Conversar por…</option>
+        {conectados.map((c) => (
+          <option key={c.id} value={c.id}>
+            {c.nome}
+          </option>
+        ))}
+      </select>
+      <button type="button" className="botao botao-secundario" disabled={!canalId} onClick={() => void abrir(canalId)}>
+        Conversar
+      </button>
+    </span>
+  );
+}
+
 export function Contato() {
   const { id = "" } = useParams();
   const { pode } = useSessao();
@@ -408,11 +461,7 @@ export function Contato() {
               <a className="botao" href={`tel:${contato.telefone}`}>
                 Ligar {formatarTelefone(contato.telefone)}
               </a>
-              {!contato.naoContatar && (
-                <a className="botao botao-secundario" href={linkWhatsApp(contato.telefone)} target="_blank" rel="noopener noreferrer">
-                  WhatsApp
-                </a>
-              )}
+              {!contato.naoContatar && <ConversarNoCanal contatoId={contato.id} telefone={contato.telefone} />}
             </div>
           )}
           <dl className="dados">

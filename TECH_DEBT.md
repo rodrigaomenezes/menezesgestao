@@ -17,3 +17,11 @@ histórico do git.
 | 10 | Kanban mostra até 50 oportunidades por etapa (o resto, pela busca) | BAIXA | `modulos/crm/oportunidades.servico.ts` | "Carregar mais" por coluna |
 | 11 | Mudanças de configuração do CRM não chegam em tempo real a perfis de escopo "próprio" | BAIXA | `modulos/eventos/tempo-real.ts` | Evento de configuração com destino "todos que têm o módulo" |
 | 12 | Plural do vocabulário é uma regra simples (aluno → alunos) | BAIXA | `apps/web/src/features/crm/comum.tsx` | Guardar singular e plural na configuração (fase 6) |
+| 13 | Sem mensagens modelo (templates) da API oficial: fora da janela de 24 h o envio falha com aviso claro | MÉDIA | `conversas/provedores/cloud-api.ts` | Cadastro de modelos aprovados e envio por modelo |
+| 14 | Conexão por QR segura o socket no processo: com mais de uma réplica, só uma pode ter `WHATSAPP_QR_ATIVO` | MÉDIA | `conversas/provedores/qr.ts` | Trava distribuída (advisory lock) por canal |
+| 15 | Mensagens enviadas direto pelo celular (fora do sistema) na conexão por QR não entram no histórico | BAIXA | `conversas/provedores/qr.ts` | Gravar `fromMe` como saída, deduplicando pelo id |
+| 16 | Status "enviada" que chega antes de o job gravar o id externo é perdido (o "entregue" seguinte corrige) | BAIXA | `conversas/entrada.servico.ts` | Guardar status órfãos por alguns minutos |
+| 17 | Mídia de conversas fica no PostgreSQL (limite de 16 MB por arquivo) | MÉDIA | `modulos/arquivos` | Provedor S3/R2 (o mesmo do item 9) |
+| 18 | Cliente que chega só com LID (sem telefone) gera contato sem telefone; a conversa é juntada depois, o contato não | BAIXA | `conversas/entrada.servico.ts` | Junção de contatos quando o telefone aparecer |
+| 19 | Listas de respostas rápidas e canais limitadas a 500/100 itens, sem paginação | BAIXA | `conversas/*.rotas.ts` | Paginar se alguma empresa passar disso |
+
