@@ -15,6 +15,16 @@ export const MODULO_DA_ENTIDADE: Record<string, Modulo> = {
   perfil: "usuarios",
   unidade: "configuracoes",
   empresa: "configuracoes",
+  contato: "crm",
+  oportunidade: "crm",
+  tarefa: "crm",
+  nota: "crm",
+  importacao: "crm",
+  funil: "crm",
+  etapa: "crm",
+  etiqueta: "crm",
+  motivo_perda: "crm",
+  campo_personalizado: "crm",
 };
 
 interface Conexao {

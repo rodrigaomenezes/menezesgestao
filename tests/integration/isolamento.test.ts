@@ -13,6 +13,7 @@ import {
   type AmbienteTeste,
   type EmpresasTeste,
 } from "../apoio/app-teste.js";
+import { semearCrm, type CrmSemeado } from "../apoio/crm.js";
 
 type Lado = "a" | "b";
 
@@ -23,6 +24,7 @@ let e: EmpresasTeste;
 const FORA = new Set(["POST /api/auth/sair", "GET /api/tempo-real"]);
 
 interface Vitima {
+  crm: CrmSemeado;
   ids: string[];
   marcas: string[];
   sessaoId: string;
@@ -42,7 +44,9 @@ beforeAll(async () => {
         titulo: `Segredo da empresa ${lado.toUpperCase()}`,
       }),
     );
-    await logado(t.app, email(v, "dono"));
+    const dono = await logado(t.app, email(v, "dono"));
+    // E um de cada coisa do CRM (contato, oportunidade, tarefa, nota, etiqueta, campo, importação…).
+    const crm = await semearCrm(dono, t.banco, `secreto ${lado.toUpperCase()} ${v.empresaId.slice(0, 6)}`, lado === "a" ? "1001" : "2002");
     const sessao = await t.banco.pool.query<{ id: string }>(
       "SELECT id FROM sessao WHERE usuario_id = $1 AND encerrada_em IS NULL LIMIT 1",
       [v.pessoas.dono.usuarioId],
@@ -61,8 +65,20 @@ beforeAll(async () => {
       v.pessoas.consultor.vinculoId,
       ...notif.rows.map((n) => n.id),
       sessao.rows[0].id,
+      crm.funilId,
+      ...crm.etapas.map((et) => et.id),
+      crm.motivoPerdaId,
+      crm.etiquetaId,
+      crm.campoId,
+      crm.contatoId,
+      crm.oportunidadeId,
+      crm.tarefaId,
+      crm.notaId,
+      crm.importacaoId,
+      crm.importadoId,
     ];
     vitimas[lado] = {
+      crm,
       ids,
       sessaoId: sessao.rows[0].id,
       marcas: [
@@ -71,6 +87,7 @@ beforeAll(async () => {
         slug.rows[0].slug,
         `Segredo da empresa ${lado.toUpperCase()}`,
         ...Object.keys(v.equipes),
+        ...crm.marcas,
         ...v.d.pessoas.filter((p) => p.chave !== "consultor").flatMap((p) => [p.email, p.nome]),
       ],
     };
@@ -88,7 +105,7 @@ async function retrato(empresaId: string): Promise<Record<string, string>> {
   for (const { table_name: tabela } of tabelas) {
     const ignorar = tabela === "sessao" ? "- 'ultimo_uso'" : "";
     const { rows } = await t.banco.pool.query<{ h: string | null }>(
-      `SELECT md5(string_agg((to_jsonb(x) ${ignorar})::text, '|' ORDER BY x.id)) AS h FROM ${tabela} x WHERE empresa_id = $1`,
+      `SELECT md5(string_agg((to_jsonb(x) ${ignorar})::text, '|' ORDER BY to_jsonb(x)::text)) AS h FROM ${tabela} x WHERE empresa_id = $1`,
       [empresaId],
     );
     r[tabela] = rows[0].h ?? "";
@@ -104,8 +121,24 @@ async function retrato(empresaId: string): Promise<Record<string, string>> {
 }
 
 /** Corpo genérico que tenta apontar tudo para a vítima. */
-function corpoInvasor(v: EmpresasTeste[Lado]): Record<string, unknown> {
+function corpoInvasor(v: EmpresasTeste[Lado], crm: CrmSemeado): Record<string, unknown> {
   return {
+    // CRM: tudo apontando para registros da outra empresa.
+    titulo: "Invasão",
+    texto: "Invasão",
+    rotulo: "Invasão",
+    contatoId: crm.contatoId,
+    oportunidadeId: crm.oportunidadeId,
+    organizacaoId: crm.contatoId,
+    funilId: crm.funilId,
+    etapaId: crm.etapas[1].id,
+    motivoPerdaId: crm.motivoPerdaId,
+    etiquetaId: crm.etiquetaId,
+    etiquetaIds: [crm.etiquetaId],
+    ids: [crm.contatoId, crm.importadoId],
+    acao: "arquivar",
+    responsavelId: v.pessoas.dono.usuarioId,
+    mapeamento: { nome: "Nome", telefone: "Telefone" },
     nome: "Invasão",
     slug: `invasao-${Date.now()}`,
     email: `invasao.${Date.now()}@teste.example.com`,
@@ -150,7 +183,7 @@ for (const [atacante, alvo] of [
         const comId = rota.url.includes(":id");
         const urls = comId ? vitima.ids.map((id) => rota.url.replace(":id", id)) : [rota.url];
         for (const url of urls) {
-          const res = await dono.pedir(rota.metodo as "GET", url, rota.metodo === "GET" ? undefined : corpoInvasor(e[alvo]));
+          const res = await dono.pedir(rota.metodo as "GET", url, rota.metodo === "GET" ? undefined : corpoInvasor(e[alvo], vitima.crm));
           chamadas++;
           semVazamento(vitima, `${nome} (${url})`, res.body);
           if (comId) expect(res.statusCode, `${nome} com id de ${B} respondeu ${res.statusCode}: ${res.body}`).toBeGreaterThanOrEqual(400);
@@ -163,7 +196,7 @@ for (const [atacante, alvo] of [
 
     it(`listagens de ${A} devolvem só dados de ${A}`, async () => {
       const dono = await logado(t.app, email(e[atacante], "dono"));
-      for (const url of ["/api/usuarios", "/api/equipes", "/api/unidades", "/api/perfis", "/api/auditoria"]) {
+      for (const url of ["/api/usuarios", "/api/equipes", "/api/unidades", "/api/perfis", "/api/auditoria", "/api/contatos", "/api/oportunidades", "/api/tarefas", "/api/importacoes"]) {
         const res = await dono.get(url);
         expect(res.statusCode, url).toBe(200);
         expect(res.json().itens.length, url).toBeGreaterThan(0);

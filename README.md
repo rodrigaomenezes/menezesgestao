@@ -22,7 +22,7 @@ docker compose up -d          # PostgreSQL com os bancos menezesgestao e menezes
 cp .env.example .env          # preencha SESSION_SECRET e CRM_CHAVE (openssl rand -hex 32) e SENHA_EXEMPLO
 npm install
 npm run db:migrate            # aplica as migrações (o servidor também aplica ao iniciar)
-npm run db:seed               # duas empresas fictícias, uma pessoa por perfil (senha = SENHA_EXEMPLO)
+npm run db:seed               # duas empresas fictícias, uma pessoa por perfil e contatos/funil de exemplo
 npm run build && npm start    # http://localhost:3000
 ```
 
@@ -34,6 +34,17 @@ Criar uma empresa e convidar o dono: `npm run empresa:criar -- --nome "Empresa" 
 (sem SMTP, o comando já mostra o link do convite).
 
 A documentação da API (OpenAPI) fica em `/api/openapi.json`.
+
+### CRM (fase 1)
+
+Menu **Contatos** (ou o termo da empresa: "Alunos", "Pacientes"…), **Funil**, **Tarefas**, **Importar planilha** e
+**Configurar CRM** (administrador). Empresa nova já nasce com o funil "Vendas" e motivos de perda.
+
+- O telefone (E.164, regra do nono dígito) identifica a pessoa: o mesmo número em outro formato não cria duplicado.
+- Importação: `.xlsx` ou `.csv` (até 10 MB / 20 mil linhas) → conferir colunas → processa em fila → relatório.
+  Importar a mesma planilha de novo não duplica ninguém; quem está na lixeira ou na carteira de outra pessoa é
+  ignorado com o motivo no relatório.
+- Vendedor vê só a própria carteira; gestor, a da equipe; dono, a da empresa (escopos do perfil).
 
 ## Testes
 

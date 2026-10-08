@@ -607,3 +607,429 @@ details pre {
   background: var(--erro-fundo);
   color: var(--erro);
 }
+
+/* ---------------------------------------------------------------- CRM (fase 1) */
+.acoes-titulo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.trilha {
+  margin: 0 0 0.25rem;
+  font-size: 0.9rem;
+}
+
+.titulo-secao {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.titulo-secao h2 {
+  margin: 0;
+}
+
+.filtros {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0 0.75rem;
+}
+
+@media (min-width: 600px) {
+  .filtros {
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  }
+}
+
+.form-linha {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0 0.75rem;
+}
+
+.form-linha .campo {
+  flex: 1 1 200px;
+}
+
+.form-linha > .botao {
+  margin-bottom: 0.75rem;
+}
+
+.ponto-cor {
+  display: inline-block;
+  flex: none;
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 50%;
+  vertical-align: middle;
+}
+
+.etiquetas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-top: 0.25rem;
+}
+
+.etiqueta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0 0.5rem;
+  border: 1px solid var(--borda);
+  border-radius: 999px;
+  font-size: 0.8rem;
+}
+
+.grupo-marcar {
+  border: 0;
+  padding: 0;
+  margin: 0 0 0.75rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+}
+
+.grupo-marcar legend {
+  font-weight: 600;
+  font-size: 0.9rem;
+  margin-bottom: 0.25rem;
+}
+
+.marcar {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  cursor: pointer;
+}
+
+.marcar input {
+  width: 1.25rem;
+  height: 1.25rem;
+  flex: none;
+}
+
+.item-contato {
+  flex-wrap: nowrap;
+  align-items: flex-start;
+}
+
+.item-marcar {
+  width: 1.25rem;
+  height: 1.25rem;
+  margin: 0.2rem 0.25rem 0 0;
+  flex: none;
+}
+
+.item-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.item-link:hover,
+.item-link:focus-visible {
+  text-decoration: underline;
+}
+
+.item-atrasado strong {
+  color: var(--erro);
+}
+
+.riscado {
+  text-decoration: line-through;
+  color: var(--texto-suave);
+}
+
+.barra-massa {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0 0.75rem;
+  margin: 0.5rem 0;
+  padding: 0.75rem;
+  border-radius: 8px;
+  background: var(--info-fundo);
+}
+
+.barra-massa strong {
+  flex-basis: 100%;
+}
+
+.barra-massa .campo {
+  flex: 1 1 160px;
+}
+
+.barra-massa > .botao {
+  margin-bottom: 0.75rem;
+}
+
+.selo-ganha {
+  background: var(--sucesso-fundo);
+  color: var(--sucesso);
+}
+
+.selo-perdida {
+  background: var(--erro-fundo);
+  color: var(--erro);
+}
+
+textarea {
+  font: inherit;
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--borda);
+  border-radius: 8px;
+  background: var(--superficie);
+  color: var(--texto);
+  resize: vertical;
+}
+
+.texto-livre {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+/* Ficha do contato */
+.contato-resumo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.acoes-contato {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.dados {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.5rem 1rem;
+  margin: 0;
+}
+
+.dados dt {
+  color: var(--texto-suave);
+  font-size: 0.8rem;
+}
+
+.dados dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.duas-colunas {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0 1rem;
+}
+
+@media (min-width: 1100px) {
+  .duas-colunas {
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+    align-items: start;
+  }
+}
+
+.linha-tempo {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 1rem;
+  border-left: 2px solid var(--borda);
+}
+
+.linha-tempo li {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 0 0 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+.linha-tempo li::before {
+  content: "";
+  position: absolute;
+  left: calc(-1rem - 6px);
+  top: 0.45rem;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--cor-primaria);
+}
+
+/* Kanban: colunas roláveis na horizontal; no celular, uma coluna por tela com encaixe. */
+.kanban {
+  display: flex;
+  gap: 0.75rem;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  padding-bottom: 0.75rem;
+  margin: 0 -1rem;
+  padding-inline: 1rem;
+}
+
+.coluna-kanban {
+  position: relative;
+  flex: 0 0 min(86vw, 300px);
+  scroll-snap-align: start;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100dvh - 220px);
+  min-height: 200px;
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+  background: var(--fundo);
+}
+
+.coluna-sobre {
+  outline: 3px dashed var(--cor-primaria);
+  outline-offset: -3px;
+}
+
+.coluna-topo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.5rem;
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid var(--borda);
+}
+
+.coluna-topo h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.coluna-total {
+  margin-left: auto;
+  color: var(--texto-suave);
+  font-size: 0.85rem;
+}
+
+.lista-kanban {
+  list-style: none;
+  margin: 0;
+  padding: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  overflow-y: auto;
+}
+
+.cartao-kanban {
+  /* Ancora os rótulos .sr-only (absolutos): sem isso, os das últimas colunas alargam a página. */
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--borda);
+  border-radius: 8px;
+  background: var(--superficie);
+  box-shadow: var(--sombra);
+  overflow-wrap: anywhere;
+}
+
+.cartao-kanban[draggable="true"] {
+  cursor: grab;
+}
+
+.cartao-ganha {
+  border-left: 4px solid var(--sucesso);
+}
+
+.cartao-perdida {
+  border-left: 4px solid var(--erro);
+}
+
+.valor {
+  font-weight: 600;
+}
+
+.mover-para select {
+  width: 100%;
+  margin-top: 0.25rem;
+  min-height: 40px;
+}
+
+/* Importação */
+.tabela-rolavel {
+  overflow-x: auto;
+  margin: 0.5rem 0 1rem;
+  border: 1px solid var(--borda);
+  border-radius: 8px;
+}
+
+.tabela {
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  min-width: 100%;
+}
+
+.tabela th,
+.tabela td {
+  padding: 0.4rem 0.6rem;
+  border-bottom: 1px solid var(--borda);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.numeros {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 0.5rem 0;
+}
+
+@media (min-width: 600px) {
+  .numeros {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.numeros div {
+  padding: 0.75rem;
+  border-radius: 8px;
+  background: var(--fundo);
+  text-align: center;
+}
+
+.numeros dt {
+  color: var(--texto-suave);
+  font-size: 0.85rem;
+}
+
+.numeros dd {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.tarefa {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  flex: 1 1 220px;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.tarefa input {
+  width: 1.25rem;
+  height: 1.25rem;
+  margin-top: 0.15rem;
+  flex: none;
+}
+
+.tarefa-texto {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}

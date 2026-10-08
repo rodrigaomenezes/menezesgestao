@@ -3,36 +3,285 @@
     {
       "nome": "Escola de Idiomas Horizonte (exemplo)",
       "plano": "completo",
-      "marca": { "corPrimaria": "#1f5fbf", "corDestaque": "#e07a1f" },
-      "vocabulario": { "contato": "aluno", "oferta": "curso", "entrega": "turma", "prestador": "professor" },
-      "unidades": ["Centro", "Zona Sul"],
+      "marca": {
+        "corPrimaria": "#1f5fbf",
+        "corDestaque": "#e07a1f"
+      },
+      "vocabulario": {
+        "contato": "aluno",
+        "oferta": "curso",
+        "entrega": "turma",
+        "prestador": "professor"
+      },
+      "unidades": [
+        "Centro",
+        "Zona Sul"
+      ],
       "equipes": [
-        { "nome": "Comercial Centro", "unidade": "Centro", "gestor": "gestora" },
-        { "nome": "Comercial Zona Sul", "unidade": "Zona Sul" }
+        {
+          "nome": "Comercial Centro",
+          "unidade": "Centro",
+          "gestor": "gestora"
+        },
+        {
+          "nome": "Comercial Zona Sul",
+          "unidade": "Zona Sul"
+        }
       ],
       "pessoas": [
-        { "chave": "dono", "nome": "Helena Prado", "email": "dono@escola.example.com", "perfil": "dono", "unidade": "Centro" },
-        { "chave": "gestora", "nome": "Marcos Lima", "email": "gestor@escola.example.com", "perfil": "gestor", "unidade": "Centro" },
-        { "chave": "vendedora", "nome": "Júlia Costa", "email": "vendas@escola.example.com", "perfil": "vendedor", "unidade": "Centro", "equipe": "Comercial Centro" },
-        { "chave": "vendedor2", "nome": "Rafael Souza", "email": "vendas2@escola.example.com", "perfil": "vendedor", "unidade": "Zona Sul", "equipe": "Comercial Zona Sul" },
-        { "chave": "professor", "nome": "Beatriz Nunes", "email": "professor@escola.example.com", "perfil": "operacao", "unidade": "Centro" },
-        { "chave": "financeiro", "nome": "Carlos Mendes", "email": "financeiro@escola.example.com", "perfil": "financeiro" },
-        { "chave": "consultor", "nome": "Paula Ribeiro", "email": "consultoria@example.com", "perfil": "gestor" }
-      ]
+        {
+          "chave": "dono",
+          "nome": "Helena Prado",
+          "email": "dono@escola.example.com",
+          "perfil": "dono",
+          "unidade": "Centro"
+        },
+        {
+          "chave": "gestora",
+          "nome": "Marcos Lima",
+          "email": "gestor@escola.example.com",
+          "perfil": "gestor",
+          "unidade": "Centro"
+        },
+        {
+          "chave": "vendedora",
+          "nome": "Júlia Costa",
+          "email": "vendas@escola.example.com",
+          "perfil": "vendedor",
+          "unidade": "Centro",
+          "equipe": "Comercial Centro"
+        },
+        {
+          "chave": "vendedor2",
+          "nome": "Rafael Souza",
+          "email": "vendas2@escola.example.com",
+          "perfil": "vendedor",
+          "unidade": "Zona Sul",
+          "equipe": "Comercial Zona Sul"
+        },
+        {
+          "chave": "professor",
+          "nome": "Beatriz Nunes",
+          "email": "professor@escola.example.com",
+          "perfil": "operacao",
+          "unidade": "Centro"
+        },
+        {
+          "chave": "financeiro",
+          "nome": "Carlos Mendes",
+          "email": "financeiro@escola.example.com",
+          "perfil": "financeiro"
+        },
+        {
+          "chave": "consultor",
+          "nome": "Paula Ribeiro",
+          "email": "consultoria@example.com",
+          "perfil": "gestor"
+        }
+      ],
+      "crm": {
+        "etiquetas": [
+          {
+            "nome": "Quente",
+            "cor": "#d93025"
+          },
+          {
+            "nome": "Bolsa",
+            "cor": "#1e6b34"
+          },
+          {
+            "nome": "Indicação",
+            "cor": "#7a3fbf"
+          }
+        ],
+        "contatos": [
+          {
+            "nome": "Mariana Souza",
+            "telefone": "(11) 91234-0001",
+            "email": "mariana.souza@exemplo.com.br",
+            "origem": "Instagram",
+            "responsavel": "vendedora",
+            "etiquetas": [
+              "Quente"
+            ],
+            "oportunidade": {
+              "titulo": "Inglês intensivo 2027",
+              "etapa": 2,
+              "valor": 3600
+            }
+          },
+          {
+            "nome": "Pedro Albuquerque",
+            "telefone": "(11) 91234-0002",
+            "origem": "Site",
+            "responsavel": "vendedora",
+            "oportunidade": {
+              "titulo": "Espanhol básico",
+              "etapa": 0,
+              "valor": 1800
+            }
+          },
+          {
+            "nome": "Juliana Martins",
+            "telefone": "(11) 91234-0003",
+            "origem": "Indicação",
+            "responsavel": "vendedora",
+            "etiquetas": [
+              "Indicação",
+              "Bolsa"
+            ],
+            "oportunidade": {
+              "titulo": "Inglês kids",
+              "etapa": 1,
+              "valor": 2400
+            }
+          },
+          {
+            "nome": "Rafael Costa",
+            "telefone": "(11) 91234-0004",
+            "origem": "Feira de escolas",
+            "responsavel": "vendedor2",
+            "oportunidade": {
+              "titulo": "Inglês para negócios",
+              "etapa": 3,
+              "valor": 5200
+            }
+          },
+          {
+            "nome": "Beatriz Lima",
+            "telefone": "(11) 91234-0005",
+            "origem": "Instagram",
+            "responsavel": "vendedor2",
+            "etiquetas": [
+              "Quente"
+            ],
+            "oportunidade": {
+              "titulo": "Francês",
+              "etapa": 4,
+              "valor": 2900
+            }
+          },
+          {
+            "nome": "Lucas Ferreira",
+            "telefone": "(11) 91234-0006",
+            "origem": "Site",
+            "responsavel": "vendedor2"
+          },
+          {
+            "nome": "Camila Rocha",
+            "telefone": "(11) 91234-0007",
+            "origem": "Google",
+            "responsavel": "gestora",
+            "oportunidade": {
+              "titulo": "Inglês intensivo 2027",
+              "etapa": 1,
+              "valor": 3600
+            }
+          }
+        ]
+      }
     },
     {
       "nome": "Clínica Bem-Estar (exemplo)",
       "plano": "comercial",
-      "marca": { "corPrimaria": "#0f7a5c", "corDestaque": "#7a3fbf" },
-      "vocabulario": { "contato": "paciente", "oferta": "procedimento", "entrega": "consulta", "prestador": "profissional" },
-      "unidades": ["Matriz"],
-      "equipes": [{ "nome": "Recepção", "unidade": "Matriz", "gestor": "gestor" }],
+      "marca": {
+        "corPrimaria": "#0f7a5c",
+        "corDestaque": "#7a3fbf"
+      },
+      "vocabulario": {
+        "contato": "paciente",
+        "oferta": "procedimento",
+        "entrega": "consulta",
+        "prestador": "profissional"
+      },
+      "unidades": [
+        "Matriz"
+      ],
+      "equipes": [
+        {
+          "nome": "Recepção",
+          "unidade": "Matriz",
+          "gestor": "gestor"
+        }
+      ],
       "pessoas": [
-        { "chave": "dono", "nome": "Roberto Alves", "email": "dono@clinica.example.com", "perfil": "dono", "unidade": "Matriz" },
-        { "chave": "gestor", "nome": "Fernanda Dias", "email": "gestor@clinica.example.com", "perfil": "gestor", "unidade": "Matriz" },
-        { "chave": "atendente", "nome": "Lucas Martins", "email": "atendimento@clinica.example.com", "perfil": "vendedor", "unidade": "Matriz", "equipe": "Recepção" },
-        { "chave": "consultor", "nome": "Paula Ribeiro", "email": "consultoria@example.com", "perfil": "financeiro" }
-      ]
+        {
+          "chave": "dono",
+          "nome": "Roberto Alves",
+          "email": "dono@clinica.example.com",
+          "perfil": "dono",
+          "unidade": "Matriz"
+        },
+        {
+          "chave": "gestor",
+          "nome": "Fernanda Dias",
+          "email": "gestor@clinica.example.com",
+          "perfil": "gestor",
+          "unidade": "Matriz"
+        },
+        {
+          "chave": "atendente",
+          "nome": "Lucas Martins",
+          "email": "atendimento@clinica.example.com",
+          "perfil": "vendedor",
+          "unidade": "Matriz",
+          "equipe": "Recepção"
+        },
+        {
+          "chave": "consultor",
+          "nome": "Paula Ribeiro",
+          "email": "consultoria@example.com",
+          "perfil": "financeiro"
+        }
+      ],
+      "crm": {
+        "etiquetas": [
+          {
+            "nome": "Convênio",
+            "cor": "#1f5fbf"
+          },
+          {
+            "nome": "Retorno",
+            "cor": "#e07a1f"
+          }
+        ],
+        "contatos": [
+          {
+            "nome": "Antônio Mendes",
+            "telefone": "(21) 99876-0001",
+            "origem": "Google",
+            "responsavel": "atendente",
+            "etiquetas": [
+              "Convênio"
+            ],
+            "oportunidade": {
+              "titulo": "Avaliação inicial",
+              "etapa": 1,
+              "valor": 250
+            }
+          },
+          {
+            "nome": "Fernanda Ribeiro",
+            "telefone": "(21) 99876-0002",
+            "origem": "Indicação",
+            "responsavel": "atendente",
+            "oportunidade": {
+              "titulo": "Pacote 10 sessões",
+              "etapa": 2,
+              "valor": 1500
+            }
+          },
+          {
+            "nome": "Gustavo Nunes",
+            "telefone": "(21) 99876-0003",
+            "origem": "Instagram",
+            "responsavel": "gestor",
+            "etiquetas": [
+              "Retorno"
+            ]
+          }
+        ]
+      }
     }
   ]
 }

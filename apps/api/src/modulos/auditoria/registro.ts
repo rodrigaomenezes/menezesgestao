@@ -66,6 +66,8 @@ export async function registrar(
     entidadeId: a.entidadeId,
     responsavelId: a.responsavelId,
     paraUsuarioId: a.paraUsuarioId,
+    contatoId: a.contatoId,
+    silencioso: a.silencioso,
     dados: a.dados,
   });
 }

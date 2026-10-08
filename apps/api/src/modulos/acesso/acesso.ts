@@ -37,6 +37,8 @@ export interface Contexto {
   empresaSlug: string | null;
   fuso: string | null;
   marca: Marca | null;
+  /** Termos da empresa (ex.: contato → aluno). */
+  vocabulario: Record<string, string>;
   plano: string | null;
   modulos: string[];
   vinculoId: string | null;
@@ -86,6 +88,7 @@ interface LinhaContexto {
   slug: string | null;
   fuso: string | null;
   marca: unknown;
+  vocabulario: Record<string, unknown> | null;
   plano: string | null;
   modulos: string[] | null;
   vinculo_id: string | null;
@@ -109,10 +112,17 @@ export function permissoesDeLinhas(linhas: { modulo: string; acao: string; escop
   return resultado;
 }
 
+/** Só pares texto → texto curtos: o vocabulário vem do banco e vai direto para a interface. */
+function lerVocabulario(bruto: Record<string, unknown> | null): Record<string, string> {
+  const r: Record<string, string> = {};
+  for (const [k, v] of Object.entries(bruto ?? {})) if (typeof v === "string" && v.trim() && v.length <= 40) r[k] = v.trim();
+  return r;
+}
+
 async function carregarContexto(banco: Banco, config: Config, token: string): Promise<Contexto | null> {
   const { rows } = await banco.pool.query<LinhaContexto>(
     `SELECT s.id AS sessao_id, s.usuario_id, u.nome, u.email, s.ultimo_uso,
-            e.id AS empresa_id, e.nome AS empresa_nome, e.slug, e.fuso, e.marca, e.plano, e.modulos,
+            e.id AS empresa_id, e.nome AS empresa_nome, e.slug, e.fuso, e.marca, e.vocabulario, e.plano, e.modulos,
             v.id AS vinculo_id, p.id AS perfil_id, p.nome AS perfil_nome, v.unidade_id, v.equipe_id,
             (SELECT json_agg(json_build_object('modulo', pm.modulo, 'acao', pm.acao, 'escopo', pm.escopo))
                FROM permissao pm WHERE pm.perfil_id = p.id) AS permissoes
@@ -141,6 +151,7 @@ async function carregarContexto(banco: Banco, config: Config, token: string): Pr
     empresaSlug: temEmpresa ? l.slug : null,
     fuso: temEmpresa ? l.fuso : null,
     marca: temEmpresa ? lerMarca(l.marca) : null,
+    vocabulario: temEmpresa ? lerVocabulario(l.vocabulario) : {},
     plano: temEmpresa ? l.plano : null,
     modulos: temEmpresa ? (l.modulos ?? []) : [],
     vinculoId: temEmpresa ? l.vinculo_id : null,

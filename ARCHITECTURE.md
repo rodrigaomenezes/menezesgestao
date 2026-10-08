@@ -14,7 +14,7 @@ apps/api (Fastify) ── rotas finas ─► serviços (regras) ─► repositó
         │                                  ├─► registrar(): auditoria + evento (mesma transação)
         │                                  └─► jobs (pg-boss): e-mail cifrado, rotinas agendadas
         ▼
-provedores atrás de interfaces (avisos: demonstração | SMTP; próximos: mensagens, telefonia, arquivos)
+provedores atrás de interfaces (avisos: demonstração | SMTP; arquivos: banco; próximos: mensagens, telefonia)
 ```
 
 Um único serviço no Railway: o Fastify serve a API e o front compilado (`apps/web/dist`).
@@ -37,12 +37,16 @@ apps/api/src
     notificacoes/  sino
     avisos/        interface de e-mail + provedores, com status de saúde
     sistema/       saúde, marca pública, OpenAPI
+    arquivos/      interface ProvedorArquivos (provedor "banco": bytea por empresa, com RLS)
+    crm/           configuração (funis, etapas, etiquetas, motivos, campos), contatos, oportunidades e kanban,
+                   tarefas e notas, importação (planilha → fila crm.importacao), carteira, campos personalizados
   cli/                               criar-empresa, dados-exemplo, caixa-de-saida, migrar
 apps/web/src
   app/        api (cliente), sessão, tema, tempo real, casca (menu, sino, aviso de sem conexão)
   ui/         campos, listas paginadas, modal, confirmação, avisos (toast)
-  features/   acesso, inicio, usuarios, permissoes, empresa, auditoria, notificacoes, conta
-packages/shared/src                 @mg/shared: catálogo, marca, erros, DTOs (Zod), slug, datas
+  features/   acesso, inicio, usuarios, permissoes, empresa, auditoria, notificacoes, conta,
+              crm (contatos, ficha, funil/kanban, tarefas, importar, configurar)
+packages/shared/src                 @mg/shared: catálogo, marca, erros, DTOs (Zod, inclusive dto-crm), slug, datas, telefone
 database/   migrations/ (SQL), seeds/ (JSON fictício), docker/
 tests/      integration/ (Vitest + PostgreSQL real), e2e/ (Playwright, 5 larguras), apoio/
 ```
@@ -65,6 +69,9 @@ tests/      integration/ (Vitest + PostgreSQL real), e2e/ (Playwright, 5 largura
 - Usuário é global (`usuario`); o vínculo liga usuário × empresa × perfil × unidade × equipe.
 - Permissões: `permissao (perfil × módulo × ação × escopo)` com CHECK nos catálogos.
 - `evento` e `auditoria` são somente inserção (gatilhos).
+- CRM: `contato` tem índice único `(empresa_id, telefone)` com telefone em E.164 (CHECK no banco) — a chave de
+  deduplicação. A carteira é `contato.responsavel_id`, filtrada pelo escopo. `evento.contato_id` liga o histórico.
+- Campos personalizados: definição em `campo_personalizado`, valores em `campos jsonb` validados pelo serviço.
 - Sessões e tokens guardam só o HMAC (`SESSION_SECRET`); conteúdo sensível de jobs vai cifrado (`CRM_CHAVE`).
 
 ## Segurança

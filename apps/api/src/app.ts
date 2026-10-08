@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import Fastify, { type FastifyInstance, type FastifyReply } from "fastify";
 import cookie from "@fastify/cookie";
+import multipart from "@fastify/multipart";
 import helmet from "@fastify/helmet";
 import rateLimit from "@fastify/rate-limit";
 import fastifyStatic from "@fastify/static";
@@ -29,6 +30,14 @@ import { rotasPerfis } from "./modulos/permissoes/perfis.rotas.js";
 import { rotasAuditoria } from "./modulos/auditoria/auditoria.rotas.js";
 import { rotasNotificacoes } from "./modulos/notificacoes/notificacoes.rotas.js";
 import { rotasSistema } from "./modulos/sistema/sistema.rotas.js";
+import { provedorArquivosBanco } from "./modulos/arquivos/armazenamento.js";
+import { rotasConfiguracaoCrm } from "./modulos/crm/configuracao.rotas.js";
+import { rotasContatos } from "./modulos/crm/contatos.rotas.js";
+import { rotasOportunidades } from "./modulos/crm/oportunidades.rotas.js";
+import { rotasTarefas } from "./modulos/crm/tarefas.rotas.js";
+import { rotasImportacao } from "./modulos/crm/importacao.rotas.js";
+import { FILA_IMPORTACAO, criarServicoImportacao } from "./modulos/crm/importacao.servico.js";
+import { LIMITE_BYTES } from "./modulos/crm/planilha.js";
 
 z.config(z.locales.pt());
 
@@ -78,6 +87,8 @@ export async function criarApp(servicos: Servicos): Promise<AppMontado> {
   app.setSerializerCompiler(serializerCompiler);
 
   await app.register(cookie);
+  // Upload de arquivos (planilhas) fora do limite de 1 MB do JSON; um arquivo por envio.
+  await app.register(multipart, { limits: { fileSize: LIMITE_BYTES, files: 1, fields: 5, parts: 6 } });
   await app.register(helmet, {
     contentSecurityPolicy: {
       directives: {
@@ -140,6 +151,17 @@ export async function criarApp(servicos: Servicos): Promise<AppMontado> {
   await app.register(rotasPerfis(servicos));
   await app.register(rotasAuditoria(servicos));
   await app.register(rotasNotificacoes(servicos));
+
+  const arquivos = provedorArquivosBanco(servicos.banco);
+  await app.register(rotasConfiguracaoCrm(servicos));
+  await app.register(rotasContatos(servicos));
+  await app.register(rotasOportunidades(servicos));
+  await app.register(rotasTarefas(servicos));
+  await app.register(rotasImportacao(servicos, arquivos));
+
+  // Trabalhadores das filas dos módulos.
+  const importacoes = criarServicoImportacao(servicos, arquivos);
+  await servicos.jobs.trabalhar<{ empresaId: string; importacaoId: string }>(FILA_IMPORTACAO, (d) => importacoes.processar(d.empresaId, d.importacaoId));
 
   // Manifesto do PWA com o nome do produto da configuração (marca por domínio chega na fase 6).
   app.get("/manifest.webmanifest", async (_req, reply) => {

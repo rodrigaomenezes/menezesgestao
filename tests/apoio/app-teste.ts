@@ -137,6 +137,30 @@ export class Cliente {
     return res;
   }
 
+  /** Envia um arquivo em multipart/form-data (campo "arquivo"), como o formulário do navegador. */
+  async enviarArquivo(url: string, nome: string, conteudo: Buffer | string, tipo = "text/csv"): Promise<LightMyRequestResponse> {
+    if (!this.cookies.has("mg_csrf")) this.guardar(await this.app.inject({ method: "GET", url: "/api/health" }));
+    const limite = `----mg${Date.now()}`;
+    const corpo = Buffer.concat([
+      Buffer.from(`--${limite}\r\nContent-Disposition: form-data; name="arquivo"; filename="${nome}"\r\nContent-Type: ${tipo}\r\n\r\n`),
+      Buffer.isBuffer(conteudo) ? conteudo : Buffer.from(conteudo),
+      Buffer.from(`\r\n--${limite}--\r\n`),
+    ]);
+    const res = await this.app.inject({
+      method: "POST",
+      url,
+      headers: {
+        cookie: [...this.cookies].map(([k, v]) => `${k}=${v}`).join("; "),
+        "user-agent": "teste",
+        "x-csrf-token": this.cookies.get("mg_csrf") ?? "",
+        "content-type": `multipart/form-data; boundary=${limite}`,
+      },
+      payload: corpo,
+    });
+    this.guardar(res);
+    return res;
+  }
+
   get(url: string) {
     return this.pedir("GET", url);
   }
