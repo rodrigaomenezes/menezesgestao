@@ -30,6 +30,14 @@ export const MODULO_DA_ENTIDADE: Record<string, Modulo> = {
   ligacao: "telefonia",
   fila: "fila",
   fila_item: "fila",
+  compromisso: "agenda",
+  registro_horas: "agenda",
+  escala: "agenda",
+  fechamento_horas: "agenda",
+  meta: "desempenho",
+  atividade_manual: "mapa",
+  checklist_item: "rotina",
+  script: "scripts",
 };
 
 interface Conexao {

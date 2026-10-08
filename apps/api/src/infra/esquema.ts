@@ -1,5 +1,5 @@
 // Espelho em Drizzle das tabelas criadas em migracoes/*.sql (as migrações SQL são a fonte da verdade).
-import { bigint, boolean, customType, integer, jsonb, pgTable, primaryKey, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { bigint, boolean, customType, date, integer, jsonb, numeric, pgTable, primaryKey, smallint, text, time, timestamp, uuid } from "drizzle-orm/pg-core";
 
 const ts = (nome: string) => timestamp(nome, { withTimezone: true, precision: 3 });
 const criadoEm = () => ts("criado_em").notNull().defaultNow();
@@ -594,4 +594,131 @@ export const ligacaoEvento = pgTable("ligacao_evento", {
   estado: text("estado").notNull(),
   detalhe: text("detalhe"),
   criadoEm: criadoEm(),
+});
+
+// Fase 4 — Operação ----------------------------------------------------------------------------------------
+
+export const compromisso = pgTable("compromisso", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  empresaId: uuid("empresa_id").notNull(),
+  usuarioId: uuid("usuario_id").notNull(),
+  contatoId: uuid("contato_id"),
+  titulo: text("titulo").notNull(),
+  descricao: text("descricao"),
+  local: text("local"),
+  inicio: ts("inicio").notNull(),
+  fim: ts("fim").notNull(),
+  lembreteMinutos: integer("lembrete_minutos"),
+  criadoPor: uuid("criado_por"),
+  criadoEm: criadoEm(),
+  atualizadoEm: atualizadoEm(),
+  arquivadoEm: ts("arquivado_em"),
+});
+
+export const escala = pgTable("escala", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  empresaId: uuid("empresa_id").notNull(),
+  usuarioId: uuid("usuario_id").notNull(),
+  diaSemana: smallint("dia_semana").notNull(),
+  inicio: time("inicio").notNull(),
+  fim: time("fim").notNull(),
+  criadoPor: uuid("criado_por"),
+  criadoEm: criadoEm(),
+  arquivadoEm: ts("arquivado_em"),
+});
+
+export type StatusRegistroHoras = "aberto" | "pendente" | "validado" | "recusado";
+
+export const registroHoras = pgTable("registro_horas", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  empresaId: uuid("empresa_id").notNull(),
+  usuarioId: uuid("usuario_id").notNull(),
+  data: date("data", { mode: "string" }).notNull(),
+  entrada: ts("entrada").notNull(),
+  saida: ts("saida"),
+  observacao: text("observacao"),
+  status: text("status").$type<StatusRegistroHoras>().notNull().default("pendente"),
+  validadoPor: uuid("validado_por"),
+  validadoEm: ts("validado_em"),
+  motivo: text("motivo"),
+  criadoPor: uuid("criado_por"),
+  criadoEm: criadoEm(),
+  atualizadoEm: atualizadoEm(),
+  arquivadoEm: ts("arquivado_em"),
+});
+
+export const fechamentoHoras = pgTable("fechamento_horas", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  empresaId: uuid("empresa_id").notNull(),
+  mes: date("mes", { mode: "string" }).notNull(),
+  fechadoPor: uuid("fechado_por"),
+  fechadoEm: ts("fechado_em").notNull().defaultNow(),
+  reabertoPor: uuid("reaberto_por"),
+  reabertoEm: ts("reaberto_em"),
+  motivoReabertura: text("motivo_reabertura"),
+});
+
+export const atividadeManual = pgTable("atividade_manual", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  empresaId: uuid("empresa_id").notNull(),
+  usuarioId: uuid("usuario_id").notNull(),
+  tipo: text("tipo").notNull(),
+  descricao: text("descricao"),
+  inicio: ts("inicio").notNull(),
+  fim: ts("fim").notNull(),
+  criadoPor: uuid("criado_por"),
+  criadoEm: criadoEm(),
+  atualizadoEm: atualizadoEm(),
+  arquivadoEm: ts("arquivado_em"),
+});
+
+export const meta = pgTable("meta", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  empresaId: uuid("empresa_id").notNull(),
+  alvo: text("alvo").$type<"pessoa" | "equipe" | "empresa">().notNull(),
+  usuarioId: uuid("usuario_id"),
+  equipeId: uuid("equipe_id"),
+  indicador: text("indicador").notNull(),
+  periodo: text("periodo").$type<"dia" | "semana" | "mes">().notNull(),
+  valor: numeric("valor", { precision: 14, scale: 2 }).notNull(),
+  criadoPor: uuid("criado_por"),
+  criadoEm: criadoEm(),
+  atualizadoEm: atualizadoEm(),
+  arquivadoEm: ts("arquivado_em"),
+});
+
+export const checklistItem = pgTable("checklist_item", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  empresaId: uuid("empresa_id").notNull(),
+  perfilId: uuid("perfil_id"),
+  texto: text("texto").notNull(),
+  ordem: integer("ordem").notNull().default(0),
+  criadoEm: criadoEm(),
+  atualizadoEm: atualizadoEm(),
+  arquivadoEm: ts("arquivado_em"),
+});
+
+export const checklistMarcacao = pgTable("checklist_marcacao", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  empresaId: uuid("empresa_id").notNull(),
+  itemId: uuid("item_id").notNull(),
+  usuarioId: uuid("usuario_id").notNull(),
+  data: date("data", { mode: "string" }).notNull(),
+  feito: boolean("feito").notNull(),
+  atualizadoEm: atualizadoEm(),
+});
+
+export const script = pgTable("script", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  empresaId: uuid("empresa_id").notNull(),
+  titulo: text("titulo").notNull(),
+  texto: text("texto").notNull(),
+  uso: text("uso").$type<"todos" | "conversa" | "ligacao">().notNull().default("todos"),
+  funilId: uuid("funil_id"),
+  etapaId: uuid("etapa_id"),
+  ordem: integer("ordem").notNull().default(0),
+  criadoPor: uuid("criado_por"),
+  criadoEm: criadoEm(),
+  atualizadoEm: atualizadoEm(),
+  arquivadoEm: ts("arquivado_em"),
 });

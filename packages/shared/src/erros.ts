@@ -19,6 +19,7 @@ export const CODIGOS_ERRO = [
   "LINK_INVALIDO",
   "PERFIL_PROTEGIDO",
   "ULTIMO_DONO",
+  "PERIODO_FECHADO",
   "ERRO_INTERNO",
 ] as const;
 
