@@ -1,18 +1,53 @@
 import { criarApp } from "./app.js";
+import { criarProvedorAvisos } from "./avisos/avisos.js";
+import { ErroConfig, carregarArquivoEnv, carregarConfig } from "./config.js";
+import { criarBanco } from "./db/banco.js";
+import { migrar } from "./db/migrar.js";
+import { iniciarJobs } from "./jobs/jobs.js";
+import { TempoReal } from "./nucleo/tempo-real.js";
 
-// Falha cedo: em produção o servidor não sobe sem os segredos obrigatórios.
-const OBRIGATORIAS = ["SESSION_SECRET", "CRM_CHAVE", "DATABASE_URL"];
-if (process.env.NODE_ENV === "production") {
-  const faltando = OBRIGATORIAS.filter((v) => !process.env[v]);
-  if (faltando.length) {
-    console.error(`[CONFIG] Defina no ambiente: ${faltando.join(", ")}`);
-    process.exit(1);
+// Falha cedo: sem configuração completa, banco migrado e jobs de pé, o servidor não sobe.
+async function iniciar() {
+  carregarArquivoEnv();
+  let config;
+  try {
+    config = carregarConfig();
+  } catch (err) {
+    if (err instanceof ErroConfig) {
+      console.error(`[CONFIG] ${err.message}`);
+      process.exit(1);
+    }
+    throw err;
   }
+
+  const banco = criarBanco(config.databaseUrl);
+  const aplicadas = await migrar(banco.pool);
+  if (aplicadas.length) console.info(`[banco] migrações aplicadas: ${aplicadas.join(", ")}`);
+
+  const avisos = criarProvedorAvisos(config, banco);
+  if (config.producao && avisos.id === "demonstracao") {
+    console.warn("[avisos] SMTP_URL não definida: e-mails ficam na caixa de demonstração e não chegam a ninguém.");
+  }
+  const jobs = await iniciarJobs(config, avisos);
+  const tempoReal = new TempoReal(banco, config.databaseUrl);
+  await tempoReal.iniciar();
+
+  const { app } = await criarApp({ config, banco, jobs, tempoReal });
+  await app.listen({ port: config.porta, host: "0.0.0.0" });
+
+  const encerrar = async (sinal: string) => {
+    app.log.info(`recebido ${sinal}, encerrando`);
+    await tempoReal.parar();
+    await app.close();
+    await jobs.parar();
+    await banco.pool.end();
+    process.exit(0);
+  };
+  process.once("SIGTERM", () => void encerrar("SIGTERM"));
+  process.once("SIGINT", () => void encerrar("SIGINT"));
 }
 
-const app = criarApp();
-const port = Number(process.env.PORT) || 3000;
-app.listen({ port, host: "0.0.0.0" }).catch((err) => {
-  app.log.error(err);
+iniciar().catch((err) => {
+  console.error("[inicio] o servidor não conseguiu subir:", err);
   process.exit(1);
 });
