@@ -44,12 +44,15 @@ apps/api/src
     arquivos/      interface ProvedorArquivos (provedor "banco": bytea por empresa, com RLS)
     crm/           configuração (funis, etapas, etiquetas, motivos, campos), contatos, oportunidades e kanban,
                    tarefas e notas, importação (planilha → fila crm.importacao), carteira, campos personalizados
+    fila/          filas, lotes, tipos de base, itens com reserva exclusiva (FOR UPDATE SKIP LOCKED), resultados
+    telefonia/     configuração, ramais SIP, ligações (estados), gravação cifrada + link temporário, retenção (job)
   cli/                               criar-empresa, dados-exemplo, caixa-de-saida, migrar
 apps/web/src
   app/        api (cliente), sessão, tema, tempo real, casca (menu, sino, aviso de sem conexão)
   ui/         campos, listas paginadas, modal, confirmação, avisos (toast)
   features/   acesso, inicio, usuarios, permissoes, empresa, auditoria, notificacoes, conta,
-              crm (contatos, ficha, funil/kanban, tarefas, importar, configurar)
+              crm (contatos, ficha, funil/kanban, tarefas, importar, configurar), conversas,
+              telefonia (ProvedorTelefone: treino, celular, SIP/JsSIP; painel da ligação), fila (discador)
 packages/shared/src                 @mg/shared: catálogo, marca, erros, DTOs (Zod, inclusive dto-crm), slug, datas, telefone
 database/   migrations/ (SQL), seeds/ (JSON fictício), docker/
 tests/      integration/ (Vitest + PostgreSQL real), e2e/ (Playwright, 5 larguras), apoio/
@@ -78,6 +81,10 @@ tests/      integration/ (Vitest + PostgreSQL real), e2e/ (Playwright, 5 largura
 - Conversas: `mensagem` tem índice único `(canal_id, id_externo)` — webhook repetido nunca duplica; `conversa` tem
   índice único `(canal_id, telefone)` entre as ativas e `ids_externos text[]` (GIN) com todos os ids do cliente no
   provedor. Duplicadas antigas são juntadas apontando `mesclada_em_id` (nada é apagado).
+- Fila: `fila_item` tem índice único `(fila_id, contato_id)` (o serviço também recusa contato ativo em outra fila)
+  e `ordem` (identidade) para a ordem de chegada. A reserva é `reservado_por` + `reservado_ate` (CHECK: os dois juntos).
+- Ligações: `ligacao` guarda estado, provedor, duração e resultado; `ligacao_evento` é somente inserção.
+  Gravação vai para `arquivo` cifrada com `CRM_CHAVE` e tem `gravacao_expira_em`.
 - Campos personalizados: definição em `campo_personalizado`, valores em `campos jsonb` validados pelo serviço.
 - Sessões e tokens guardam só o HMAC (`SESSION_SECRET`); conteúdo sensível de jobs vai cifrado (`CRM_CHAVE`).
 

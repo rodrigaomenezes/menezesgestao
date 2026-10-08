@@ -7,6 +7,7 @@ import { useDataHora, useEu, useSessao } from "../../app/sessao";
 import { useTempoReal } from "../../app/tempo-real";
 import { useAviso, useConfirmar } from "../../ui/sobreposicoes";
 import { Campo, CarregarMais, Escolha, ListaVazia, Mensagem, Titulo, useEnvio, usePaginado } from "../../ui/ui";
+import { BotaoLigar } from "../telefonia/Telefone";
 import {
   CamposPersonalizados,
   EscolhaEtiquetas,
@@ -320,11 +321,27 @@ const TEXTOS_EVENTO: Record<string, string> = {
   "tarefa.restaurada": "Tarefa restaurada",
   "nota.atualizada": "Nota editada",
   "nota.arquivada": "Nota arquivada",
+  "ligacao.encerrada": "Ligação",
+  "ligacao.resultado": "Resultado da ligação",
+  "fila.resultado_registrado": "Resultado na fila",
+  "fila.lead_reservado": "Pego na fila",
+  "fila.lead_liberado": "Devolvido para a fila",
+  "conversa.atribuida": "Conversa atribuída",
+  "conversa.iniciada": "Conversa iniciada",
+  "conversa.resolvida": "Conversa resolvida",
+  "conversa.aberta": "Conversa reaberta",
+  "mensagem.recebida": "Mensagem recebida",
+  "mensagem.criada": "Mensagem enviada",
 };
 
 function detalheEvento(h: HistoricoDto): string {
   const d = h.dados as Record<string, unknown>;
   if (h.tipo === "oportunidade.etapa_alterada" && d.etapaNova) return `${String(d.titulo ?? "")}: ${String(d.etapaAnterior ?? "—")} → ${String(d.etapaNova)}`;
+  if (h.tipo === "ligacao.encerrada") {
+    const seg = Number(d.duracaoSegundos ?? 0);
+    return d.atendida ? `atendida, ${Math.floor(seg / 60)}min ${String(seg % 60).padStart(2, "0")}s` : `não atendida${d.motivo ? ` (${String(d.motivo)})` : ""}`;
+  }
+  if (h.tipo.startsWith("mensagem.") && typeof d.resumo === "string") return d.resumo;
   if (typeof d.titulo === "string") return d.titulo;
   if (d.importacaoId) return "pela importação de planilha";
   return "";
@@ -333,7 +350,7 @@ function detalheEvento(h: HistoricoDto): string {
 function Historico({ contatoId }: { contatoId: string }) {
   const dataHora = useDataHora();
   const lista = usePaginado<HistoricoDto>(`/contatos/${contatoId}/historico?limite=30`);
-  useTempoReal(["contato.", "oportunidade.", "tarefa.", "nota."], () => void lista.recarregar());
+  useTempoReal(["contato.", "oportunidade.", "tarefa.", "nota.", "ligacao.", "fila.", "mensagem.", "conversa."], () => void lista.recarregar());
   return (
     <section className="cartao" aria-labelledby="titulo-historico">
       <h2 id="titulo-historico">Histórico</h2>
@@ -458,9 +475,11 @@ export function Contato() {
         <div className="contato-resumo">
           {contato.telefone && (
             <div className="acoes-contato">
-              <a className="botao" href={`tel:${contato.telefone}`}>
-                Ligar {formatarTelefone(contato.telefone)}
-              </a>
+              {contato.naoContatar ? (
+                <span className="item-detalhe">{formatarTelefone(contato.telefone)}</span>
+              ) : (
+                <BotaoLigar alvo={{ contatoId: contato.id, nome: contato.nome, numero: contato.telefone }} rotulo={`Ligar ${formatarTelefone(contato.telefone)}`} />
+              )}
               {!contato.naoContatar && <ConversarNoCanal contatoId={contato.id} telefone={contato.telefone} />}
             </div>
           )}

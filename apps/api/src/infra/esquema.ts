@@ -346,6 +346,7 @@ export const importacao = pgTable("importacao", {
   criadoEm: criadoEm(),
   atualizadoEm: atualizadoEm(),
   concluidaEm: ts("concluida_em"),
+  filaId: uuid("fila_id"),
 });
 
 // Conversas (fase 2) -------------------------------------------------------------------------------
@@ -459,4 +460,138 @@ export const automacao = pgTable("automacao", {
   criadoPor: uuid("criado_por"),
   criadoEm: criadoEm(),
   atualizadoEm: atualizadoEm(),
+});
+
+// Ligações e fila (fase 3) ---------------------------------------------------------------------------
+
+export const telefoniaConfig = pgTable("telefonia_config", {
+  empresaId: uuid("empresa_id").primaryKey(),
+  sipServidor: text("sip_servidor"),
+  sipDominio: text("sip_dominio"),
+  gravacaoAtiva: boolean("gravacao_ativa").notNull().default(false),
+  avisoGravacao: text("aviso_gravacao").notNull(),
+  retencaoDias: integer("retencao_dias").notNull().default(90),
+  atualizadoEm: atualizadoEm(),
+});
+
+export const ramal = pgTable("ramal", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  empresaId: uuid("empresa_id").notNull(),
+  usuarioId: uuid("usuario_id").notNull(),
+  login: text("login").notNull(),
+  senha: text("senha").notNull(),
+  ativo: boolean("ativo").notNull().default(true),
+  criadoEm: criadoEm(),
+  atualizadoEm: atualizadoEm(),
+});
+
+export type AcaoResultado = "nenhuma" | "reagendar" | "encerrar" | "descartar" | "converter";
+
+export const resultadoLigacao = pgTable("resultado_ligacao", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  empresaId: uuid("empresa_id").notNull(),
+  nome: text("nome").notNull(),
+  acao: text("acao").$type<AcaoResultado>().notNull(),
+  horas: integer("horas"),
+  atendida: boolean("atendida").notNull().default(false),
+  ordem: integer("ordem").notNull().default(0),
+  criadoEm: criadoEm(),
+  atualizadoEm: atualizadoEm(),
+  arquivadoEm: ts("arquivado_em"),
+});
+
+export const tipoBase = pgTable("tipo_base", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  empresaId: uuid("empresa_id").notNull(),
+  nome: text("nome").notNull(),
+  criadoEm: criadoEm(),
+  arquivadoEm: ts("arquivado_em"),
+});
+
+export type StatusFila = "ativa" | "pausada" | "encerrada";
+
+export const fila = pgTable("fila", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  empresaId: uuid("empresa_id").notNull(),
+  nome: text("nome").notNull(),
+  tipoBaseId: uuid("tipo_base_id"),
+  status: text("status").$type<StatusFila>().notNull().default("ativa"),
+  funilId: uuid("funil_id"),
+  etapaId: uuid("etapa_id"),
+  reservaMinutos: integer("reserva_minutos").notNull().default(15),
+  maxTentativas: integer("max_tentativas").notNull().default(5),
+  criadoPor: uuid("criado_por"),
+  criadoEm: criadoEm(),
+  atualizadoEm: atualizadoEm(),
+  arquivadoEm: ts("arquivado_em"),
+});
+
+export const filaLote = pgTable("fila_lote", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  empresaId: uuid("empresa_id").notNull(),
+  filaId: uuid("fila_id").notNull(),
+  importacaoId: uuid("importacao_id"),
+  novos: integer("novos").notNull().default(0),
+  atualizados: integer("atualizados").notNull().default(0),
+  emOutraFila: integer("em_outra_fila").notNull().default(0),
+  jaLigados: integer("ja_ligados").notNull().default(0),
+  ignorados: integer("ignorados").notNull().default(0),
+  criadoEm: criadoEm(),
+});
+
+export type StatusItemFila = "pendente" | "reservado" | "concluido" | "descartado";
+
+export const filaItem = pgTable("fila_item", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  empresaId: uuid("empresa_id").notNull(),
+  filaId: uuid("fila_id").notNull(),
+  contatoId: uuid("contato_id").notNull(),
+  loteId: uuid("lote_id"),
+  prioridade: integer("prioridade").notNull().default(0),
+  ordem: bigint("ordem", { mode: "number" }).generatedAlwaysAsIdentity(),
+  status: text("status").$type<StatusItemFila>().notNull().default("pendente"),
+  reservadoPor: uuid("reservado_por"),
+  reservadoAte: ts("reservado_ate"),
+  tentativas: integer("tentativas").notNull().default(0),
+  ultimoResultadoId: uuid("ultimo_resultado_id"),
+  retornarEm: ts("retornar_em"),
+  criadoEm: criadoEm(),
+  atualizadoEm: atualizadoEm(),
+});
+
+export type ProvedorTelefone = "treino" | "celular" | "sip";
+export type EstadoLigacao = "criada" | "discando" | "tocando" | "em_ligacao" | "em_espera" | "encerrada";
+
+export const ligacao = pgTable("ligacao", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  empresaId: uuid("empresa_id").notNull(),
+  usuarioId: uuid("usuario_id").notNull(),
+  contatoId: uuid("contato_id"),
+  oportunidadeId: uuid("oportunidade_id"),
+  filaItemId: uuid("fila_item_id"),
+  provedor: text("provedor").$type<ProvedorTelefone>().notNull(),
+  direcao: text("direcao").$type<"saida" | "entrada">().notNull().default("saida"),
+  numero: text("numero").notNull(),
+  estado: text("estado").$type<EstadoLigacao>().notNull().default("criada"),
+  idExterno: text("id_externo"),
+  iniciadaEm: ts("iniciada_em").notNull().defaultNow(),
+  atendidaEm: ts("atendida_em"),
+  encerradaEm: ts("encerrada_em"),
+  duracaoSegundos: integer("duracao_segundos"),
+  motivoFim: text("motivo_fim"),
+  resultadoId: uuid("resultado_id"),
+  observacao: text("observacao"),
+  gravacaoArquivoId: uuid("gravacao_arquivo_id"),
+  gravacaoExpiraEm: ts("gravacao_expira_em"),
+  criadoEm: criadoEm(),
+  atualizadoEm: atualizadoEm(),
+});
+
+export const ligacaoEvento = pgTable("ligacao_evento", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  empresaId: uuid("empresa_id").notNull(),
+  ligacaoId: uuid("ligacao_id").notNull(),
+  estado: text("estado").notNull(),
+  detalhe: text("detalhe"),
+  criadoEm: criadoEm(),
 });

@@ -1,8 +1,8 @@
 // Lista de contatos da carteira: busca, filtro por etiqueta e responsável, lixeira e ações em massa.
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import type { ContatoDto } from "@mg/shared";
-import { post, query } from "../../app/api";
+import type { ContatoDto, ResultadoAdicionarDto } from "@mg/shared";
+import { get, post, query } from "../../app/api";
 import { useSessao } from "../../app/sessao";
 import { useTempoReal } from "../../app/tempo-real";
 import { useAviso, useConfirmar } from "../../ui/sobreposicoes";
@@ -66,7 +66,24 @@ function AcoesEmMassa({ ids, config, arquivados, aoConcluir }: { ids: string[]; 
   const confirmar = useConfirmar();
   const [acao, setAcao] = useState("");
   const [alvo, setAlvo] = useState("");
+  const [filas, setFilas] = useState<{ id: string; nome: string; status: string }[]>([]);
+  const podeFila = pode("fila", "criar") && !arquivados;
+  useEffect(() => {
+    if (podeFila) get<{ id: string; nome: string; status: string }[]>("/filas").then((l) => setFilas(l.filter((f) => f.status !== "encerrada")), () => undefined);
+  }, [podeFila]);
   const { enviando, erro, enviar } = useEnvio(async () => {
+    if (acao === "fila") {
+      const r = await post<ResultadoAdicionarDto>(`/filas/${alvo}/itens`, { contatoIds: ids });
+      const partes = [`${r.adicionados} na fila`];
+      if (r.jaNaFila) partes.push(`${r.jaNaFila} já estavam nela`);
+      if (r.emOutraFila) partes.push(`${r.emOutraFila} em outra fila`);
+      if (r.semTelefone) partes.push(`${r.semTelefone} sem telefone`);
+      avisar(`${partes.join(", ")}.`);
+      setAcao("");
+      setAlvo("");
+      aoConcluir();
+      return;
+    }
     if (acao === "arquivar" && !(await confirmar({ titulo: "Arquivar", mensagem: `Arquivar ${ids.length} registro(s)? Eles vão para a lixeira e podem ser restaurados.`, acao: "Arquivar", perigosa: true }))) return;
     const r = await post<{ afetados: number; ignorados: number }>("/contatos/acoes", {
       ids,
@@ -87,9 +104,10 @@ function AcoesEmMassa({ ids, config, arquivados, aoConcluir }: { ids: string[]; 
           ...(config.etiquetas.length ? [{ valor: "etiquetar", texto: "Pôr etiqueta" }, { valor: "desetiquetar", texto: "Tirar etiqueta" }] : []),
         ]
       : []),
+    ...(podeFila && filas.length ? [{ valor: "fila", texto: "Pôr na fila de ligação…" }] : []),
     ...(pode("crm", "arquivar") ? [arquivados ? { valor: "restaurar", texto: "Restaurar" } : { valor: "arquivar", texto: "Arquivar" }] : []),
   ];
-  const precisaAlvo = acao === "transferir" || acao === "etiquetar" || acao === "desetiquetar";
+  const precisaAlvo = acao === "transferir" || acao === "etiquetar" || acao === "desetiquetar" || acao === "fila";
 
   return (
     <form className="barra-massa" onSubmit={enviar} aria-label="Ações com os marcados">
@@ -97,6 +115,9 @@ function AcoesEmMassa({ ids, config, arquivados, aoConcluir }: { ids: string[]; 
       <Escolha rotulo="Ação" nome="massa-acao" valor={acao} aoMudar={(v) => (setAcao(v), setAlvo(""))} opcoes={opcoes} vazio="Escolha…" obrigatorio />
       {acao === "transferir" && (
         <Escolha rotulo="Para" nome="massa-responsavel" valor={alvo} aoMudar={setAlvo} opcoes={config.responsaveis.map((r) => ({ valor: r.id, texto: r.nome }))} vazio="Escolha…" obrigatorio />
+      )}
+      {acao === "fila" && (
+        <Escolha rotulo="Fila" nome="massa-fila" valor={alvo} aoMudar={setAlvo} opcoes={filas.map((f) => ({ valor: f.id, texto: f.nome }))} vazio="Escolha…" obrigatorio />
       )}
       {(acao === "etiquetar" || acao === "desetiquetar") && (
         <Escolha rotulo="Etiqueta" nome="massa-etiqueta" valor={alvo} aoMudar={setAlvo} opcoes={config.etiquetas.map((e) => ({ valor: e.id, texto: e.nome }))} vazio="Escolha…" obrigatorio />

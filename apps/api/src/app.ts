@@ -39,6 +39,8 @@ import { rotasImportacao } from "./modulos/crm/importacao.rotas.js";
 import { FILA_IMPORTACAO, criarServicoImportacao } from "./modulos/crm/importacao.servico.js";
 import { LIMITE_BYTES } from "./modulos/crm/planilha.js";
 import { montarConversas } from "./modulos/conversas/modulo.js";
+import { rotasFila } from "./modulos/fila/fila.rotas.js";
+import { criarServicoTelefonia, rotasTelefonia } from "./modulos/telefonia/telefonia.rotas.js";
 
 z.config(z.locales.pt());
 
@@ -97,7 +99,9 @@ export async function criarApp(servicos: Servicos): Promise<AppMontado> {
         scriptSrc: ["'self'"],
         styleSrc: ["'self'"],
         imgSrc: ["'self'", "data:"],
-        connectSrc: ["'self'"],
+        // wss: servidor SIP da empresa (telefone pelo navegador); o endereço é configurado por empresa.
+        connectSrc: ["'self'", "wss:"],
+        mediaSrc: ["'self'", "blob:"],
         manifestSrc: ["'self'"],
         workerSrc: ["'self'"],
         objectSrc: ["'none'"],
@@ -161,6 +165,14 @@ export async function criarApp(servicos: Servicos): Promise<AppMontado> {
   await app.register(rotasImportacao(servicos, arquivos));
 
   await montarConversas(app, servicos, arquivos);
+  await app.register(rotasFila(servicos));
+  await app.register(rotasTelefonia(servicos, arquivos));
+  // Retenção das gravações (LGPD): todo dia apaga o conteúdo das vencidas.
+  const telefonia = criarServicoTelefonia(servicos, arquivos);
+  await servicos.jobs.trabalhar("telefonia.retencao", async () => {
+    await telefonia.aplicarRetencao();
+  });
+  await servicos.jobs.agendar("telefonia.retencao", "23 4 * * *");
 
   // Trabalhadores das filas dos módulos.
   const importacoes = criarServicoImportacao(servicos, arquivos);

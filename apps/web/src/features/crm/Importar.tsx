@@ -1,9 +1,9 @@
 // Importação de planilha em passos: enviar → conferir colunas → importar em segundo plano → relatório.
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { DESTINOS_FIXOS, NOMES_DESTINOS, type ImportacaoDto } from "@mg/shared";
+import { DESTINOS_FIXOS, NOMES_DESTINOS, type FilaDto, type ImportacaoDto, type TipoBaseDto } from "@mg/shared";
 import { ErroApi, enviarArquivo, get, post } from "../../app/api";
-import { useDataHora } from "../../app/sessao";
+import { useDataHora, useSessao } from "../../app/sessao";
 import { useTempoReal } from "../../app/tempo-real";
 import { Campo, CarregarMais, Escolha, ListaVazia, Mensagem, Titulo, useEnvio, usePaginado } from "../../ui/ui";
 import { EscolhaEtiquetas, useConfigCrm, useTermos } from "./comum";
@@ -74,9 +74,27 @@ function Mapear({ imp, aoConfirmar }: { imp: ImportacaoDto; aoConfirmar(i: Impor
   const [etiquetaIds, setEtiquetaIds] = useState<string[]>([]);
   const [origem, setOrigem] = useState("");
   const [atualizar, setAtualizar] = useState(true);
+  // Fase 3: alimentar uma fila de ligação com os contatos importados.
+  const { pode } = useSessao();
+  const podeFila = pode("fila", "criar");
+  const podeCriarFila = pode("fila", "administrar");
+  const [filas, setFilas] = useState<FilaDto[]>([]);
+  const [tipos, setTipos] = useState<TipoBaseDto[]>([]);
+  const [destinoFila, setDestinoFila] = useState("");
+  const [nomeFila, setNomeFila] = useState("");
+  const [tipoBaseId, setTipoBaseId] = useState("");
+  useEffect(() => {
+    if (!podeFila) return;
+    get<FilaDto[]>("/filas").then((l) => setFilas(l.filter((f) => f.status !== "encerrada")), () => undefined);
+    get<TipoBaseDto[]>("/tipos-base").then((l) => setTipos(l.filter((t) => !t.arquivadoEm)), () => undefined);
+  }, [podeFila]);
   const { enviando, erro, enviar } = useEnvio(async () => {
     const mapeamento = Object.fromEntries(Object.entries(mapa).filter(([, coluna]) => coluna));
-    aoConfirmar(await post<ImportacaoDto>(`/importacoes/${imp.id}/confirmar`, { mapeamento, responsavelId: responsavelId || null, etiquetaIds, origem: origem || null, atualizarExistentes: atualizar }));
+    const fila =
+      destinoFila === "nova" ? { novaFila: { nome: nomeFila, tipoBaseId: tipoBaseId || null } } : destinoFila ? { filaId: destinoFila } : {};
+    aoConfirmar(
+      await post<ImportacaoDto>(`/importacoes/${imp.id}/confirmar`, { mapeamento, responsavelId: responsavelId || null, etiquetaIds, origem: origem || null, atualizarExistentes: atualizar, ...fila }),
+    );
   });
 
   return (
@@ -133,6 +151,24 @@ function Mapear({ imp, aoConfirmar }: { imp: ImportacaoDto; aoConfirmar(i: Impor
         <input type="checkbox" checked={atualizar} onChange={(e) => setAtualizar(e.target.checked)} />
         Atualizar nome, e-mail e campos de quem já está cadastrado (o telefone identifica a pessoa)
       </label>
+      {podeFila && (
+        <div className="grade-campos">
+          <Escolha
+            rotulo="Pôr os contatos numa fila de ligação"
+            nome="imp-fila"
+            valor={destinoFila}
+            aoMudar={setDestinoFila}
+            opcoes={[...filas.map((f) => ({ valor: f.id, texto: f.nome })), ...(podeCriarFila ? [{ valor: "nova", texto: "Criar uma fila nova…" }] : [])]}
+            vazio="Não pôr em fila"
+          />
+          {destinoFila === "nova" && (
+            <>
+              <Campo rotulo="Nome da nova fila" nome="imp-fila-nome" valor={nomeFila} aoMudar={setNomeFila} obrigatorio />
+              <Escolha rotulo="Tipo de base" nome="imp-fila-tipo" valor={tipoBaseId} aoMudar={setTipoBaseId} opcoes={tipos.map((t) => ({ valor: t.id, texto: t.nome }))} vazio="Sem tipo" />
+            </>
+          )}
+        </div>
+      )}
       <Mensagem tipo="erro">{erro}</Mensagem>
       <button type="submit" className="botao" disabled={enviando}>
         {enviando ? "Confirmando…" : `Importar ${imp.totalLinhas.toLocaleString("pt-BR")} linha(s)`}
@@ -185,6 +221,29 @@ function Relatorio({ id }: { id: string }) {
             <dd>{imp.ignorados}</dd>
           </div>
         </dl>
+      )}
+      {imp.fila && !andamento && (
+        <>
+          <h3>Fila “{imp.fila.nome}”</h3>
+          <dl className="numeros">
+            <div>
+              <dt>Novos na fila</dt>
+              <dd>{imp.fila.novos}</dd>
+            </div>
+            <div>
+              <dt>Já cadastrados</dt>
+              <dd>{imp.fila.atualizados}</dd>
+            </div>
+            <div>
+              <dt>Já em outra fila</dt>
+              <dd>{imp.fila.emOutraFila}</dd>
+            </div>
+            <div>
+              <dt>Já ligados antes</dt>
+              <dd>{imp.fila.jaLigados}</dd>
+            </div>
+          </dl>
+        </>
       )}
       {imp.erros.length > 0 && (
         <>

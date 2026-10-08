@@ -18,6 +18,7 @@ import type { Tx } from "../../infra/banco.js";
 import { auditar, type Origem } from "../auditoria/registro.js";
 import { gravarPermissoes, inserirPerfil } from "../permissoes/permissoes.repositorio.js";
 import { criarFunilPadrao } from "../crm/configuracao.servico.js";
+import { criarListasTelefonia } from "../fila/listas.js";
 
 export interface NovaEmpresa {
   nome: string;
@@ -80,6 +81,7 @@ export async function criarEmpresa(tx: Tx, origem: Omit<Origem, "empresaId">, da
   const unidadeId = randomUUID();
   await tx.db.insert(unidade).values({ id: unidadeId, empresaId, nome: dados.nomeUnidade ?? "Principal", criadoPor: origem.atorId });
   await criarFunilPadrao(tx, empresaId);
+  await criarListasTelefonia(tx, empresaId);
 
   await auditar(tx, { ...origem, empresaId }, {
     acao: "empresa.criada",

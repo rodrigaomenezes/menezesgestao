@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { cifrar, decifrar, hashToken, novoToken } from "./cripto.js";
+import { cifrar, cifrarBytes, decifrar, decifrarBytes, hashToken, novoToken } from "./cripto.js";
 import { conferirSenha, gerarHashSenha, minutosDeBloqueio } from "./senha.js";
 
 describe("criptografia AES-256-GCM", () => {
@@ -11,6 +11,16 @@ describe("criptografia AES-256-GCM", () => {
     expect(valor).not.toContain("credencial");
     expect(decifrar(chave, valor)).toBe("credencial secreta");
     expect(cifrar(chave, "x")).not.toBe(cifrar(chave, "x"));
+  });
+
+  it("cifra arquivos em binário e detecta adulteração", () => {
+    const audio = randomBytes(5000);
+    const cifrado = cifrarBytes(chave, audio);
+    expect(cifrado.includes(audio.subarray(0, 64))).toBe(false);
+    expect(decifrarBytes(chave, cifrado).equals(audio)).toBe(true);
+    cifrado[cifrado.length - 1] ^= 1;
+    expect(() => decifrarBytes(chave, cifrado)).toThrow();
+    expect(() => decifrarBytes(randomBytes(32), cifrarBytes(chave, audio))).toThrow();
   });
 
   it("detecta adulteração e chave errada", () => {

@@ -5,6 +5,7 @@ import type { Acao, Modulo } from "@mg/shared";
 import { get } from "./api";
 import { useEu, useSessao } from "./sessao";
 import { conectarTempoReal, useTempoReal } from "./tempo-real";
+import { ProvedorTelefoneSistema } from "../features/telefonia/Telefone";
 
 interface ItemMenu {
   para: string;
@@ -21,10 +22,13 @@ const MENU: ItemMenu[] = [
   { para: "/conversas", texto: "Conversas", exige: ["conversas", "ver"] },
   { para: "/contatos", texto: (t) => maiuscula(plural(t.contato ?? "contato")), exige: ["crm", "ver"] },
   { para: "/funil", texto: "Funil", exige: ["crm", "ver"] },
+  { para: "/filas", texto: "Fila de ligações", exige: ["fila", "ver"] },
+  { para: "/ligacoes", texto: "Ligações", exige: ["telefonia", "ver"] },
   { para: "/tarefas", texto: "Tarefas", exige: ["crm", "ver"] },
   { para: "/importar", texto: "Importar planilha", exige: ["crm", "criar"] },
   { para: "/crm/configuracoes", texto: "Configurar CRM", exige: ["crm", "administrar"] },
   { para: "/conversas/canais", texto: "Canais e automações", exige: ["conversas", "administrar"] },
+  { para: "/telefonia/configuracoes", texto: "Configurar telefonia", exige: ["telefonia", "administrar"] },
   { para: "/usuarios", texto: "Usuários", exige: ["usuarios", "ver"] },
   { para: "/equipes", texto: "Equipes", exige: ["usuarios", "ver"] },
   { para: "/perfis", texto: "Perfis e permissões", exige: ["usuarios", "ver"] },
@@ -86,66 +90,68 @@ export function Casca({ children }: { children: ReactNode }) {
   const itens = MENU.filter((i) => !i.exige || pode(...i.exige));
 
   return (
-    <div className="casca">
-      <header className="topo">
-        <button
-          type="button"
-          className="botao-menu"
-          aria-expanded={menuAberto}
-          aria-controls="menu-principal"
-          onClick={() => setMenuAberto((v) => !v)}
-        >
-          <span className="sr-only">Abrir menu</span>
-          <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
-            <path fill="currentColor" d="M3 6h18v2H3V6Zm0 5h18v2H3v-2Zm0 5h18v2H3v-2Z" />
-          </svg>
-        </button>
-        <Link to="/" className="marca">
-          {eu.marca.nomeProduto}
-        </Link>
-        <Sino />
-      </header>
+    <ProvedorTelefoneSistema>
+      <div className="casca">
+        <header className="topo">
+          <button
+            type="button"
+            className="botao-menu"
+            aria-expanded={menuAberto}
+            aria-controls="menu-principal"
+            onClick={() => setMenuAberto((v) => !v)}
+          >
+            <span className="sr-only">Abrir menu</span>
+            <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
+              <path fill="currentColor" d="M3 6h18v2H3V6Zm0 5h18v2H3v-2Zm0 5h18v2H3v-2Z" />
+            </svg>
+          </button>
+          <Link to="/" className="marca">
+            {eu.marca.nomeProduto}
+          </Link>
+          <Sino />
+        </header>
 
-      <nav id="menu-principal" className={`menu ${menuAberto ? "aberto" : ""}`} aria-label="Menu principal">
-        <div className="menu-pessoa">
-          <strong>{eu.usuario.nome}</strong>
-          <span>{eu.perfil?.nome}</span>
-        </div>
-        {eu.empresas.length > 1 && (
-          <div className="campo">
-            <label htmlFor="trocar-empresa">Empresa</label>
-            <select id="trocar-empresa" value={eu.empresa?.id ?? ""} onChange={(e) => void trocarEmpresa(e.target.value)}>
-              {eu.empresas.map((e) => (
-                <option key={e.id} value={e.id}>
-                  {e.nome}
-                </option>
-              ))}
-            </select>
+        <nav id="menu-principal" className={`menu ${menuAberto ? "aberto" : ""}`} aria-label="Menu principal">
+          <div className="menu-pessoa">
+            <strong>{eu.usuario.nome}</strong>
+            <span>{eu.perfil?.nome}</span>
           </div>
-        )}
-        <ul>
-          {itens.map((i) => (
-            <li key={i.para}>
-              <NavLink to={i.para} end={i.para === "/"}>
-                {typeof i.texto === "string" ? i.texto : i.texto(eu.empresa?.vocabulario ?? {})}
-              </NavLink>
-            </li>
-          ))}
-        </ul>
-        <button type="button" className="botao botao-secundario botao-largo" onClick={() => void sair()}>
-          Sair
-        </button>
-      </nav>
-      {menuAberto && <div className="menu-fundo" onClick={() => setMenuAberto(false)} aria-hidden="true" />}
+          {eu.empresas.length > 1 && (
+            <div className="campo">
+              <label htmlFor="trocar-empresa">Empresa</label>
+              <select id="trocar-empresa" value={eu.empresa?.id ?? ""} onChange={(e) => void trocarEmpresa(e.target.value)}>
+                {eu.empresas.map((e) => (
+                  <option key={e.id} value={e.id}>
+                    {e.nome}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          <ul>
+            {itens.map((i) => (
+              <li key={i.para}>
+                <NavLink to={i.para} end={i.para === "/"}>
+                  {typeof i.texto === "string" ? i.texto : i.texto(eu.empresa?.vocabulario ?? {})}
+                </NavLink>
+              </li>
+            ))}
+          </ul>
+          <button type="button" className="botao botao-secundario botao-largo" onClick={() => void sair()}>
+            Sair
+          </button>
+        </nav>
+        {menuAberto && <div className="menu-fundo" onClick={() => setMenuAberto(false)} aria-hidden="true" />}
 
-      <main className="conteudo">
-        {!conectado && (
-          <p className="mensagem mensagem-erro" role="alert">
-            Sem conexão com a internet. O que você fizer agora não será salvo até a conexão voltar.
-          </p>
-        )}
-        {children}
-      </main>
-    </div>
+        <main className="conteudo">
+          {!conectado && (
+            <p className="mensagem mensagem-erro" role="alert">
+              Sem conexão com a internet. O que você fizer agora não será salvo até a conexão voltar.
+            </p>
+          )}
+          {children}
+        </main>
+      </div>
+    </ProvedorTelefoneSistema>
   );
 }

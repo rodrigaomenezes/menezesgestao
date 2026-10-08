@@ -59,6 +59,25 @@ Menu **Conversas** (caixa de entrada) e **Canais e automações** (administrador
 A resposta do cliente cai sempre na mesma conversa (id do provedor, telefone com e sem nono dígito, contato) e
 webhook repetido não duplica nada. Conversa sem dono fica na fila de todos que atendem; quem responde assume.
 
+### Ligações e fila (fase 3)
+
+Menu **Fila de ligações**, **Ligações** e **Configurar telefonia** (administrador). Formas de ligar (campo
+"Ligar por"):
+
+| Forma | Para quê | Como funciona |
+| --- | --- | --- |
+| Treino | Aprender sem gastar ligação | O painel simula atender, não atender e desligar |
+| Celular do vendedor | Começar sem PABX | Abre o discador do celular; ao voltar, a pessoa informa se atendeu e quanto durou |
+| Ramal SIP | PABX/operadora com WebRTC | Administrador cadastra o servidor `wss://`, o domínio e o ramal de cada pessoa (senha cifrada) |
+
+- Fila: **Pegar o próximo** reserva o contato só para você (por alguns minutos; 20 pessoas ao mesmo tempo nunca
+  pegam o mesmo). O resultado decide o que acontece: reagendar, encerrar, descartar ou converter (cria a
+  oportunidade no funil da fila). Contato com "não contatar" ou fora da sua carteira não aparece.
+- Planilha importada ou contatos selecionados podem ir direto para uma fila; quem já está em outra fila ou já foi
+  ligado aparece no relatório.
+- Gravação (quando ativada): guardada cifrada, ouvida por link de 5 minutos, cada acesso fica na auditoria e o
+  conteúdo é apagado depois do prazo de retenção configurado.
+
 ## Testes
 
 ```bash

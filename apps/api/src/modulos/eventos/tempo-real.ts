@@ -27,6 +27,9 @@ export const MODULO_DA_ENTIDADE: Record<string, Modulo> = {
   campo_personalizado: "crm",
   canal: "conversas",
   conversa: "conversas",
+  ligacao: "telefonia",
+  fila: "fila",
+  fila_item: "fila",
 };
 
 interface Conexao {

@@ -318,6 +318,10 @@ export const ImportacaoDto = z.object({
   erros: z.array(z.object({ linha: z.number().int(), motivo: z.string() })),
   criadoEm: DataIso,
   concluidaEm: DataIso.nullable(),
+  /** Relatório da fila alimentada por esta importação (fase 3). */
+  fila: z
+    .object({ id: Id, nome: z.string(), novos: z.number().int(), atualizados: z.number().int(), emOutraFila: z.number().int(), jaLigados: z.number().int() })
+    .nullable(),
 });
 export type ImportacaoDto = z.infer<typeof ImportacaoDto>;
 
@@ -330,4 +334,7 @@ export const ConfirmarImportacaoEntrada = z.object({
   etiquetaIds: z.array(Id).max(10).default([]),
   origem: opcional(z.string().trim().max(80)),
   atualizarExistentes: z.boolean().default(true),
+  /** Fase 3: alimentar uma fila existente ou criar uma nova com os contatos importados. */
+  filaId: IdOpcional,
+  novaFila: z.object({ nome: z.string().trim().min(1).max(80), tipoBaseId: IdOpcional }).nullish(),
 });
