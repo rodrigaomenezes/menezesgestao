@@ -24,4 +24,8 @@ histórico do git.
 | 17 | Mídia de conversas fica no PostgreSQL (limite de 16 MB por arquivo) | MÉDIA | `modulos/arquivos` | Provedor S3/R2 (o mesmo do item 9) |
 | 18 | Cliente que chega só com LID (sem telefone) gera contato sem telefone; a conversa é juntada depois, o contato não | BAIXA | `conversas/entrada.servico.ts` | Junção de contatos quando o telefone aparecer |
 | 19 | Listas de respostas rápidas e canais limitadas a 500/100 itens, sem paginação | BAIXA | `conversas/*.rotas.ts` | Paginar se alguma empresa passar disso |
+| 20 | Ramal SIP sem prefixo de discagem configurável (o número vai em E.164 sem o "+") | BAIXA | `apps/web/src/features/telefonia/sip.ts` | Campo de prefixo/formato na configuração de telefonia |
+| 21 | A escolha "Ligar por" vale só enquanto a tela está aberta (não é salva) | BAIXA | `apps/web/src/features/telefonia/Telefone.tsx` | Guardar a preferência no perfil da pessoa, no servidor |
+| 22 | Gravação de ligação SIP não é feita no navegador (só recebe upload) | MÉDIA | `modulos/telefonia` | Gravar o áudio da sessão WebRTC ou buscar no PABX por webhook |
+| 23 | Ligação que fica aberta (navegador fechado no meio) não é encerrada sozinha | BAIXA | `modulos/telefonia` | Job que encerra ligações sem mudança há mais de 4 h |
 

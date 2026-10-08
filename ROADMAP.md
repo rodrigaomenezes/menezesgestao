@@ -13,7 +13,10 @@ Detalhes e critérios de pronto de cada fase: `ESPECIFICACAO.md` ("Roteiro de co
 - [x] Fase 2 — Conversas (canais demonstração, API oficial e QR; caixa de entrada por pessoa/equipe com atribuição
       e status; texto, mídia e áudio gravado no navegador com velocidade; notas internas; respostas rápidas com
       variáveis; boas-vindas, fora do horário e follow-up; deduplicação em cascata; junção de duplicadas)
-- [ ] Fase 3 — Ligações e fila
+- [x] Fase 3 — Ligações e fila (telefone no navegador: treino, celular do vendedor e ramal SIP; ligações com
+      estados, resultados configuráveis e histórico automático; gravação cifrada com link temporário e retenção;
+      filas com reserva exclusiva, ordem de chegada, pausa e escopo de carteira; importação e ação em massa
+      alimentam a fila; conversão para o funil)
 - [ ] Fase 4 — Operação
 - [ ] Fase 5 — Receita e qualidade
 - [ ] Fase 6 — White-label
@@ -27,6 +30,7 @@ Detalhes e critérios de pronto de cada fase: `ESPECIFICACAO.md` ("Roteiro de co
 
 ## Ficou para fases seguintes
 
+- Telefonia: prefixo de discagem por empresa, URA/fila receptiva, preferência de "Ligar por" salva no servidor.
 - Mensagens modelo (templates) da API oficial para falar fora da janela de 24 h; mídia em S3/R2.
 - Fase 6: marca por domínio (usa `empresa.slug`), painel da plataforma (planos e módulos), vocabulário na interface,
   assistente de primeiro acesso, ícones do PWA a partir do logo, edição do vocabulário (com plural) na tela.

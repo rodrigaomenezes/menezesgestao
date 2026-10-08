@@ -282,3 +282,35 @@ e, se o celular desconectar, o administrador é notificado.
   instalar o sistema no servidor de um cliente (on-premise) exigiria revisar a licença antes.
 - Só uma instância pode segurar cada número: em réplicas extras, `WHATSAPP_QR_ATIVO=nao` (ver `TECH_DEBT.md`).
 
+---
+
+# ADR-017 — Fila com reserva exclusiva no banco
+
+## Contexto
+Até 20 pessoas pedem "o próximo" da mesma fila ao mesmo tempo; ninguém pode ligar para o mesmo contato.
+
+## Decisão
+"Pegar o próximo" é um único comando SQL: CTE com `SELECT … FOR UPDATE OF fi SKIP LOCKED LIMIT 1` + `UPDATE`
+condicional que grava `reservado_por` e `reservado_ate` (minutos configuráveis por fila). Reserva vencida volta
+sozinha para a fila (a consulta trata `reservado_ate < now()` como livre). A ordem é prioridade, retorno agendado e
+`ordem` (identidade), para respeitar a chegada mesmo dentro de um lote. O filtro de carteira e "não contatar" é
+aplicado dentro da mesma consulta.
+
+## Consequências
+Sem trava em memória nem Redis; funciona com várias réplicas. O teste de 20 pedidos simultâneos falha se o
+`SKIP LOCKED` for retirado.
+
+---
+
+# ADR-018 — Telefone atrás de interface no navegador; gravação cifrada
+
+## Decisão
+- `ProvedorTelefone` no front com três versões: treino (simulado, sem conta), celular do vendedor (`tel:` + duração
+  informada ao voltar) e SIP/WebRTC (JsSIP 3.13.8, carregado só quando usado). O servidor só conhece estados da
+  ligação (`TRANSICOES_LIGACAO`, compartilhado), então trocar de PABX não muda histórico nem fila.
+- A senha do ramal fica cifrada (`CRM_CHAVE`) e é entregue apenas à própria pessoa, para o navegador registrar.
+  A CSP passa a permitir `connect-src wss:` e `media-src blob:`.
+- Gravação: conteúdo cifrado (AES-256-GCM) no provedor de arquivos; acesso por link HMAC de 5 minutos ligado à
+  pessoa, cada acesso auditado (`gravacao.acessada`). Job diário `telefonia.retencao` apaga o conteúdo vencido —
+  exceção deliberada ao "nada some", exigida pela LGPD; o registro da ligação continua.
+
