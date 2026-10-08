@@ -1581,3 +1581,204 @@ textarea {
 audio.gravacao {
   max-width: 100%;
 }
+
+/* Fase 4 — operação ------------------------------------------------------------------------------- */
+
+.rotina {
+  display: flex;
+  flex-direction: column;
+}
+
+.ponto {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.checklist li {
+  padding: 0.25rem 0;
+}
+
+.checklist .marcar {
+  min-height: 44px;
+}
+
+.meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin: 0.5rem 0 0.75rem;
+}
+
+.meta-topo {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.25rem 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+.meta progress {
+  width: 100%;
+  height: 0.75rem;
+  accent-color: var(--cor-primaria);
+}
+
+.meta-linha {
+  border-bottom: 1px solid var(--borda);
+}
+
+.meta-linha:last-of-type {
+  border-bottom: 0;
+}
+
+.navegar-periodo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.navegar-periodo .campo {
+  margin: 0;
+}
+
+.dia-agenda h2 {
+  font-size: 1rem;
+  margin: 1rem 0 0.25rem;
+  text-transform: capitalize;
+}
+
+.dia-agenda h2.hoje {
+  color: var(--cor-primaria);
+}
+
+.dia-agenda .lista-vazia {
+  margin: 0;
+  padding: 0.25rem 0;
+}
+
+.form-horas {
+  margin: 0.75rem 0;
+}
+
+.linha-escala {
+  display: grid;
+  grid-template-columns: 1fr auto auto auto;
+  gap: 0.4rem;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.linha-escala select,
+.linha-escala input {
+  min-width: 0;
+  min-height: 44px;
+}
+
+.indicadores {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.25rem 0.75rem;
+  margin: 0.5rem 0 0;
+}
+
+.indicadores div {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.indicadores dt {
+  color: var(--texto-suave);
+}
+
+.indicadores dd {
+  margin: 0;
+  font-weight: 700;
+}
+
+.indicadores .zerado dd {
+  font-weight: 400;
+  color: var(--texto-suave);
+}
+
+.mapa-rolavel {
+  max-width: 100%;
+}
+
+.mapa {
+  border-collapse: separate;
+  border-spacing: 2px;
+  font-size: 0.75rem;
+}
+
+.mapa th {
+  font-weight: 600;
+  color: var(--texto-suave);
+  text-align: center;
+}
+
+.mapa tbody th {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--superficie);
+  text-align: left;
+  white-space: nowrap;
+  padding-right: 0.5rem;
+  color: var(--texto);
+}
+
+.mapa td {
+  min-width: 1.75rem;
+  height: 1.75rem;
+  text-align: center;
+  border-radius: 4px;
+}
+
+.nivel-0 {
+  background: color-mix(in srgb, var(--borda) 35%, transparent);
+}
+
+.nivel-1 {
+  background: color-mix(in srgb, var(--cor-primaria) 25%, transparent);
+}
+
+.nivel-2 {
+  background: color-mix(in srgb, var(--cor-primaria) 50%, transparent);
+}
+
+.nivel-3 {
+  background: color-mix(in srgb, var(--cor-primaria) 75%, transparent);
+  color: var(--cor-primaria-texto);
+}
+
+.nivel-4 {
+  background: var(--cor-primaria);
+  color: var(--cor-primaria-texto);
+}
+
+.manual {
+  background-image: repeating-linear-gradient(45deg, color-mix(in srgb, var(--cor-destaque) 55%, transparent) 0 3px, transparent 3px 7px);
+}
+
+.legenda {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+}
+
+.legenda span {
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+}
+
+.scripts .texto-livre {
+  margin: 0.4rem 0 0;
+}

@@ -30,6 +30,12 @@ import { Filas } from "./features/fila/Filas";
 import { Discador } from "./features/fila/Discador";
 import { Ligacoes } from "./features/telefonia/Ligacoes";
 import { ConfigTelefonia } from "./features/telefonia/ConfigTelefonia";
+import { Agenda } from "./features/operacao/Agenda";
+import { Horas } from "./features/operacao/Horas";
+import { Desempenho } from "./features/operacao/Desempenho";
+import { Mapa } from "./features/operacao/Mapa";
+import { Scripts } from "./features/operacao/Scripts";
+import { ConfigRotina } from "./features/operacao/ConfigRotina";
 import "./app/estilos.css";
 
 function App() {
@@ -68,6 +74,12 @@ function App() {
               <Route path="/filas/:id" element={<Discador />} />
               <Route path="/ligacoes" element={<Ligacoes />} />
               <Route path="/telefonia/configuracoes" element={<ConfigTelefonia />} />
+              <Route path="/agenda" element={<Agenda />} />
+              <Route path="/horas" element={<Horas />} />
+              <Route path="/desempenho" element={<Desempenho />} />
+              <Route path="/mapa" element={<Mapa />} />
+              <Route path="/scripts" element={<Scripts />} />
+              <Route path="/rotina/configuracoes" element={<ConfigRotina />} />
               <Route path="/contatos" element={<Contatos />} />
               <Route path="/contatos/:id" element={<Contato />} />
               <Route path="/funil" element={<Funil />} />

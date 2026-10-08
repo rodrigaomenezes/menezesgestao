@@ -1,11 +1,16 @@
 import { Link } from "react-router-dom";
 import { MODULOS } from "@mg/shared";
-import { useEu } from "../../app/sessao";
+import { useEu, useSessao } from "../../app/sessao";
+import { Rotina } from "../operacao/Rotina";
+
+// Módulos que chegam nas próximas fases do roteiro.
+const EM_CONSTRUCAO = new Set(["qualidade", "vendas", "servicos", "pesquisa"]);
 
 export function Inicio() {
   const eu = useEu();
+  const { pode } = useSessao();
   const primeiroNome = eu.usuario.nome.split(" ")[0];
-  const ativos = MODULOS.filter((m) => !m.nucleo && eu.empresa?.modulos.includes(m.id));
+  const emBreve = MODULOS.filter((m) => EM_CONSTRUCAO.has(m.id) && eu.empresa?.modulos.includes(m.id));
 
   return (
     <>
@@ -18,21 +23,20 @@ export function Inicio() {
         </p>
         {eu.empresas.length > 1 && <p className="dica">Para trocar de empresa, use o menu.</p>}
       </section>
+      {pode("rotina", "ver") && <Rotina />}
 
-      <section className="cartao">
-        <h2>Módulos da empresa</h2>
-        {ativos.length ? (
+      {emBreve.length > 0 && (
+        <section className="cartao">
+          <h2>Chegando em breve</h2>
           <ul className="lista-simples">
-            {ativos.map((m) => (
+            {emBreve.map((m) => (
               <li key={m.id}>
                 {m.nome} <span className="selo">em construção</span>
               </li>
             ))}
           </ul>
-        ) : (
-          <p>Nenhum módulo além do núcleo está ativo no plano.</p>
-        )}
-      </section>
+        </section>
+      )}
 
       <section className="cartao">
         <h2>Atalhos</h2>

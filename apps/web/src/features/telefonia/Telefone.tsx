@@ -14,6 +14,7 @@ import {
 import { ErroApi, enviarArquivo, get, post } from "../../app/api";
 import { useSessao } from "../../app/sessao";
 import { useAviso } from "../../ui/sobreposicoes";
+import { BotaoScripts } from "../operacao/Scripts";
 import { provedorCelular, provedorSip, provedorTreino, type Chamada, type ProvedorTelefone } from "./provedores";
 
 export interface AlvoLigacao {
@@ -204,6 +205,7 @@ function useGravacao(ligacaoId: string) {
 }
 
 function PainelLigacao({ l, chamada, meu, aoFechar }: { l: LigacaoAtiva; chamada: React.RefObject<Chamada | null>; meu: MeuTelefoneDto | null; aoFechar(): void }) {
+  const { eu } = useSessao();
   const agora = useRelogio(l.estado !== "encerrada");
   const audio = useRef<HTMLAudioElement>(null);
   const [mudo, setMudo] = useState(false);
@@ -274,6 +276,7 @@ function PainelLigacao({ l, chamada, meu, aoFechar }: { l: LigacaoAtiva; chamada
 
       {!encerrada && (
         <div className="painel-acoes">
+          <BotaoScripts contatoId={l.alvo.contatoId} uso="ligacao" variaveis={{ nome: l.alvo.nome, vendedor: eu?.usuario.nome, empresa: eu?.empresa?.nome }} />
           {c?.mudo && (
             <button type="button" className="botao botao-secundario" aria-pressed={mudo} onClick={() => (c.mudo?.(!mudo), setMudo(!mudo))}>
               {mudo ? "Ativar som" : "Mudo"}
