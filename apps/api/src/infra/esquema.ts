@@ -17,6 +17,7 @@ export const empresa = pgTable("empresa", {
   vocabulario: jsonb("vocabulario").notNull().default({}),
   onboarding: jsonb("onboarding").$type<{ passo?: number; segmento?: string; concluidoEm?: string }>().notNull().default({}),
   exigirDuasEtapas: text("exigir_duas_etapas").$type<"nao" | "admins" | "todos">().notNull().default("nao"),
+  retencao: jsonb("retencao").$type<{ mensagensMeses?: number | null; arquivadosMeses?: number | null }>().notNull().default({}),
   criadoEm: criadoEm(),
   atualizadoEm: atualizadoEm(),
   arquivadoEm: ts("arquivado_em"),
@@ -284,6 +285,7 @@ export const contato = pgTable("contato", {
   criadoPor: uuid("criado_por"),
   criadoEm: criadoEm(),
   atualizadoEm: atualizadoEm(),
+  anonimizadoEm: ts("anonimizado_em"),
   arquivadoEm: ts("arquivado_em"),
 });
 

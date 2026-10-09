@@ -1,8 +1,9 @@
 // Login em duas etapas na tela: liga pelo app autenticador, guarda os códigos, entra com o código,
 // e a regra da empresa obriga quem ainda não configurou.
+import { readFileSync } from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
 import { codigoTotp, passoAtual } from "../../apps/api/src/infra/seguranca/totp.js";
-import { abrirMenu, semRolagemLateral } from "./apoio.js";
+import { abrirMenu, dados, entrar, pessoa, semRolagemLateral } from "./apoio.js";
 
 const SENHA = "uma senha bem comprida";
 
@@ -65,4 +66,39 @@ test("liga duas etapas pelo app, entra com o código e exige da equipe", async (
   // Volta para onde estava (a página da empresa), já logada.
   await expect(page.getByRole("heading", { name: "Empresa e marca", level: 1 })).toBeVisible();
   await expect(page.getByLabel("Login em duas etapas")).toHaveValue("todos");
+});
+
+test("LGPD na ficha: exporta os dados do titular, anonimiza e define a retenção", async ({ page }, info) => {
+  const { a } = dados();
+  await entrar(page, pessoa(a, "dono").email);
+  const csrf = (await page.context().cookies()).find((c) => c.name === "mg_csrf")?.value ?? "";
+  const sufixo = String(Date.now()).slice(-4);
+  const nome = `Titular ${info.project.name} ${sufixo}`;
+  const criado = await page.request.post("/api/contatos", { data: { nome, telefone: `(11) 9${sufixo}-${String(info.project.name.length).padStart(4, "0")}` }, headers: { "x-csrf-token": csrf } });
+  expect(criado.status(), await criado.text()).toBe(201);
+  const { id } = (await criado.json()) as { id: string };
+
+  await page.goto(`/contatos/${id}`);
+  const secao = page.getByRole("region", { name: "Privacidade (LGPD)" });
+  const [arquivo] = await Promise.all([page.waitForEvent("download"), secao.getByRole("button", { name: "Exportar dados" }).click()]);
+  expect(arquivo.suggestedFilename()).toMatch(/^dados-pessoais-.*\.json$/);
+  const conteudo = JSON.parse(readFileSync((await arquivo.path()) ?? "", "utf8")) as { contato: { nome: string } };
+  expect(conteudo.contato.nome).toBe(nome);
+
+  await secao.getByRole("button", { name: "Anonimizar" }).click();
+  const apagar = secao.getByRole("button", { name: "Apagar dados pessoais" });
+  await expect(apagar).toBeDisabled();
+  await secao.getByLabel(/Digite ANONIMIZAR/).fill("ANONIMIZAR");
+  await semRolagemLateral(page);
+  await apagar.click();
+  await expect(page.getByRole("heading", { name: "Contato anonimizado", level: 1 })).toBeVisible();
+  await expect(secao.getByText(/Dados pessoais apagados em/)).toBeVisible();
+
+  await page.goto("/empresa");
+  await page.getByLabel("Apagar o conteúdo de mensagens com mais de").selectOption("24");
+  await page.getByRole("button", { name: "Salvar prazos" }).click();
+  await expect(page.getByText(/Prazos salvos/)).toBeVisible();
+  await page.getByLabel("Apagar o conteúdo de mensagens com mais de").selectOption("");
+  await page.getByRole("button", { name: "Salvar prazos" }).click();
+  await semRolagemLateral(page);
 });

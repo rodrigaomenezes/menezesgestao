@@ -4,6 +4,7 @@ import type { Tx } from "./banco.js";
 import type { Config } from "../config.js";
 import type { ProvedorAvisos, MensagemEmail } from "../modulos/avisos/avisos.js";
 import { cifrar, decifrar } from "./seguranca/cripto.js";
+import { erroSeguro, registrarLog } from "./log.js";
 
 export const FILAS = {
   email: "aviso.email",
@@ -54,7 +55,7 @@ export async function iniciarJobs(config: Config, avisos: ProvedorAvisos): Promi
         await avisos.enviarEmail(JSON.parse(decifrar(config.crmChave, job.data.cifrado)) as MensagemEmail);
       } catch (err) {
         // Nunca registra o conteúdo (tem link de acesso): só a fila, o id do job e o motivo.
-        console.error(JSON.stringify({ level: "error", event: "job.falhou", fila: FILAS.email, jobId: job.id, erro: (err as Error).message }));
+        registrarLog({ level: "error", event: "job.falhou", fila: FILAS.email, jobId: job.id, erro: erroSeguro(err) });
         throw err;
       }
     }
@@ -97,7 +98,7 @@ export async function iniciarJobs(config: Config, avisos: ProvedorAvisos): Promi
           try {
             await fn(job.data as never);
           } catch (err) {
-            console.error(JSON.stringify({ level: "error", event: "job.falhou", fila, jobId: job.id, erro: (err as Error).message }));
+            registrarLog({ level: "error", event: "job.falhou", fila, jobId: job.id, erro: erroSeguro(err) });
             throw err;
           }
         }

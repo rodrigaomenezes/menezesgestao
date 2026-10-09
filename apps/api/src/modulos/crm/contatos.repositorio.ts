@@ -27,6 +27,7 @@ const colunas = {
   criadoEm: contato.criadoEm,
   atualizadoEm: contato.atualizadoEm,
   arquivadoEm: contato.arquivadoEm,
+  anonimizadoEm: contato.anonimizadoEm,
 };
 
 function consulta(tx: Tx) {

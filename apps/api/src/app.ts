@@ -24,6 +24,9 @@ import type { ProvedorAvisos } from "./modulos/avisos/avisos.js";
 import { registrarAcesso, type RotaRegistrada } from "./modulos/acesso/acesso.js";
 import type { TempoReal } from "./modulos/eventos/tempo-real.js";
 import { rotasAuth } from "./modulos/auth/auth.rotas.js";
+import { erroSeguro } from "./infra/log.js";
+import { rotasLgpd } from "./modulos/lgpd/lgpd.rotas.js";
+import { FILA_RETENCAO, criarServicoLgpd } from "./modulos/lgpd/lgpd.servico.js";
 import { rotasEmpresas } from "./modulos/empresas/empresas.rotas.js";
 import { rotasUsuarios } from "./modulos/usuarios/usuarios.rotas.js";
 import { rotasPerfis } from "./modulos/permissoes/perfis.rotas.js";
@@ -149,7 +152,7 @@ export async function criarApp(servicos: Servicos): Promise<AppMontado> {
       });
     }
     if (isResponseSerializationError(erro)) {
-      req.log.error({ err: erro, url: ocultarTokens(req.url) }, "resposta fora do contrato (DTO)");
+      req.log.error({ erro: erroSeguro(erro), url: ocultarTokens(req.url) }, "resposta fora do contrato (DTO)");
       return responderErro(reply, 500, "ERRO_INTERNO", "Algo deu errado do nosso lado. Tente de novo em instantes.");
     }
     const status = (erro as { statusCode?: number }).statusCode;
@@ -157,7 +160,8 @@ export async function criarApp(servicos: Servicos): Promise<AppMontado> {
     if (status && status >= 400 && status < 500) {
       return responderErro(reply, status, "DADOS_INVALIDOS", "Não foi possível entender o pedido. Confira os dados e tente de novo.");
     }
-    req.log.error({ err: erro }, "erro inesperado");
+    // Sem dados pessoais: o detalhe do PostgreSQL e os parâmetros da consulta ficam de fora.
+    req.log.error({ erro: erroSeguro(erro), url: ocultarTokens(req.url) }, "erro inesperado");
     return responderErro(reply, 500, "ERRO_INTERNO", "Algo deu errado do nosso lado. Tente de novo em instantes.");
   });
 
@@ -201,6 +205,13 @@ export async function criarApp(servicos: Servicos): Promise<AppMontado> {
     await cobranca.executarCiclo(new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date()));
   });
   await servicos.jobs.agendar(FILA_COBRANCA, "41 6 * * *");
+  // LGPD: exportar/anonimizar e prazos de retenção (job diário).
+  await app.register(rotasLgpd(servicos));
+  const lgpd = criarServicoLgpd(servicos);
+  await servicos.jobs.trabalhar(FILA_RETENCAO, async () => {
+    await lgpd.aplicarRetencao();
+  });
+  await servicos.jobs.agendar(FILA_RETENCAO, "53 4 * * *");
   const agenda = criarServicoAgenda(servicos);
   await servicos.jobs.trabalhar<{ empresaId: string; compromissoId: string; inicio: string; lembreteMinutos: number }>(FILA_LEMBRETE, (d) => agenda.lembrar(d));
 

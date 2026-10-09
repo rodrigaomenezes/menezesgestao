@@ -2,9 +2,10 @@
 // As ligações acontecem no navegador (treino, celular ou SIP/WebRTC); o servidor registra cada mudança de estado,
 // confere as transições e grava o histórico do contato sem ninguém digitar.
 import { createHmac } from "node:crypto";
-import { aliasedTable, and, asc, desc, eq, isNotNull, isNull, lt, sql } from "drizzle-orm";
+import { aliasedTable, and, asc, desc, eq, inArray, isNotNull, isNull, lt, sql } from "drizzle-orm";
 import {
   normalizarTelefone,
+  variantesTelefone,
   transicaoValida,
   type Escopo,
   type EstadoLigacaoId,
@@ -236,6 +237,15 @@ export function criarServicoTelefonia(s: Servicos, arquivos: ProvedorArquivos) {
         numero = numero ?? c.telefone;
       }
       if (!numero) throw invalido("Este contato não tem telefone. Cadastre o número para ligar.");
+      // Número digitado à mão: se for de um contato que pediu para não ser contatado, também não liga.
+      if (!contatoId) {
+        const [dono] = await tx.db
+          .select({ naoContatar: contato.naoContatar })
+          .from(contato)
+          .where(and(eq(contato.empresaId, ctx.empresaId), inArray(contato.telefone, variantesTelefone(numero)), eq(contato.naoContatar, true)))
+          .limit(1);
+        if (dono) throw invalido("Este número é de um contato que pediu para não ser contatado (LGPD). A ligação não foi feita.");
+      }
       if (d.provedor === "sip") {
         const meu = await tx.db.select({ id: ramal.id }).from(ramal).where(and(eq(ramal.empresaId, ctx.empresaId), eq(ramal.usuarioId, ctx.usuarioId), eq(ramal.ativo, true)));
         if (!meu.length) throw invalido("Você não tem ramal SIP ativo. Peça ao administrador ou use o celular.");

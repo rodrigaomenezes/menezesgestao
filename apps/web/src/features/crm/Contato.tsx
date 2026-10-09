@@ -1,4 +1,5 @@
 // Ficha do contato: dados, etiquetas, oportunidades, tarefas, notas e linha do tempo (histórico).
+import { Privacidade } from "./Privacidade";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import type { ContatoDto, HistoricoDto, NotaDto, OportunidadeDto, TarefaDto } from "@mg/shared";
@@ -483,7 +484,7 @@ export function Contato() {
         <Link to="/contatos">{termos.Contatos}</Link>
       </p>
       <Titulo>{contato.nome}</Titulo>
-      {contato.arquivadoEm && <Mensagem tipo="info">Este cadastro está na lixeira. Restaure para voltar a trabalhar com ele.</Mensagem>}
+      {contato.arquivadoEm && !contato.anonimizadoEm && <Mensagem tipo="info">Este cadastro está na lixeira. Restaure para voltar a trabalhar com ele.</Mensagem>}
       <section className="cartao">
         <div className="contato-resumo">
           {contato.telefone && (
@@ -525,12 +526,12 @@ export function Contato() {
           <ValoresDosCampos definicoes={config.campos.filter((d) => d.entidade === "contato")} valores={contato.campos} />
         </div>
         <div className="item-acoes">
-          {pode("crm", "editar") && !contato.arquivadoEm && (
+          {pode("crm", "editar") && !contato.arquivadoEm && !contato.anonimizadoEm && (
             <button type="button" className="botao botao-secundario" aria-expanded={editando} onClick={() => setEditando((v) => !v)}>
               {editando ? "Fechar edição" : "Editar"}
             </button>
           )}
-          {pode("crm", "arquivar") && (
+          {pode("crm", "arquivar") && !contato.anonimizadoEm && (
             <button type="button" className="botao botao-secundario" disabled={arquivar.enviando} onClick={() => void arquivar.enviar()}>
               {contato.arquivadoEm ? "Restaurar" : "Arquivar"}
             </button>
@@ -555,6 +556,7 @@ export function Contato() {
           <VendasDoContato contato={contato} />
           <Tarefas contato={contato} />
           <Notas contato={contato} />
+          <Privacidade contato={contato} aoMudar={carregar} />
         </div>
         <Historico contatoId={contato.id} />
       </div>

@@ -66,3 +66,39 @@ export type CodigosRecuperacaoDto = z.infer<typeof CodigosRecuperacaoDto>;
 export const SegurancaEmpresaDto = z.object({ exigirDuasEtapas: z.enum(EXIGENCIAS_DUAS_ETAPAS) });
 export type SegurancaEmpresaDto = z.infer<typeof SegurancaEmpresaDto>;
 export const SegurancaEmpresaEntrada = SegurancaEmpresaDto;
+
+// LGPD (titular de dados) --------------------------------------------------------------------------------
+
+/** Para anonimizar, a pessoa digita esta palavra: a ação não tem volta. */
+export const PALAVRA_ANONIMIZAR = "ANONIMIZAR";
+export const AnonimizarEntrada = z.object({
+  confirmacao: z.literal(PALAVRA_ANONIMIZAR, { error: `Digite ${PALAVRA_ANONIMIZAR} para confirmar.` }),
+});
+
+const Registro = z.record(z.string(), z.unknown());
+/** Tudo o que a empresa guarda sobre o contato (pedido do titular, art. 18 da LGPD). */
+export const DadosTitularDto = z.object({
+  geradoEm: DataIso,
+  empresa: z.string(),
+  contato: Registro,
+  oportunidades: z.array(Registro),
+  tarefas: z.array(Registro),
+  notas: z.array(Registro),
+  mensagens: z.array(Registro),
+  ligacoes: z.array(Registro),
+  compromissos: z.array(Registro),
+  vendas: z.array(Registro),
+  historico: z.array(Registro),
+  /** Listas muito longas vêm até o limite; o resto fica disponível a pedido. */
+  limitado: z.boolean(),
+});
+export type DadosTitularDto = z.infer<typeof DadosTitularDto>;
+
+export const LIMITES_RETENCAO = { mensagensMeses: { min: 6, max: 120 }, arquivadosMeses: { min: 1, max: 120 } } as const;
+export const RetencaoDto = z.object({
+  /** Mensagens de conversas mais antigas que isso têm o conteúdo apagado (null = guardar). */
+  mensagensMeses: z.number().int().min(LIMITES_RETENCAO.mensagensMeses.min).max(LIMITES_RETENCAO.mensagensMeses.max).nullable(),
+  /** Contatos arquivados há mais que isso são anonimizados (null = nunca). */
+  arquivadosMeses: z.number().int().min(LIMITES_RETENCAO.arquivadosMeses.min).max(LIMITES_RETENCAO.arquivadosMeses.max).nullable(),
+});
+export type RetencaoDto = z.infer<typeof RetencaoDto>;

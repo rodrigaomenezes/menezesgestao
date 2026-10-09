@@ -39,6 +39,9 @@ async function comoApp<T>(empresaId: string | null, fn: (c: pg.PoolClient) => Pr
   }
 }
 
+/** Tabelas só do sistema (login, sessões, desafios): sem política e sem leitura para a aplicação. */
+const SO_SISTEMA = ["sessao", "token_acesso", "desafio_login"];
+
 describe("Row Level Security", () => {
   it("toda tabela com empresa_id tem RLS ligado e política", async () => {
     const tabelas = await tabelasDeNegocio();
@@ -53,7 +56,7 @@ describe("Row Level Security", () => {
       );
       expect(rows[0].rls, `${t} sem RLS`).toBe(true);
       // Tabela só do sistema (ex.: sessão) fica sem política e sem leitura para a aplicação: nada passa.
-      if (rows[0].leitura || t !== "sessao") expect(rows[0].politicas, `${t} sem política`).toBeGreaterThan(0);
+      if (rows[0].leitura || !SO_SISTEMA.includes(t)) expect(rows[0].politicas, `${t} sem política`).toBeGreaterThan(0);
     }
   });
 
@@ -64,7 +67,7 @@ describe("Row Level Security", () => {
 
   it("sem empresa no contexto, não enxerga nada", async () => {
     for (const t of [...(await tabelasDeNegocio()), "empresa"]) {
-      if (t === "sessao" || t === "token_acesso") continue;
+      if (SO_SISTEMA.includes(t)) continue;
       const { rows } = await comoApp(null, (c) => c.query(`SELECT count(*)::int AS n FROM ${t}`));
       expect(rows[0].n, t).toBe(0);
     }
@@ -72,7 +75,7 @@ describe("Row Level Security", () => {
 
   it("com a empresa A, um SELECT sem WHERE só devolve linhas de A", async () => {
     for (const t of await tabelasDeNegocio()) {
-      if (t === "sessao" || t === "token_acesso") continue;
+      if (SO_SISTEMA.includes(t)) continue;
       const { rows } = await comoApp(e.a.empresaId, (c) => c.query(`SELECT DISTINCT empresa_id FROM ${t}`));
       for (const r of rows) expect(r.empresa_id, t).toBe(e.a.empresaId);
     }
@@ -98,6 +101,9 @@ describe("Row Level Security", () => {
     await expect(comoApp(e.a.empresaId, (c) => c.query("SELECT senha_hash FROM usuario"))).rejects.toThrow(/permission denied/);
     await expect(comoApp(e.a.empresaId, (c) => c.query("SELECT * FROM sessao"))).rejects.toThrow(/permission denied/);
     await expect(comoApp(e.a.empresaId, (c) => c.query("SELECT * FROM token_acesso"))).rejects.toThrow(/permission denied/);
+    await expect(comoApp(e.a.empresaId, (c) => c.query("SELECT * FROM desafio_login"))).rejects.toThrow(/permission denied/);
+    // Nem as colunas de duas etapas do usuário (segredo, códigos de recuperação).
+    await expect(comoApp(e.a.empresaId, (c) => c.query("SELECT duas_etapas_segredo FROM usuario"))).rejects.toThrow(/permission denied/);
   });
 
   it("não apaga nada: excluir é arquivar", async () => {

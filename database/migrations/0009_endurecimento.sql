@@ -37,3 +37,26 @@ CREATE INDEX IF NOT EXISTS desafio_login_usuario_idx ON desafio_login (usuario_i
 -- Sem política: só o caminho do sistema enxerga.
 ALTER TABLE desafio_login ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON desafio_login FROM mg_app;
+
+-- LGPD -------------------------------------------------------------------------------------------------------
+-- Contato anonimizado a pedido do titular (ou pelo prazo de retenção): o registro fica, sem dados pessoais.
+ALTER TABLE contato ADD COLUMN IF NOT EXISTS anonimizado_em timestamptz(3);
+-- Prazos de retenção da empresa: { "mensagensMeses": n | null, "arquivadosMeses": n | null } (null = sem prazo).
+ALTER TABLE empresa ADD COLUMN IF NOT EXISTS retencao jsonb NOT NULL DEFAULT '{}';
+
+-- Histórico (evento, auditoria) continua somente inserção. Única exceção: a anonimização (LGPD) pode apagar o
+-- CONTEÚDO (dados / antes / depois), nunca o fato — tipo, data, autor e ids ficam. Só o caminho do sistema
+-- consegue (mg_app não tem UPDATE nessas tabelas) e só com app.lgpd_redacao ligado na própria transação.
+CREATE OR REPLACE FUNCTION bloquear_alteracao() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+  IF TG_OP = 'UPDATE' AND current_setting('app.lgpd_redacao', true) = 'on' THEN
+    IF TG_TABLE_NAME = 'evento' AND (to_jsonb(NEW) - 'dados') = (to_jsonb(OLD) - 'dados') THEN
+      RETURN NEW;
+    END IF;
+    IF TG_TABLE_NAME = 'auditoria' AND (to_jsonb(NEW) - 'antes' - 'depois') = (to_jsonb(OLD) - 'antes' - 'depois') THEN
+      RETURN NEW;
+    END IF;
+  END IF;
+  RAISE EXCEPTION 'A tabela % é somente inserção: registros não podem ser alterados nem apagados', TG_TABLE_NAME;
+END $$;

@@ -195,13 +195,17 @@ export function criarServicoFila(s: Servicos) {
         .from(filaItem)
         .where(and(eq(filaItem.filaId, filaId), eq(filaItem.status, "reservado"), eq(filaItem.reservadoPor, ctx.usuarioId), sql`${filaItem.reservadoAte} >= now()`))
         .limit(1);
-      if (minha) return { item: await itemDto(tx, minha), motivo: null };
+      // A reserva que já é minha também é conferida: o contato pode ter pedido para não ser contatado depois.
+      if (minha) {
+        const [ct] = await tx.db.select({ naoContatar: contato.naoContatar, arquivadoEm: contato.arquivadoEm }).from(contato).where(eq(contato.id, minha.contatoId));
+        if (!ct?.naoContatar && !ct?.arquivadoEm) return { item: await itemDto(tx, minha), motivo: null };
+      }
 
       // Contato que pediu para não ser contatado (ou foi para a lixeira) sai da fila antes de alguém ligar.
       await tx.db.execute(sql`
         UPDATE fila_item fi SET status = 'descartado', reservado_por = NULL, reservado_ate = NULL, atualizado_em = now()
           FROM contato c
-         WHERE fi.contato_id = c.id AND fi.fila_id = ${filaId} AND fi.status = 'pendente'
+         WHERE fi.contato_id = c.id AND fi.fila_id = ${filaId} AND fi.status IN ('pendente', 'reservado')
            AND (c.nao_contatar OR c.arquivado_em IS NOT NULL)`);
 
       const { rows } = await tx.db.execute<{ id: string }>(sql`
@@ -353,11 +357,15 @@ export function criarServicoFila(s: Servicos) {
       const f = await carregarFila(tx, ctx, filaId);
       if (f.arquivadoEm || f.status === "encerrada") throw invalido("Esta fila está encerrada. Reabra ou escolha outra.");
       const visiveis = await tx.db
-        .select({ id: contato.id, telefone: contato.telefone })
+        .select({ id: contato.id, telefone: contato.telefone, naoContatar: contato.naoContatar })
         .from(contato)
         .where(and(eq(contato.empresaId, ctx.empresaId), inArray(contato.id, [...new Set(contatoIds)]), isNull(contato.arquivadoEm), contatoVisivel(ctx, escopo)));
-      const r = { adicionados: 0, emOutraFila: 0, jaNaFila: 0, semTelefone: 0 };
+      const r = { adicionados: 0, emOutraFila: 0, jaNaFila: 0, semTelefone: 0, naoContatar: 0 };
       for (const c of visiveis) {
+        if (c.naoContatar) {
+          r.naoContatar++;
+          continue;
+        }
         if (!c.telefone) {
           r.semTelefone++;
           continue;

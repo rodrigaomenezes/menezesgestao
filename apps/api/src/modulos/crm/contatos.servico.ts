@@ -34,6 +34,7 @@ const dto = (c: repo.LinhaContato, etiquetas: ContatoDto["etiquetas"]): ContatoD
   criadoEm: iso(c.criadoEm),
   atualizadoEm: iso(c.atualizadoEm),
   arquivadoEm: iso(c.arquivadoEm),
+  anonimizadoEm: iso(c.anonimizadoEm),
   etiquetas,
 });
 

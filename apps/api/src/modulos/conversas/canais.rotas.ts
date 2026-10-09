@@ -120,7 +120,7 @@ export const rotasCanais =
             em: new Date(),
           },
         ]);
-        await comEmpresa(s.banco, ctx.empresaId, (tx) => registrar(tx, origemDe(req), { acao: "canal.simulacao", entidade: "canal", entidadeId: c.id, dados: { telefone } }));
+        await comEmpresa(s.banco, ctx.empresaId, (tx) => registrar(tx, origemDe(req), { acao: "canal.simulacao", entidade: "canal", entidadeId: c.id }));
         return { ok: true as const };
       },
     );

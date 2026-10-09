@@ -130,6 +130,8 @@ export const ContatoDto = z.object({
   criadoEm: DataIso,
   atualizadoEm: DataIso,
   arquivadoEm: DataIso.nullable(),
+  /** LGPD: dados pessoais apagados a pedido do titular ou pelo prazo de retenção. */
+  anonimizadoEm: DataIso.nullable(),
 });
 export type ContatoDto = z.infer<typeof ContatoDto>;
 
