@@ -4,6 +4,9 @@ export interface Marca {
   nomeProduto?: string;
   corPrimaria: string;
   corDestaque: string;
+  /** Arquivos do logo (versões para fundo claro e escuro). */
+  logoClaroId?: string;
+  logoEscuroId?: string;
 }
 
 export const MARCA_PADRAO: Marca = { corPrimaria: "#1f5fbf", corDestaque: "#e07a1f" };
@@ -28,6 +31,8 @@ export function corDoTextoSobre(fundo: string): string {
   return contraste(fundo, "#ffffff") >= contraste(fundo, "#111111") ? "#ffffff" : "#111111";
 }
 
+const uuid = (v: unknown) => (typeof v === "string" && /^[0-9a-f-]{36}$/i.test(v) ? v : undefined);
+
 export function lerMarca(bruto: unknown): Marca {
   const m = (bruto && typeof bruto === "object" ? bruto : {}) as Record<string, unknown>;
   const cor = (v: unknown, padrao: string) => (typeof v === "string" && COR_HEX.test(v) ? v : padrao);
@@ -35,5 +40,7 @@ export function lerMarca(bruto: unknown): Marca {
     nomeProduto: typeof m.nomeProduto === "string" && m.nomeProduto.trim() ? m.nomeProduto.trim() : undefined,
     corPrimaria: cor(m.corPrimaria, MARCA_PADRAO.corPrimaria),
     corDestaque: cor(m.corDestaque, MARCA_PADRAO.corDestaque),
+    logoClaroId: uuid(m.logoClaroId),
+    logoEscuroId: uuid(m.logoEscuroId),
   };
 }

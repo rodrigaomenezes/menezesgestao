@@ -1,6 +1,5 @@
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
-import { MARCA_PADRAO, MarcaDto } from "@mg/shared";
 import type { Servicos } from "../../app.js";
 import { exigirEmpresa } from "../acesso/acesso.js";
 
@@ -22,15 +21,6 @@ export const rotasSistema =
       async () => ({ ok: true, time: new Date().toISOString(), provedores: { avisos: s.avisos.status() } }),
     );
 
-    // Marca para a tela de entrada (antes do login) ou da empresa ativa.
-    app.get(
-      "/api/marca",
-      { config: publica, schema: { tags, summary: "Marca (nome e cores)", response: { 200: MarcaDto } } },
-      async (req) => {
-        const marca = req.ctx?.marca ?? MARCA_PADRAO;
-        return { ...marca, nomeProduto: marca.nomeProduto ?? s.config.produtoNome };
-      },
-    );
 
     app.get(
       "/api/tempo-real",

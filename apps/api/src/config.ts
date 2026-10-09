@@ -23,6 +23,10 @@ export interface Config {
   whatsappGraphUrl: string;
   /** Conexão por QR liga os sockets ao subir (desligue em réplicas extras: só uma instância pode segurar o número). */
   whatsappQrAtivo: boolean;
+  /** Domínio base dos subdomínios das empresas (ex.: seuproduto.com.br → empresa.seuproduto.com.br). */
+  dominioBase: string | null;
+  /** Cadastro aberto de empresas pelo site (CADASTRO_ABERTO=nao desliga). */
+  cadastroAberto: boolean;
 }
 
 export class ErroConfig extends Error {}
@@ -74,5 +78,7 @@ export function carregarConfig(env: NodeJS.ProcessEnv = process.env): Config {
     limiteLoginMinuto: Number(env.LIMITE_LOGIN_MINUTO) || 10,
     whatsappGraphUrl: env.WHATSAPP_GRAPH_URL?.trim() || "https://graph.facebook.com/v21.0",
     whatsappQrAtivo: env.WHATSAPP_QR_ATIVO?.trim() !== "nao",
+    dominioBase: env.DOMINIO_BASE?.trim().toLowerCase().replace(/^\.+|\.+$/g, "") || null,
+    cadastroAberto: env.CADASTRO_ABERTO?.trim() !== "nao",
   };
 }

@@ -44,6 +44,10 @@ import { criarServicoTelefonia, rotasTelefonia } from "./modulos/telefonia/telef
 import { rotasOperacao } from "./modulos/operacao/operacao.rotas.js";
 import { rotasReceita } from "./modulos/receita/receita.rotas.js";
 import { rotasQualidade } from "./modulos/qualidade/qualidade.rotas.js";
+import { rotasWhiteLabel } from "./modulos/marca/whitelabel.rotas.js";
+import { resolvedorDominio } from "./modulos/marca/dominio.js";
+import { FILA_AUTOMACOES, criarServicoAutomacoes } from "./modulos/automacoes/automacoes.servico.js";
+import { FILA_COBRANCA, criarServicoCobranca } from "./modulos/cobranca/cobranca.servico.js";
 import { FILA_LEMBRETE, criarServicoAgenda } from "./modulos/operacao/agenda.servico.js";
 
 z.config(z.locales.pt());
@@ -172,7 +176,7 @@ export async function criarApp(servicos: Servicos): Promise<AppMontado> {
   await app.register(rotasTarefas(servicos));
   await app.register(rotasImportacao(servicos, arquivos));
 
-  await montarConversas(app, servicos, arquivos);
+  const { envio } = await montarConversas(app, servicos, arquivos);
   await app.register(rotasFila(servicos));
   await app.register(rotasTelefonia(servicos, arquivos));
   // Retenção das gravações (LGPD): todo dia apaga o conteúdo das vencidas.
@@ -185,6 +189,18 @@ export async function criarApp(servicos: Servicos): Promise<AppMontado> {
   await app.register(rotasOperacao(servicos));
   await app.register(rotasReceita(servicos));
   await app.register(rotasQualidade(servicos));
+  await app.register(rotasWhiteLabel(servicos, arquivos, envio));
+  // Automações: varre os eventos a cada minuto. Cobrança: ciclo diário de faturas.
+  const automacoes = criarServicoAutomacoes(servicos, envio);
+  await servicos.jobs.trabalhar(FILA_AUTOMACOES, async () => {
+    await automacoes.varrer();
+  });
+  await servicos.jobs.agendar(FILA_AUTOMACOES, "* * * * *");
+  const cobranca = criarServicoCobranca(servicos);
+  await servicos.jobs.trabalhar(FILA_COBRANCA, async () => {
+    await cobranca.executarCiclo(new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date()));
+  });
+  await servicos.jobs.agendar(FILA_COBRANCA, "41 6 * * *");
   const agenda = criarServicoAgenda(servicos);
   await servicos.jobs.trabalhar<{ empresaId: string; compromissoId: string; inicio: string; lembreteMinutos: number }>(FILA_LEMBRETE, (d) => agenda.lembrar(d));
 
@@ -192,19 +208,22 @@ export async function criarApp(servicos: Servicos): Promise<AppMontado> {
   const importacoes = criarServicoImportacao(servicos, arquivos);
   await servicos.jobs.trabalhar<{ empresaId: string; importacaoId: string }>(FILA_IMPORTACAO, (d) => importacoes.processar(d.empresaId, d.importacaoId));
 
-  // Manifesto do PWA com o nome do produto da configuração (marca por domínio chega na fase 6).
-  app.get("/manifest.webmanifest", async (_req, reply) => {
+  // Manifesto do PWA com a marca do endereço (subdomínio ou domínio próprio da empresa) ou a do produto.
+  app.get("/manifest.webmanifest", async (req, reply) => {
     reply.type("application/manifest+json");
+    const daEmpresa = await resolvedorDominio(servicos).porHost(req.headers.host);
+    const nome = daEmpresa?.marca.nomeProduto ?? daEmpresa?.nome ?? config.produtoNome;
     return {
-      name: config.produtoNome,
-      short_name: config.produtoNome,
+      name: nome,
+      short_name: nome.slice(0, 24),
       lang: "pt-BR",
       start_url: "/",
       scope: "/",
       display: "standalone",
       background_color: "#ffffff",
-      theme_color: MARCA_PADRAO.corPrimaria,
+      theme_color: daEmpresa?.marca.corPrimaria ?? MARCA_PADRAO.corPrimaria,
       icons: [
+        ...(daEmpresa ? [{ src: `/api/publico/icone/${daEmpresa.slug}`, sizes: "any", type: "image/svg+xml", purpose: "any" }] : []),
         { src: "/icones/icone-192.png", sizes: "192x192", type: "image/png" },
         { src: "/icones/icone-512.png", sizes: "512x512", type: "image/png" },
         { src: "/icones/icone-maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },

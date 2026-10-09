@@ -6,14 +6,14 @@ import { criarServicoCanais, type RegistroProvedores, type ServicoCanais } from 
 import { rotasCanais } from "./canais.rotas.js";
 import { rotasConversas } from "./conversas.rotas.js";
 import { criarServicoEntrada, type ServicoEntrada } from "./entrada.servico.js";
-import { criarServicoEnvio, FILAS_CONVERSAS } from "./envio.servico.js";
+import { criarServicoEnvio, FILAS_CONVERSAS, type ServicoEnvio } from "./envio.servico.js";
 import { juntarEmTodas } from "./juntar.js";
 import { provedorCloudApi } from "./provedores/cloud-api.js";
 import { provedorDemonstracaoMensagens } from "./provedores/demonstracao.js";
 import { provedorQr } from "./provedores/qr.js";
 import { rotasRespostas } from "./respostas.rotas.js";
 
-export async function montarConversas(app: FastifyInstance, s: Servicos, arquivos: ProvedorArquivos): Promise<void> {
+export async function montarConversas(app: FastifyInstance, s: Servicos, arquivos: ProvedorArquivos): Promise<{ envio: ServicoEnvio }> {
   // Provedores e serviços se referenciam (o QR entrega mensagens à entrada e o estado aos canais): liga depois.
   let entrada: ServicoEntrada | null = null;
   let canais: ServicoCanais | null = null;
@@ -49,4 +49,5 @@ export async function montarConversas(app: FastifyInstance, s: Servicos, arquivo
   const c = canais;
   if (s.config.whatsappQrAtivo && !s.config.teste) app.addHook("onReady", async () => void c.reconectarQr());
   app.addHook("onClose", async () => qr.encerrarTodos());
+  return { envio };
 }

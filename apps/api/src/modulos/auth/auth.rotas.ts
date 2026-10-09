@@ -18,6 +18,7 @@ import {
 import type { Servicos } from "../../app.js";
 import { COOKIE_SESSAO, dispositivoDe, exigirContexto, opcoesCookieSessao } from "../acesso/acesso.js";
 import { criarServicoAuth, type Cliente } from "./auth.servico.js";
+import { resolvedorDominio } from "../marca/dominio.js";
 
 const tags = ["Acesso"];
 
@@ -42,7 +43,9 @@ export const rotasAuth =
       "/api/auth/entrar",
       { config: publicaLimitada, schema: { tags, summary: "Entrar com e-mail e senha", body: EntrarEntrada, response: { 200: Ok } } },
       async (req, reply) => {
-        gravarSessao(reply, (await auth.entrar(cliente(req), req.body)).token);
+        // No endereço da empresa (subdomínio ou domínio próprio), entra direto nela.
+        const doEndereco = req.body.empresaId ? null : await resolvedorDominio(s).porHost(req.headers.host);
+        gravarSessao(reply, (await auth.entrar(cliente(req), { ...req.body, empresaId: req.body.empresaId ?? doEndereco?.id })).token);
         return { ok: true as const };
       },
     );
