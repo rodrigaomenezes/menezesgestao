@@ -20,8 +20,27 @@ export default defineConfig({
         globPatterns: ["**/*.{js,css,html,png,svg}"],
         navigateFallback: "/index.html",
         navigateFallbackDenylist: [/^\/api\//, /^\/manifest\.webmanifest$/],
-        // Dados da API não vão para o cache nesta fase (leitura offline entra na fase 7).
-        runtimeCaching: [],
+        // Avisos no celular (push e clique no aviso).
+        importScripts: ["sw-push.js"],
+        // Leitura offline dos dados recentes: a rede vem primeiro; sem conexão, mostra a última resposta.
+        // O cache é apagado no login e no logout (app/offline.ts). Arquivos, mídias, gravações, exportações
+        // de dados pessoais e o tempo real nunca entram.
+        runtimeCaching: [
+          {
+            urlPattern: ({ url, request, sameOrigin }) =>
+              sameOrigin &&
+              request.method === "GET" &&
+              url.pathname.startsWith("/api/") &&
+              !/(tempo-real|health|openapi|midia|gravac|dados-pessoais|exportar|arquivo|planilha|logo|icone|publico|push|duas-etapas)/.test(url.pathname),
+            handler: "NetworkFirst",
+            options: {
+              cacheName: "mg-dados",
+              networkTimeoutSeconds: 5,
+              expiration: { maxEntries: 300, maxAgeSeconds: 24 * 60 * 60 },
+              cacheableResponse: { statuses: [200] },
+            },
+          },
+        ],
       },
     }),
   ],

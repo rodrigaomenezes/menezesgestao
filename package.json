@@ -27,7 +27,8 @@
     "empresa:criar": "node --conditions=development --import tsx apps/api/src/cli/criar-empresa.ts",
     "caixa-de-saida": "node --conditions=development --import tsx apps/api/src/cli/caixa-de-saida.ts",
     "duas-etapas:desligar": "node --conditions=development --import tsx apps/api/src/cli/desligar-duas-etapas.ts",
-    "backup:conferir": "node --conditions=development --import tsx apps/api/src/cli/conferir-backup.ts"
+    "backup:conferir": "node --conditions=development --import tsx apps/api/src/cli/conferir-backup.ts",
+    "push:chaves": "node --conditions=development --import tsx apps/api/src/cli/chaves-push.ts"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",

@@ -102,3 +102,33 @@ test("LGPD na ficha: exporta os dados do titular, anonimiza e define a retençã
   await page.getByRole("button", { name: "Salvar prazos" }).click();
   await semRolagemLateral(page);
 });
+
+test("sem internet, mostra os dados recentes; ao sair, o cache é apagado", async ({ page }, info) => {
+  const { a } = dados();
+  await entrar(page, pessoa(a, "gestor").email);
+  // O service worker assume a página (Workbox: clientsClaim) e passa a guardar as respostas da API.
+  await page.waitForFunction(() => navigator.serviceWorker?.controller !== null && navigator.serviceWorker?.controller !== undefined, undefined, { timeout: 15_000 });
+  const csrf = (await page.context().cookies()).find((c) => c.name === "mg_csrf")?.value ?? "";
+  const nome = `Offline ${info.project.name} ${Date.now()}`;
+  expect((await page.request.post("/api/contatos", { data: { nome }, headers: { "x-csrf-token": csrf } })).status()).toBe(201);
+  await page.goto("/contatos");
+  await expect(page.getByText(nome, { exact: true })).toBeVisible();
+  await expect.poll(() => page.evaluate(async () => (await (await caches.open("mg-dados")).keys()).some((r) => r.url.includes("/api/contatos")))).toBe(true);
+
+  await page.context().setOffline(true);
+  await page.reload();
+  await expect(page.getByText(/Sem conexão com a internet/)).toBeVisible();
+  await expect(page.getByText(nome, { exact: true }).first()).toBeVisible();
+  await page.context().setOffline(false);
+
+  // Avisos no celular: sem as chaves da plataforma, a tela explica que ficam no sino.
+  await page.goto("/notificacoes");
+  await expect(page.getByText(/ainda não foram configurados/)).toBeVisible();
+
+  await abrirMenu(page);
+  await page.getByRole("button", { name: "Sair" }).click();
+  await expect(page.getByLabel("Senha")).toBeVisible();
+  // Nada da pessoa fica no aparelho (só a marca pública da tela de entrada pode voltar ao cache).
+  const guardados = await page.evaluate(async () => ((await caches.has("mg-dados")) ? (await (await caches.open("mg-dados")).keys()).map((r) => new URL(r.url).pathname) : []));
+  expect(guardados.filter((p) => p !== "/api/marca")).toEqual([]);
+});

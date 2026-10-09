@@ -23,6 +23,9 @@ import type { Servicos } from "../../app.js";
 import type { ContextoEmpresa } from "../acesso/acesso.js";
 import { filtroUsuariosVisiveis } from "../acesso/escopo.js";
 import { registrar, type Origem } from "../auditoria/registro.js";
+import { notificar } from "../notificacoes/notificar.js";
+
+export const FILA_RETORNO = "fila.retorno";
 
 type LinhaItem = typeof filaItem.$inferSelect;
 
@@ -302,6 +305,16 @@ export function criarServicoFila(s: Servicos) {
           .set({ resultadoId: r.id, observacao: d.observacao ?? null, atualizadoEm: new Date() })
           .where(and(eq(ligacao.id, d.ligacaoId), eq(ligacao.usuarioId, ctx.usuarioId), eq(ligacao.empresaId, ctx.empresaId)));
       }
+      // Retorno agendado: na hora, quem ligou recebe o aviso (no push, só no celular — é para ligar).
+      if (atualizado.status === "pendente" && atualizado.retornarEm) {
+        const segundos = Math.max(1, Math.round((atualizado.retornarEm.getTime() - Date.now()) / 1000));
+        await s.jobs.enfileirar(
+          tx,
+          FILA_RETORNO,
+          { empresaId: ctx.empresaId, itemId: i.id, usuarioId: ctx.usuarioId, retornarEm: atualizado.retornarEm.toISOString() },
+          { aposSegundos: segundos, chaveUnica: `${i.id}:${atualizado.retornarEm.toISOString()}` },
+        );
+      }
       await registrar(tx, origem, {
         acao: "fila.resultado_registrado",
         entidade: "fila_item",
@@ -464,7 +477,22 @@ export function criarServicoFila(s: Servicos) {
     });
   }
 
-  return { listar, obter, criar, atualizar, proximo, liberar, registrarResultado, adicionar, itens, lotes, tiposBase, salvarTipoBase, totalProntos };
+  /** Job: lembra o retorno se o item continua esperando por ele (não foi remarcado, ligado nem descartado). */
+  async function lembrarRetorno(d: { empresaId: string; itemId: string; usuarioId: string; retornarEm: string }): Promise<void> {
+    await comEmpresa(banco, d.empresaId, async (tx) => {
+      const [i] = await tx.db.select().from(filaItem).where(and(eq(filaItem.id, d.itemId), eq(filaItem.empresaId, d.empresaId)));
+      if (!i || i.status !== "pendente" || i.retornarEm?.toISOString() !== d.retornarEm) return;
+      const [ct] = await tx.db.select({ nome: contato.nome, naoContatar: contato.naoContatar }).from(contato).where(eq(contato.id, i.contatoId));
+      if (!ct || ct.naoContatar) return;
+      await notificar(
+        tx,
+        { empresaId: d.empresaId, atorId: null, ip: null, dispositivo: "fila" },
+        { usuarioId: d.usuarioId, titulo: `Hora de ligar de novo: ${ct.nome}`, texto: "Retorno agendado na fila.", link: `/filas/${i.filaId}`, soCelular: true },
+      );
+    });
+  }
+
+  return { listar, obter, criar, atualizar, proximo, liberar, registrarResultado, adicionar, itens, lotes, tiposBase, salvarTipoBase, totalProntos, lembrarRetorno };
 }
 
 export type ServicoFila = ReturnType<typeof criarServicoFila>;

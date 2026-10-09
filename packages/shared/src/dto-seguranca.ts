@@ -102,3 +102,19 @@ export const RetencaoDto = z.object({
   arquivadosMeses: z.number().int().min(LIMITES_RETENCAO.arquivadosMeses.min).max(LIMITES_RETENCAO.arquivadosMeses.max).nullable(),
 });
 export type RetencaoDto = z.infer<typeof RetencaoDto>;
+
+// Avisos no celular (Web Push) ---------------------------------------------------------------------------------
+
+export const PushConfigDto = z.object({
+  /** false = a plataforma ainda não tem as chaves VAPID (avisos só no sino). */
+  ativo: z.boolean(),
+  chavePublica: z.string().nullable(),
+});
+export type PushConfigDto = z.infer<typeof PushConfigDto>;
+
+const EndpointPush = z.url({ protocol: /^https$/, error: "Endereço de inscrição inválido." }).max(1000);
+export const InscricaoPushEntrada = z.object({
+  endpoint: EndpointPush,
+  chaves: z.object({ p256dh: z.string().min(10).max(200), auth: z.string().min(8).max(100) }),
+});
+export const CancelarPushEntrada = z.object({ endpoint: EndpointPush });

@@ -50,4 +50,9 @@ export default tseslint.config(
       "no-restricted-globals": ["error", { name: "localStorage", message: "Dados ficam no servidor; use estado do React." }],
     },
   },
+  {
+    // Código do service worker (push): roda no contexto do worker.
+    files: ["apps/web/public/**/*.js"],
+    languageOptions: { globals: globals.serviceworker },
+  },
 );

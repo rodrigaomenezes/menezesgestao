@@ -177,7 +177,22 @@ export const notificacao = pgTable("notificacao", {
   texto: text("texto"),
   link: text("link"),
   lidaEm: ts("lida_em"),
+  soCelular: boolean("so_celular").notNull().default(false),
+  entregueEm: ts("entregue_em"),
+  pushEm: ts("push_em"),
   criadoEm: criadoEm(),
+});
+
+export const pushInscricao = pgTable("push_inscricao", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  usuarioId: uuid("usuario_id").notNull(),
+  endpoint: text("endpoint").notNull(),
+  chaves: text("chaves").notNull(),
+  celular: boolean("celular").notNull().default(false),
+  dispositivo: text("dispositivo"),
+  criadoEm: criadoEm(),
+  ultimoEnvioEm: ts("ultimo_envio_em"),
+  encerradaEm: ts("encerrada_em"),
 });
 
 export const avisoSaida = pgTable("aviso_saida", {

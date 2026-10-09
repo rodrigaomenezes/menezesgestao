@@ -9,6 +9,8 @@ export interface NovaNotificacao {
   titulo: string;
   texto?: string;
   link?: string;
+  /** Aviso de ligação: no push, vai só para celulares (no computador não adianta). */
+  soCelular?: boolean;
 }
 
 /** Notificação no sino + aviso em tempo real só para a pessoa. */
@@ -22,6 +24,7 @@ export async function notificar(tx: Tx, origem: Origem, n: NovaNotificacao): Pro
     titulo: n.titulo,
     texto: n.texto ?? null,
     link: n.link ?? null,
+    soCelular: n.soCelular ?? false,
   });
   await publicar(tx, origem, {
     tipo: "notificacao.criada",

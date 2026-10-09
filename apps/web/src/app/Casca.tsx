@@ -166,7 +166,7 @@ export function Casca({ children }: { children: ReactNode }) {
         <main className="conteudo">
           {!conectado && (
             <p className="mensagem mensagem-erro" role="alert">
-              Sem conexão com a internet. O que você fizer agora não será salvo até a conexão voltar.
+              Sem conexão com a internet. Você vê os dados mais recentes; o que fizer agora não será salvo até a conexão voltar.
             </p>
           )}
           {children}
