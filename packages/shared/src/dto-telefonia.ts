@@ -232,7 +232,14 @@ export const FiltroItensFila = Paginacao.extend({ status: z.enum(STATUS_ITEM_FIL
 export const AdicionarItensEntrada = z.object({
   contatoIds: z.array(Id).min(1, { error: "Escolha ao menos um contato." }).max(500, { error: "No máximo 500 por vez." }),
 });
-export const ResultadoAdicionarDto = z.object({ adicionados: z.number().int(), emOutraFila: z.number().int(), jaNaFila: z.number().int(), semTelefone: z.number().int() });
+export const ResultadoAdicionarDto = z.object({
+  adicionados: z.number().int(),
+  emOutraFila: z.number().int(),
+  jaNaFila: z.number().int(),
+  semTelefone: z.number().int(),
+  /** Pediram para não ser contatados (LGPD): não entram na fila. */
+  naoContatar: z.number().int(),
+});
 export type ResultadoAdicionarDto = z.infer<typeof ResultadoAdicionarDto>;
 
 export const RegistrarResultadoEntrada = z.object({

@@ -3,6 +3,7 @@
 // Busca em cascata: (1) id da mensagem já visto → ignora; (2) id do cliente no provedor; (3) telefone com e sem
 // o nono dígito; (4) contato com esse telefone. Só então cria contato/conversa. Corrida entre dois webhooks do
 // mesmo cliente novo é resolvida pelo índice único (canal, telefone) + nova tentativa.
+import { erroSeguro, registrarLog } from "../../infra/log.js";
 import { and, asc, desc, eq, gt, inArray, isNull, sql } from "drizzle-orm";
 import { formatarTelefone, variantesTelefone } from "@mg/shared";
 import { comEmpresa, type Tx } from "../../infra/banco.js";
@@ -203,7 +204,7 @@ export function criarServicoEntrada(s: Servicos, provedores: RegistroProvedores,
         } catch (e) {
           // Dois eventos do mesmo cliente novo ao mesmo tempo: o segundo encontra a conversa na nova tentativa.
           if (codigoPg(e) === "23505" && tentativa < 3) continue;
-          console.error(JSON.stringify({ level: "error", event: "conversas.entrada_falhou", canalId: alvo.id, tipo: ev.tipo, erro: (e as Error).message }));
+          registrarLog({ level: "error", event: "conversas.entrada_falhou", canalId: alvo.id, tipo: ev.tipo, erro: erroSeguro(e) });
           throw e;
         }
       }

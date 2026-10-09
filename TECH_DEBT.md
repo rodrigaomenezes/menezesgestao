@@ -7,12 +7,7 @@ histórico do git.
 | --- | --- | --- | --- | --- |
 | 1 | Coluna `perfil.permissoes` (JSON) obsoleta desde a migração 0002 | BAIXA | `database/migrations` | Remover numa migração futura, depois de uma versão estável sem uso (ADR-006) |
 | 2 | Filtro de período da auditoria usa a meia-noite do navegador, não a do fuso da empresa | BAIXA | `apps/web/src/features/auditoria` | Calcular os limites no servidor a partir de datas sem hora + fuso da empresa |
-| 3 | Mensagens de erro do PostgreSQL podem conter dados pessoais no log de erro inesperado | MÉDIA | `apps/api/src/app.ts` | Sanitizar `detail` dos erros do banco antes de registrar (fase 7, observabilidade) |
 | 4 | Sem limite de conexões de tempo real por pessoa | MÉDIA | `modulos/eventos/tempo-real.ts` | Limitar por sessão e fechar as mais antigas |
-| 5 | Caixa de saída de demonstração guarda o texto do e-mail (com link) sem cifrar | MÉDIA | `modulos/avisos` | Cifrar com `CRM_CHAVE` ou limpar por job após 7 dias |
-| 7 | Logs de negócio estruturados (evento, empresa, ator, entidade) ainda não existem fora da auditoria | BAIXA | API | Registrar no log os eventos publicados, sem dados pessoais (fase 7) |
-| 8 | Backup do PostgreSQL de produção não verificado | ALTA | Railway | Ativar backups do Railway e testar restauração (fase 7; checar já) |
-| 9 | Arquivos (planilhas importadas) ficam no PostgreSQL para sempre | BAIXA | `modulos/arquivos` | Job de limpeza das planilhas de importações concluídas há mais de 30 dias; S3/R2 quando chegar mídia (fase 2) |
 | 10 | Kanban mostra até 50 oportunidades por etapa (o resto, pela busca) | BAIXA | `modulos/crm/oportunidades.servico.ts` | "Carregar mais" por coluna |
 | 11 | Mudanças de configuração do CRM não chegam em tempo real a perfis de escopo "próprio" | BAIXA | `modulos/eventos/tempo-real.ts` | Evento de configuração com destino "todos que têm o módulo" |
 | 13 | Sem mensagens modelo (templates) da API oficial: fora da janela de 24 h o envio falha com aviso claro | MÉDIA | `conversas/provedores/cloud-api.ts` | Cadastro de modelos aprovados e envio por modelo |
@@ -38,3 +33,9 @@ histórico do git.
 | 33 | A tela de automações cria só uma condição por regra (a API aceita várias) | BAIXA | `apps/web/src/features/whitelabel/Automacoes.tsx` | Lista de condições na tela |
 | 34 | Domínio próprio precisa ser adicionado à mão no Railway | BAIXA | Railway | API do Railway para cadastrar o domínio ao salvar |
 | 35 | Cache de domínio por instância (60 s): troca de domínio demora até 1 min em todas as réplicas | BAIXA | `modulos/marca/dominio.ts` | Invalidar por `pg_notify` |
+| 36 | Anonimizar não alcança a observação de vendas nem textos livres sem vínculo com o contato (atividade manual, títulos de notificações) | BAIXA | `modulos/lgpd` | Vínculo de contato na atividade manual; busca por nome nas notificações |
+| 37 | Administrador da empresa não redefine as duas etapas de alguém (só o suporte, pelo terminal) | BAIXA | `cli/desligar-duas-etapas.ts` | Fluxo de redefinição com confirmação por e-mail da própria pessoa |
+| 38 | Offline é só leitura: o que a pessoa faz sem conexão não é guardado para enviar depois | MÉDIA | `apps/web/src/app/offline.ts` | Fila local de ações com reenvio e resolução de conflito |
+| 39 | Push depende das chaves VAPID; trocar as chaves desfaz as inscrições dos aparelhos | BAIXA | `modulos/push` | Avisar no app quando a inscrição sumir e pedir para ligar de novo |
+| 40 | Retenção não apaga o conteúdo antigo do histórico (`evento.dados`), só de mensagens e de contatos anonimizados | BAIXA | `modulos/lgpd` | Prazo para os resumos de mensagens nos eventos |
+

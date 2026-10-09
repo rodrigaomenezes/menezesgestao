@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto";
 import { evento } from "../../infra/esquema.js";
 import type { Tx } from "../../infra/banco.js";
 import type { Origem } from "../auditoria/registro.js";
+import { logEvento } from "../../infra/log.js";
 
 export const CANAL_EVENTOS = "mg_eventos";
 
@@ -50,6 +51,7 @@ export async function publicar(tx: Tx, origem: Origem, e: DadosEvento): Promise<
     contatoId: e.contatoId ?? null,
     dados: e.dados ?? {},
   });
+  tx.depoisDoCommit?.push(() => logEvento({ id, empresaId, tipo: e.tipo, atorId: origem.atorId, entidade: e.entidade, entidadeId: e.entidadeId ?? null }));
   if (e.silencioso) return id;
   const aviso: AvisoEvento = {
     id,

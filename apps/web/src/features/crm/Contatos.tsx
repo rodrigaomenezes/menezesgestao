@@ -78,6 +78,7 @@ function AcoesEmMassa({ ids, config, arquivados, aoConcluir }: { ids: string[]; 
       if (r.jaNaFila) partes.push(`${r.jaNaFila} já estavam nela`);
       if (r.emOutraFila) partes.push(`${r.emOutraFila} em outra fila`);
       if (r.semTelefone) partes.push(`${r.semTelefone} sem telefone`);
+      if (r.naoContatar) partes.push(`${r.naoContatar} pediram para não ser contatados`);
       avisar(`${partes.join(", ")}.`);
       setAcao("");
       setAlvo("");

@@ -1,6 +1,7 @@
 // Automações "quando [evento] e se [condições], então [ação]". Um job varre os eventos recentes (a mesma tabela
 // somente-inserção que alimenta histórico e metas) e roda cada regra uma vez por evento: a execução é gravada
 // na mesma transação da ação, com índice único (regra × evento) — passar duas vezes não repete nada.
+import { erroSeguro, registrarLog } from "../../infra/log.js";
 import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { preencherVariaveis, type RegraAutomacaoDto } from "@mg/shared";
 import { comEmpresa, comoSistema, type Tx } from "../../infra/banco.js";
@@ -288,7 +289,7 @@ export function criarServicoAutomacoes(s: Servicos, envio: ServicoEnvio | null) 
           .values({ empresaId: ev.empresa_id, regraId: r.id, eventoId: ev.id, status: "falhou", detalhe: (err as Error).message.slice(0, 500) })
           .onConflictDoNothing(),
       );
-      console.error(JSON.stringify({ level: "error", event: "automacao.falhou", regraId: r.id, eventoId: ev.id, erro: (err as Error).message }));
+      registrarLog({ level: "error", event: "automacao.falhou", regraId: r.id, eventoId: ev.id, erro: erroSeguro(err) });
       return null;
     }
   }

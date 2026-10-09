@@ -1,3 +1,4 @@
+import { AvisosNoCelular } from "./AvisosNoCelular";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { post } from "../../app/api";
@@ -41,6 +42,7 @@ export function Notificacoes() {
       >
         Notificações
       </Titulo>
+      <AvisosNoCelular />
       <section className="cartao">
         <Mensagem tipo="erro">{lista.erro || erro}</Mensagem>
         {!lista.carregando && !lista.itens.length && <ListaVazia>Você não tem notificações.</ListaVazia>}

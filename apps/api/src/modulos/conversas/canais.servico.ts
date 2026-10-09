@@ -1,5 +1,6 @@
 // Canais de mensagens: cadastro, credenciais (cifradas, só entram), conexão e estado.
 // Quando um canal cai, os administradores de Conversas recebem uma notificação (nada falha em silêncio).
+import { registrarLog } from "../../infra/log.js";
 import { createHmac } from "node:crypto";
 import QRCode from "qrcode";
 import { and, asc, eq, isNull, sql } from "drizzle-orm";
@@ -57,12 +58,13 @@ export function paraProvedor(chave: Buffer, c: LinhaCanal): CanalProvedor {
 }
 
 /** Quem administra Conversas na empresa (recebe aviso de canal caído). */
-async function administradoresDeConversas(tx: Tx, empresaId: string): Promise<string[]> {
-  const { rows } = await tx.db.execute<{ usuario_id: string }>(sql`
-    SELECT DISTINCT v.usuario_id FROM vinculo v
+async function administradoresDeConversas(tx: Tx, empresaId: string): Promise<{ id: string; email: string; nome: string }[]> {
+  const { rows } = await tx.db.execute<{ id: string; email: string; nome: string }>(sql`
+    SELECT DISTINCT u.id, u.email, u.nome FROM vinculo v
+      JOIN usuario u ON u.id = v.usuario_id
       JOIN permissao p ON p.perfil_id = v.perfil_id AND p.modulo = 'conversas' AND p.acao = 'administrar'
      WHERE v.empresa_id = ${empresaId} AND v.status = 'ativo' AND v.arquivado_em IS NULL`);
-  return rows.map((r) => r.usuario_id);
+  return rows;
 }
 
 export function criarServicoCanais(s: Servicos, provedores: RegistroProvedores) {
@@ -107,14 +109,19 @@ export function criarServicoCanais(s: Servicos, provedores: RegistroProvedores) 
       // QR novo também avisa (a tela mostra o código atualizado).
       if (mudou || estado.qr) await publicar(tx, origem, { tipo: "canal.estado", entidade: "canal", entidadeId: alvo.id, dados: { status: estado.status } });
       if (antes.status === "conectado" && (estado.status === "desconectado" || estado.status === "erro")) {
-        for (const usuarioId of await administradoresDeConversas(tx, alvo.empresaId)) {
-          await notificar(tx, origem, {
-            usuarioId,
-            titulo: `WhatsApp desconectado: ${antes.nome}`,
-            texto: estado.detalhe ?? "O canal parou de receber e enviar mensagens. Conecte de novo.",
-            link: "/conversas/canais",
+        // Alerta: sino (e push no celular de quem está fora), e-mail e log para o monitoramento.
+        const texto = estado.detalhe ?? "O canal parou de receber e enviar mensagens. Conecte de novo.";
+        for (const admin of await administradoresDeConversas(tx, alvo.empresaId)) {
+          await notificar(tx, origem, { usuarioId: admin.id, titulo: `WhatsApp desconectado: ${antes.nome}`, texto, link: "/conversas/canais" });
+          await s.jobs.enviarEmail(tx, {
+            para: admin.email,
+            assunto: `WhatsApp desconectado: ${antes.nome}`,
+            texto: [`Olá, ${admin.nome}!`, "", `O canal "${antes.nome}" desconectou: ${texto}`, "", `Para conectar de novo: ${config.appUrl}/conversas/canais`].join("\n"),
           });
         }
+        tx.depoisDoCommit?.push(() =>
+          registrarLog({ level: "warn", event: "canal.desconectado", empresaId: alvo.empresaId, canalId: alvo.id, provedor: antes.provedor, status: estado.status }),
+        );
       }
     });
   }

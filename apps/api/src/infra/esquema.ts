@@ -16,6 +16,8 @@ export const empresa = pgTable("empresa", {
   modulos: jsonb("modulos").$type<string[]>().notNull().default([]),
   vocabulario: jsonb("vocabulario").notNull().default({}),
   onboarding: jsonb("onboarding").$type<{ passo?: number; segmento?: string; concluidoEm?: string }>().notNull().default({}),
+  exigirDuasEtapas: text("exigir_duas_etapas").$type<"nao" | "admins" | "todos">().notNull().default("nao"),
+  retencao: jsonb("retencao").$type<{ mensagensMeses?: number | null; arquivadosMeses?: number | null }>().notNull().default({}),
   criadoEm: criadoEm(),
   atualizadoEm: atualizadoEm(),
   arquivadoEm: ts("arquivado_em"),
@@ -28,6 +30,11 @@ export const usuario = pgTable("usuario", {
   senhaHash: text("senha_hash"),
   tentativasFalhas: integer("tentativas_falhas").notNull().default(0),
   bloqueadoAte: ts("bloqueado_ate"),
+  duasEtapasMetodo: text("duas_etapas_metodo").$type<"totp" | "email">(),
+  duasEtapasSegredo: text("duas_etapas_segredo"),
+  duasEtapasUltimoPasso: bigint("duas_etapas_ultimo_passo", { mode: "number" }),
+  duasEtapasRecuperacao: text("duas_etapas_recuperacao").array().notNull().default([]),
+  duasEtapasAtivadaEm: ts("duas_etapas_ativada_em"),
   criadoEm: criadoEm(),
   atualizadoEm: atualizadoEm(),
 });
@@ -118,6 +125,22 @@ export const tokenAcesso = pgTable("token_acesso", {
   usadoEm: ts("usado_em"),
 });
 
+export const desafioLogin = pgTable("desafio_login", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tokenHash: text("token_hash"),
+  usuarioId: uuid("usuario_id").notNull(),
+  empresaId: uuid("empresa_id"),
+  finalidade: text("finalidade").$type<"entrar" | "configurar">().notNull(),
+  metodo: text("metodo").$type<"totp" | "email">().notNull(),
+  codigoHash: text("codigo_hash"),
+  segredoNovo: text("segredo_novo"),
+  tentativas: integer("tentativas").notNull().default(0),
+  envios: integer("envios").notNull().default(1),
+  criadoEm: criadoEm(),
+  expiraEm: ts("expira_em").notNull(),
+  usadoEm: ts("usado_em"),
+});
+
 export const evento = pgTable("evento", {
   id: uuid("id").primaryKey().defaultRandom(),
   empresaId: uuid("empresa_id").notNull(),
@@ -154,7 +177,22 @@ export const notificacao = pgTable("notificacao", {
   texto: text("texto"),
   link: text("link"),
   lidaEm: ts("lida_em"),
+  soCelular: boolean("so_celular").notNull().default(false),
+  entregueEm: ts("entregue_em"),
+  pushEm: ts("push_em"),
   criadoEm: criadoEm(),
+});
+
+export const pushInscricao = pgTable("push_inscricao", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  usuarioId: uuid("usuario_id").notNull(),
+  endpoint: text("endpoint").notNull(),
+  chaves: text("chaves").notNull(),
+  celular: boolean("celular").notNull().default(false),
+  dispositivo: text("dispositivo"),
+  criadoEm: criadoEm(),
+  ultimoEnvioEm: ts("ultimo_envio_em"),
+  encerradaEm: ts("encerrada_em"),
 });
 
 export const avisoSaida = pgTable("aviso_saida", {
@@ -262,6 +300,7 @@ export const contato = pgTable("contato", {
   criadoPor: uuid("criado_por"),
   criadoEm: criadoEm(),
   atualizadoEm: atualizadoEm(),
+  anonimizadoEm: ts("anonimizado_em"),
   arquivadoEm: ts("arquivado_em"),
 });
 

@@ -112,6 +112,11 @@ export function criarServicoEnvio(s: Servicos, provedores: RegistroProvedores, a
 
   /** Mensagem automática (texto com variáveis) se a automação estiver ativa. */
   async function enviarAutomatica(tx: Tx, origem: Origem, c: LinhaConversa, tipo: TipoAutomacao): Promise<boolean> {
+    // LGPD: quem pediu para não ser contatado não recebe mensagem automática (boas-vindas, fora do horário, follow-up).
+    if (c.contatoId) {
+      const [ct] = await tx.db.select({ naoContatar: contato.naoContatar }).from(contato).where(eq(contato.id, c.contatoId));
+      if (ct?.naoContatar) return false;
+    }
     const [a] = await tx.db
       .select()
       .from(automacao)

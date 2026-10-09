@@ -210,7 +210,8 @@ async function retrato(empresaId: string): Promise<Record<string, string>> {
   );
   const r: Record<string, string> = {};
   for (const { table_name: tabela } of tabelas) {
-    const ignorar = tabela === "sessao" ? "- 'ultimo_uso'" : "";
+    // Marcas de controle gravadas por rotinas, não por rotas: último uso da sessão e entrega do push (job a cada minuto).
+    const ignorar = tabela === "sessao" ? "- 'ultimo_uso'" : tabela === "notificacao" ? "- 'push_em' - 'entregue_em'" : "";
     const { rows } = await t.banco.pool.query<{ h: string | null }>(
       `SELECT md5(string_agg((to_jsonb(x) ${ignorar})::text, '|' ORDER BY to_jsonb(x)::text)) AS h FROM ${tabela} x WHERE empresa_id = $1`,
       [empresaId],

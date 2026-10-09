@@ -61,6 +61,9 @@ export class TempoReal {
   private parado = false;
   private readonly conexoes = new Map<string, Set<Conexao>>();
 
+  /** Chamado quando uma notificação chega a uma tela aberta (o push deixa de ser necessário). */
+  aoEntregarNotificacao: ((notificacaoId: string) => Promise<void>) | null = null;
+
   constructor(
     private readonly banco: Banco,
     private readonly databaseUrl: string,
@@ -145,8 +148,15 @@ export class TempoReal {
     const conjunto = this.conexoes.get(aviso.empresaId);
     if (!conjunto) return;
     const dados = JSON.stringify({ tipo: aviso.tipo, entidade: aviso.entidade, entidadeId: aviso.entidadeId });
+    let entregue = false;
     for (const c of conjunto) {
-      if (this.podeReceber(c, aviso)) c.reply.raw.write(`data: ${dados}\n\n`);
+      if (this.podeReceber(c, aviso)) {
+        c.reply.raw.write(`data: ${dados}\n\n`);
+        entregue = true;
+      }
+    }
+    if (entregue && aviso.tipo === "notificacao.criada" && aviso.entidadeId && this.aoEntregarNotificacao) {
+      this.aoEntregarNotificacao(aviso.entidadeId).catch(() => undefined);
     }
   }
 

@@ -9,6 +9,8 @@ export interface Tx {
   db: Db;
   cliente: pg.PoolClient;
   empresaId: string | null;
+  /** Ações para depois do COMMIT (ex.: log do evento): o que foi desfeito não acontece. */
+  depoisDoCommit?: (() => void)[];
 }
 
 export interface Banco {
@@ -34,8 +36,10 @@ async function emTransacao<T>(
       await cliente.query("SET LOCAL ROLE mg_app");
       await cliente.query("SELECT set_config('app.empresa_id', $1, true)", [empresaId]);
     }
-    const resultado = await fn({ db: drizzle(cliente, { schema: esquema }), cliente, empresaId });
+    const depoisDoCommit: (() => void)[] = [];
+    const resultado = await fn({ db: drizzle(cliente, { schema: esquema }), cliente, empresaId, depoisDoCommit });
     await cliente.query("COMMIT");
+    for (const acao of depoisDoCommit) acao();
     return resultado;
   } catch (err) {
     await cliente.query("ROLLBACK").catch(() => undefined);

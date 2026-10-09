@@ -3,6 +3,8 @@ import { get, patch } from "../../app/api";
 import { Campo, Escolha, Mensagem, Titulo, useEnvio } from "../../ui/ui";
 import { useSessao } from "../../app/sessao";
 import { Link } from "react-router-dom";
+import { SegurancaEmpresa } from "./SegurancaEmpresa";
+import { PrivacidadeEmpresa } from "./PrivacidadeEmpresa";
 import { EnviarLogo, FormCores, FormDominio, FormVocabulario, useConfigMarca } from "../whitelabel/Marca";
 
 interface DadosEmpresa {
@@ -100,6 +102,8 @@ export function Empresa() {
           )}
         </fieldset>
       )}
+      <SegurancaEmpresa />
+      <PrivacidadeEmpresa />
     </>
   );
 }

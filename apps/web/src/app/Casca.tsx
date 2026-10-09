@@ -50,6 +50,7 @@ const MENU: ItemMenu[] = [
   { para: "/plano", texto: "Plano e cobrança", exige: ["configuracoes", "ver"] },
   { para: "/auditoria", texto: "Auditoria", exige: ["auditoria", "ver"] },
   { para: "/notificacoes", texto: "Notificações" },
+  { para: "/seguranca", texto: "Segurança da conta" },
   { para: "/dispositivos", texto: "Meus dispositivos" },
 ];
 
@@ -101,11 +102,15 @@ export function Casca({ children }: { children: ReactNode }) {
   useEffect(() => setMenuAberto(false), [local.pathname]);
   useEffect(() => (eu.empresa ? conectarTempoReal() : undefined), [eu.empresa]);
 
-  const itens = MENU.filter((i) => !i.exige || pode(...i.exige));
+  // Duas etapas pendentes: só a segurança da conta até configurar.
+  const itens = eu.duasEtapas.pendente ? MENU.filter((i) => i.para === "/seguranca") : MENU.filter((i) => !i.exige || pode(...i.exige));
 
   return (
     <ProvedorTelefoneSistema>
       <div className="casca">
+        <a href="#conteudo" className="pular-conteudo">
+          Pular para o conteúdo
+        </a>
         <header className="topo">
           <button
             type="button"
@@ -161,10 +166,10 @@ export function Casca({ children }: { children: ReactNode }) {
         </nav>
         {menuAberto && <div className="menu-fundo" onClick={() => setMenuAberto(false)} aria-hidden="true" />}
 
-        <main className="conteudo">
+        <main className="conteudo" id="conteudo" tabIndex={-1}>
           {!conectado && (
             <p className="mensagem mensagem-erro" role="alert">
-              Sem conexão com a internet. O que você fizer agora não será salvo até a conexão voltar.
+              Sem conexão com a internet. Você vê os dados mais recentes; o que fizer agora não será salvo até a conexão voltar.
             </p>
           )}
           {children}

@@ -25,6 +25,7 @@ import { hashToken, iguaisSeguro } from "../../infra/seguranca/cripto.js";
 import { ErroApp, naoAutenticado, semPermissao } from "../../infra/erros.js";
 import type { Origem } from "../auditoria/registro.js";
 
+
 /**
  * publica: sem sessão (com CSRF nas escritas). autenticada: só sessão. modulo/acao: permissão.
  * webhook: chamada de servidor externo (ex.: Meta) — sem sessão nem CSRF; a própria rota TEM de conferir a
@@ -52,6 +53,9 @@ export interface Contexto {
   unidadeId: string | null;
   equipeId: string | null;
   permissoes: Permissoes;
+  /** A pessoa usa duas etapas; a empresa ativa exige (pelo perfil). Exigida e não ativa = só a configuração fica liberada. */
+  duasEtapasAtiva: boolean;
+  duasEtapasObrigatoria: boolean;
 }
 
 export type ContextoEmpresa = Contexto & { empresaId: string; vinculoId: string };
@@ -102,6 +106,8 @@ interface LinhaContexto {
   unidade_id: string | null;
   equipe_id: string | null;
   permissoes: { modulo: string; acao: string; escopo: string }[] | null;
+  duas_etapas_metodo: string | null;
+  exigir_duas_etapas: string | null;
 }
 
 /** Linhas da tabela permissao → objeto { modulo: { acao: escopo } }, descartando valores desconhecidos. */
@@ -117,6 +123,13 @@ export function permissoesDeLinhas(linhas: { modulo: string; acao: string; escop
   return resultado;
 }
 
+/** A empresa exige duas etapas desta pessoa? (administrador = administra usuários ou configurações). */
+export function duasEtapasObrigatoria(exigencia: string | null, permissoes: Permissoes): boolean {
+  if (exigencia === "todos") return true;
+  if (exigencia === "admins") return Boolean(permissoes.usuarios?.administrar || permissoes.configuracoes?.administrar);
+  return false;
+}
+
 /** Só pares texto → texto curtos: o vocabulário vem do banco e vai direto para a interface. */
 function lerVocabulario(bruto: Record<string, unknown> | null): Record<string, string> {
   const r: Record<string, string> = {};
@@ -126,7 +139,7 @@ function lerVocabulario(bruto: Record<string, unknown> | null): Record<string, s
 
 async function carregarContexto(banco: Banco, config: Config, token: string): Promise<Contexto | null> {
   const { rows } = await banco.pool.query<LinhaContexto>(
-    `SELECT s.id AS sessao_id, s.usuario_id, u.nome, u.email, s.ultimo_uso,
+    `SELECT s.id AS sessao_id, s.usuario_id, u.nome, u.email, s.ultimo_uso, u.duas_etapas_metodo, e.exigir_duas_etapas,
             e.id AS empresa_id, e.nome AS empresa_nome, e.slug, e.fuso, e.marca, e.vocabulario, e.plano, e.modulos,
             v.id AS vinculo_id, p.id AS perfil_id, p.nome AS perfil_nome, v.unidade_id, v.equipe_id,
             (SELECT json_agg(json_build_object('modulo', pm.modulo, 'acao', pm.acao, 'escopo', pm.escopo))
@@ -146,6 +159,7 @@ async function carregarContexto(banco: Banco, config: Config, token: string): Pr
     await banco.pool.query("UPDATE sessao SET ultimo_uso = now() WHERE id = $1", [l.sessao_id]);
   }
   const temEmpresa = Boolean(l.empresa_id && l.vinculo_id);
+  const permissoes = temEmpresa ? permissoesDeLinhas(l.permissoes ?? []) : {};
   return {
     sessaoId: l.sessao_id,
     usuarioId: l.usuario_id,
@@ -164,7 +178,9 @@ async function carregarContexto(banco: Banco, config: Config, token: string): Pr
     perfilNome: temEmpresa ? l.perfil_nome : null,
     unidadeId: temEmpresa ? l.unidade_id : null,
     equipeId: temEmpresa ? l.equipe_id : null,
-    permissoes: temEmpresa ? permissoesDeLinhas(l.permissoes ?? []) : {},
+    permissoes,
+    duasEtapasAtiva: Boolean(l.duas_etapas_metodo),
+    duasEtapasObrigatoria: temEmpresa && duasEtapasObrigatoria(l.exigir_duas_etapas, permissoes),
   };
 }
 
@@ -268,6 +284,13 @@ export function registrarAcesso(app: FastifyInstance, banco: Banco, config: Conf
     if ("autenticada" in acesso) return;
 
     if (!ctx.empresaId) exigirEmpresa(req);
+    if (ctx.duasEtapasObrigatoria && !ctx.duasEtapasAtiva) {
+      throw new ErroApp(
+        403,
+        "DUAS_ETAPAS_OBRIGATORIAS",
+        "A empresa exige o login em duas etapas. Configure em “Segurança da conta” para continuar.",
+      );
+    }
     if (!moduloAtivo(acesso.modulo, ctx.modulos)) {
       throw new ErroApp(403, "MODULO_INATIVO", "Este módulo não está ativo no plano da empresa. Fale com o administrador.");
     }

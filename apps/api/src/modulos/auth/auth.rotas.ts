@@ -2,6 +2,15 @@ import type { FastifyReply, FastifyRequest } from "fastify";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import {
   AceitarConviteEntrada,
+  CodigosRecuperacaoDto,
+  ConfirmarCodigoEntrada,
+  DuasEtapasDto,
+  EntrarResposta,
+  IniciarDuasEtapasDto,
+  IniciarDuasEtapasEntrada,
+  SegurancaEmpresaDto,
+  SegurancaEmpresaEntrada,
+  SenhaAtualEntrada,
   ConviteConsulta,
   ConviteInfoDto,
   EntrarEntrada,
@@ -16,8 +25,9 @@ import {
   pagina,
 } from "@mg/shared";
 import type { Servicos } from "../../app.js";
-import { COOKIE_SESSAO, dispositivoDe, exigirContexto, opcoesCookieSessao } from "../acesso/acesso.js";
+import { COOKIE_SESSAO, dispositivoDe, exigirContexto, exigirEmpresa, opcoesCookieSessao, origemDe } from "../acesso/acesso.js";
 import { criarServicoAuth, type Cliente } from "./auth.servico.js";
+import { COOKIE_DESAFIO, VALIDADE_DESAFIO_MIN, criarServicoDuasEtapas } from "./duas-etapas.servico.js";
 import { resolvedorDominio } from "../marca/dominio.js";
 
 const tags = ["Acesso"];
@@ -26,6 +36,7 @@ export const rotasAuth =
   (s: Servicos): FastifyPluginAsyncZod =>
   async (app) => {
     const auth = criarServicoAuth(s);
+    const duasEtapas = criarServicoDuasEtapas(s);
     const limiteLogin = { max: s.config.limiteLoginMinuto, timeWindow: "1 minute" };
     const publica = { acesso: { publica: true as const } };
     const publicaLimitada = { ...publica, rateLimit: limiteLogin };
@@ -41,13 +52,85 @@ export const rotasAuth =
 
     app.post(
       "/api/auth/entrar",
-      { config: publicaLimitada, schema: { tags, summary: "Entrar com e-mail e senha", body: EntrarEntrada, response: { 200: Ok } } },
+      { config: publicaLimitada, schema: { tags, summary: "Entrar com e-mail e senha", body: EntrarEntrada, response: { 200: EntrarResposta } } },
       async (req, reply) => {
         // No endereço da empresa (subdomínio ou domínio próprio), entra direto nela.
         const doEndereco = req.body.empresaId ? null : await resolvedorDominio(s).porHost(req.headers.host);
-        gravarSessao(reply, (await auth.entrar(cliente(req), { ...req.body, empresaId: req.body.empresaId ?? doEndereco?.id })).token);
+        const r = await auth.entrar(cliente(req), { ...req.body, empresaId: req.body.empresaId ?? doEndereco?.id });
+        if ("desafio" in r) {
+          // Falta o código: o desafio vai num cookie próprio, que só as rotas de duas etapas leem.
+          reply.setCookie(COOKIE_DESAFIO, r.desafio.token, { ...opcoesCookieSessao(s.config), path: "/api/auth", maxAge: VALIDADE_DESAFIO_MIN * 60 });
+          return { ok: true as const, duasEtapas: { metodo: r.desafio.metodo, destino: r.desafio.destino } };
+        }
+        gravarSessao(reply, r.token);
         return { ok: true as const };
       },
+    );
+
+    app.post(
+      "/api/auth/duas-etapas",
+      { config: publicaLimitada, schema: { tags, summary: "Segunda etapa do login: código do app, do e-mail ou de recuperação", body: ConfirmarCodigoEntrada, response: { 200: Ok } } },
+      async (req, reply) => {
+        const { token } = await auth.confirmarDuasEtapas(cliente(req), req.cookies[COOKIE_DESAFIO], req.body.codigo);
+        reply.clearCookie(COOKIE_DESAFIO, { path: "/api/auth" });
+        gravarSessao(reply, token);
+        return { ok: true as const };
+      },
+    );
+
+    app.post(
+      "/api/auth/duas-etapas/reenviar",
+      { config: publicaLimitada, schema: { tags, summary: "Mandar outro código por e-mail", response: { 200: Ok } } },
+      async (req) => {
+        await auth.reenviarCodigo(req.cookies[COOKIE_DESAFIO]);
+        return { ok: true as const };
+      },
+    );
+
+    // Segurança da conta (vale em todas as empresas da pessoa) ---------------------------------------------
+    app.get(
+      "/api/conta/duas-etapas",
+      { config: autenticada, schema: { tags, summary: "Situação do login em duas etapas", response: { 200: DuasEtapasDto } } },
+      async (req) => duasEtapas.estado(exigirContexto(req)),
+    );
+
+    app.post(
+      "/api/conta/duas-etapas/iniciar",
+      { config: { ...autenticada, rateLimit: limiteLogin }, schema: { tags, summary: "Começar a configurar (app ou e-mail)", body: IniciarDuasEtapasEntrada, response: { 200: IniciarDuasEtapasDto } } },
+      async (req) => duasEtapas.iniciarConfiguracao(exigirContexto(req), req.body.metodo),
+    );
+
+    app.post(
+      "/api/conta/duas-etapas/confirmar",
+      { config: { ...autenticada, rateLimit: limiteLogin }, schema: { tags, summary: "Confirmar o primeiro código e ligar", body: ConfirmarCodigoEntrada, response: { 200: CodigosRecuperacaoDto } } },
+      async (req) => duasEtapas.confirmarConfiguracao(exigirContexto(req), origemDe(req), req.body.codigo),
+    );
+
+    app.post(
+      "/api/conta/duas-etapas/desligar",
+      { config: { ...autenticada, rateLimit: limiteLogin }, schema: { tags, summary: "Desligar (pede a senha)", body: SenhaAtualEntrada, response: { 200: Ok } } },
+      async (req) => {
+        await duasEtapas.desligar(exigirContexto(req), origemDe(req), req.body.senha);
+        return { ok: true as const };
+      },
+    );
+
+    app.post(
+      "/api/conta/duas-etapas/novos-codigos",
+      { config: { ...autenticada, rateLimit: limiteLogin }, schema: { tags, summary: "Gerar novos códigos de recuperação (pede a senha)", body: SenhaAtualEntrada, response: { 200: CodigosRecuperacaoDto } } },
+      async (req) => duasEtapas.novosCodigos(exigirContexto(req), origemDe(req), req.body.senha),
+    );
+
+    app.get(
+      "/api/empresa/seguranca",
+      { config: { acesso: { modulo: "configuracoes", acao: "ver" } }, schema: { tags, summary: "Regras de segurança da empresa", response: { 200: SegurancaEmpresaDto } } },
+      async (req) => duasEtapas.exigenciaDaEmpresa(exigirEmpresa(req)),
+    );
+
+    app.put(
+      "/api/empresa/seguranca",
+      { config: { acesso: { modulo: "configuracoes", acao: "administrar" } }, schema: { tags, summary: "Exigir duas etapas de administradores ou de todos", body: SegurancaEmpresaEntrada, response: { 200: SegurancaEmpresaDto } } },
+      async (req) => duasEtapas.definirExigencia(exigirEmpresa(req), origemDe(req), req.body.exigirDuasEtapas),
     );
 
     app.get(

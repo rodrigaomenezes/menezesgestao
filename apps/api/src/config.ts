@@ -27,6 +27,8 @@ export interface Config {
   dominioBase: string | null;
   /** Cadastro aberto de empresas pelo site (CADASTRO_ABERTO=nao desliga). */
   cadastroAberto: boolean;
+  /** Web Push (avisos no celular): par de chaves VAPID. Sem elas, o push fica no modo demonstração. */
+  vapid: { publica: string; privada: string; contato: string } | null;
 }
 
 export class ErroConfig extends Error {}
@@ -59,6 +61,10 @@ export function carregarConfig(env: NodeJS.ProcessEnv = process.env): Config {
   }
   appUrl = appUrl.replace(/\/+$/, "");
 
+  const vapidPublica = env.VAPID_PUBLICA?.trim();
+  const vapidPrivada = env.VAPID_PRIVADA?.trim();
+  if (Boolean(vapidPublica) !== Boolean(vapidPrivada)) problemas.push("Defina VAPID_PUBLICA e VAPID_PRIVADA juntas (gere com: npm run push:chaves)");
+
   if (problemas.length) {
     throw new ErroConfig(`Configuração incompleta:\n- ${problemas.join("\n- ")}`);
   }
@@ -80,5 +86,6 @@ export function carregarConfig(env: NodeJS.ProcessEnv = process.env): Config {
     whatsappQrAtivo: env.WHATSAPP_QR_ATIVO?.trim() !== "nao",
     dominioBase: env.DOMINIO_BASE?.trim().toLowerCase().replace(/^\.+|\.+$/g, "") || null,
     cadastroAberto: env.CADASTRO_ABERTO?.trim() !== "nao",
+    vapid: vapidPublica && vapidPrivada ? { publica: vapidPublica, privada: vapidPrivada, contato: env.VAPID_CONTATO?.trim() || `mailto:${env.EMAIL_REMETENTE?.trim() || "nao-responda@localhost"}` } : null,
   };
 }
