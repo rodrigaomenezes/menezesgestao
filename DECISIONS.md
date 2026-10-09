@@ -369,3 +369,34 @@ Token aleatório de 24 caracteres por pesquisa, nas rotas `/api/publico/pesquisa
 CSRF nas escritas como as demais rotas abertas). A busca pelo token roda como sistema; a gravação, na empresa da
 pesquisa (RLS). A resposta não guarda IP nem identifica quem respondeu; o limite de requisições por IP vale.
 
+# ADR-023 — Marca e empresa pelo endereço
+
+## Decisão
+O host da requisição decide a marca: `<slug>.DOMINIO_BASE` ou `empresa.dominio` (único, sem diferenciar
+maiúsculas). A resolução fica em `marca/dominio.ts` com cache de 60 s por instância. Sem correspondência, vale a
+marca padrão da plataforma. A marca pública (`/api/marca`), o manifest e o ícone do app saem do host; o login
+usa a empresa do host quando o corpo não traz `empresaId`. A sessão continua amarrada ao vínculo — o host só
+escolhe a marca e a empresa inicial, nunca dá acesso. Cores são recusadas abaixo de contraste 4,5:1 (WCAG AA).
+
+## Consequências
+Domínio próprio exige o CNAME do cliente e o cadastro do domínio no Railway (manual por enquanto).
+
+# ADR-024 — Automações por varredura de eventos
+
+## Decisão
+Um job a cada minuto lê os eventos dos últimos 15 minutos e aplica as regras ativas da empresa. A execução é
+gravada com chave única `(regra_id, evento_id)` antes da ação, na mesma transação — rodar de novo não repete.
+Eventos gerados por uma automação levam `regraAutomacaoId` e são ignorados (sem cascata). Ações: criar tarefa,
+mover etapa, avisar no sino e enviar mensagem (respeitando "não contatar").
+
+## Consequências
+Atraso de até um minuto; nada de `setInterval` nem gatilho no banco chamando código.
+
+# ADR-025 — Cobrança atrás de interface, só demonstração por enquanto
+
+## Decisão
+`ProvedorCobranca` (criar cobrança, consultar) com o provedor `demonstracao`, que gera fatura sem link e permite
+"pagar (simulado)". O cadastro abre `assinatura` em teste por 14 dias. O job diário `cobranca.ciclo` gera a fatura
+do mês, marca vencidas e põe a assinatura em atraso. Trocar de plano muda os módulos da empresa na hora (esconde,
+não apaga). Atraso hoje só mostra aviso; bloqueio fica para quando houver provedor real.
+

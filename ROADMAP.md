@@ -25,13 +25,17 @@ Detalhes e critérios de pronto de cada fase: `ESPECIFICACAO.md` ("Roteiro de co
       ligando contato, oferta e vendedor; regras de comissão percentual ou por faixa, prévia e fechamento mensal
       pelo financeiro com retrato gravado; monitoramento de qualidade com critérios e nota ponderada; pesquisas
       com link público e resultados agregados)
-- [ ] Fase 6 — White-label
+- [x] Fase 6 — White-label (marca pelo endereço — subdomínio ou domínio próprio —, com cores validadas por
+      contraste, logos, ícone e app instalado da marca; vocabulário com plural; cadastro aberto com teste de 14 dias
+      e assistente de 5 passos com segmentos prontos e dados de exemplo; planos que escondem módulos sem apagar;
+      cobrança atrás de interface com provedor de demonstração; automações quando/se/então)
 - [ ] Fase 7 — Endurecimento
 
 ## Pendências fora das fases
 
 - [!] Homologação automática: depende de ativar **PR Environments** no Railway (ação no painel).
 - [!] E-mail real: depende de criar `SMTP_URL` e `EMAIL_REMETENTE` no Railway.
+- [!] Domínios: criar `DOMINIO_BASE` e o DNS curinga (`*.dominio`) apontando para o Railway.
 - [ ] Backup do PostgreSQL de produção: ativar e testar restauração (ver `TECH_DEBT.md` #8).
 
 ## Ficou para fases seguintes
@@ -39,6 +43,6 @@ Detalhes e critérios de pronto de cada fase: `ESPECIFICACAO.md` ("Roteiro de co
 - Operação: scripts por oferta (quando o catálogo chegar na fase 5); agenda ligada ao contato pela ficha.
 - Telefonia: prefixo de discagem por empresa, URA/fila receptiva, preferência de "Ligar por" salva no servidor.
 - Mensagens modelo (templates) da API oficial para falar fora da janela de 24 h; mídia em S3/R2.
-- Fase 6: marca por domínio (usa `empresa.slug`), painel da plataforma (planos e módulos), vocabulário na interface,
-  assistente de primeiro acesso, ícones do PWA a partir do logo, edição do vocabulário (com plural) na tela.
+- White-label: provedor de cobrança real (Asaas/Stripe/Mercado Pago), bloqueio por atraso, painel da plataforma
+  com todas as empresas, mais de uma condição por automação na tela.
 - Fase 7: duas etapas, Web Push, leitura offline, logs de negócio estruturados, limite de conexões de tempo real.

@@ -108,6 +108,23 @@ empresa (`oferta` → "curso", `entrega` → "turma", `prestador` → "professor
   avaliada recebe o feedback no sino.
 - Pesquisa: o link público `/p/<código>` abre sem login; respostas não guardam IP nem identificam a pessoa.
 
+### White-label (fase 6)
+
+Menus **Empresa e marca**, **Plano e cobrança** e **Automações**; tela aberta **Cadastre sua empresa**.
+
+- Uma instalação atende várias marcas: o endereço decide a marca. `<slug>.DOMINIO_BASE` (ex.:
+  `escola-sol.seudominio.com.br`) ou o domínio próprio da empresa (ex.: `crm.escolasol.com.br`). A tela de entrada,
+  o ícone e o app instalado já saem com nome, cores e logo daquela empresa — e o login entra direto nela.
+- Marca: cores (o sistema recusa combinações sem contraste suficiente para leitura), logo para fundo claro e
+  escuro (PNG, JPG ou WebP até 512 KB), nome do produto e vocabulário com singular e plural (ex.: "aluno/alunos").
+- Cadastro aberto: a empresa cria a conta (14 dias de teste com todos os módulos) e um assistente de 5 passos
+  deixa tudo pronto: marca → segmento (funil, termos e motivos de perda prontos) → equipe → canais → contatos
+  (planilha ou dados de exemplo, apagáveis com um clique). `CADASTRO_ABERTO=nao` fecha o cadastro.
+- Plano: Essencial, Profissional ou Completo. Mudar de plano esconde módulos, não apaga nada. A cobrança está em
+  modo de demonstração (nenhum valor é cobrado); a troca por um provedor real é uma interface (ADR-025).
+- Automações: "quando [acontecer], se [condição], então [criar tarefa / mover etapa / avisar / enviar mensagem]".
+  Rodam em até um minuto; uma automação nunca dispara outra; quem marcou "não contatar" não recebe mensagem.
+
 ## Testes
 
 ```bash
@@ -130,6 +147,8 @@ npm run build && npm run test:e2e   # Playwright em 360, 390, 768, 1024 e 1440 p
 | `APP_URL` | em produção | Endereço público (links dos e-mails); `https://` liga o cookie `Secure` |
 | `PORT` | não | Porta (padrão 3000; no Railway, a mesma do domínio) |
 | `PRODUTO_NOME` | não | Nome do produto na tela de entrada e no app instalado |
+| `DOMINIO_BASE` | não | Domínio das marcas por subdomínio (ex.: `seudominio.com.br` → `<slug>.seudominio.com.br`) |
+| `CADASTRO_ABERTO` | não | `nao` fecha o cadastro de novas empresas (padrão: aberto) |
 | `SMTP_URL`, `EMAIL_REMETENTE` | não | Envio real de e-mail (ex.: `smtps://usuario:senha@smtp.provedor.com:465`) |
 | `LIMITE_REQ_MINUTO`, `LIMITE_LOGIN_MINUTO` | não | Limites por IP (padrão 300 e 10 por minuto) |
 | `DATABASE_URL_TESTE` | só testes | Banco descartável dos testes |
@@ -146,7 +165,11 @@ O Railway publica a cada merge na `main` (`railway.json`: `npm run build`, `npm 
 2. **Homologação:** Project Settings → Environments → **PR Environments** (cada PR ganha ambiente e banco próprios).
 3. **Primeira empresa** (no terminal do serviço: `railway link` e `railway ssh`):
    `node apps/api/dist/cli/criar-empresa.js --nome "Empresa" --email voce@empresa.com.br --dono "Seu Nome" --plano completo`
-   — sem SMTP, o comando mostra o link para criar a senha.
+   — sem SMTP, o comando mostra o link para criar a senha. (Com o cadastro aberto, também dá para criar pela tela.)
+4. **Marcas por endereço:** no DNS do domínio base, crie `*.seudominio.com.br` (CNAME) apontando para o domínio do
+   Railway e adicione `*.seudominio.com.br` em Settings → Networking → Custom Domain; defina `DOMINIO_BASE`.
+   Para o domínio próprio de uma empresa: ela cadastra em "Empresa e marca", cria o CNAME para o Railway e você
+   adiciona o domínio no mesmo lugar do Railway (o certificado sai sozinho).
 
 ## Fluxo de trabalho
 
