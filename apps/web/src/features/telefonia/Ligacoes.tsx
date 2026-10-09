@@ -3,11 +3,12 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { NOMES_ESTADOS_LIGACAO, NOMES_PROVEDORES_TELEFONE, formatarTelefone, type LigacaoDto } from "@mg/shared";
 import { ErroApi, post } from "../../app/api";
-import { useDataHora } from "../../app/sessao";
+import { useDataHora, useEu } from "../../app/sessao";
 import { useTempoReal } from "../../app/tempo-real";
 import { useAviso } from "../../ui/sobreposicoes";
 import { CarregarMais, ListaVazia, Mensagem, Titulo, usePaginado } from "../../ui/ui";
 import { EscolhaProvedor } from "./Telefone";
+import { BotaoAvaliar } from "../qualidade/Qualidade";
 
 const duracao = (s: number | null) => (s === null ? "" : `${Math.floor(s / 60)}min ${String(s % 60).padStart(2, "0")}s`);
 
@@ -34,6 +35,7 @@ function Gravacao({ l }: { l: LigacaoDto }) {
 }
 
 export function Ligacoes() {
+  const eu = useEu();
   const dataHora = useDataHora();
   const lista = usePaginado<LigacaoDto>("/ligacoes?limite=30");
   useTempoReal(["ligacao."], () => void lista.recarregar());
@@ -59,7 +61,10 @@ export function Ligacoes() {
                 </span>
                 {l.observacao && <span className="texto-livre item-detalhe">{l.observacao}</span>}
               </div>
-              <Gravacao l={l} />
+              <div className="item-acoes">
+                <Gravacao l={l} />
+                {l.estado === "encerrada" && l.usuarioId !== eu.usuario.id && <BotaoAvaliar alvo={{ ligacaoId: l.id }} />}
+              </div>
             </li>
           ))}
         </ul>

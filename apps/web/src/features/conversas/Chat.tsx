@@ -19,6 +19,7 @@ import { formatarTelefone, useConfigCrm, useTermos } from "../crm/comum";
 import { Audio, Gravador } from "./Gravador";
 import { BotaoLigar } from "../telefonia/Telefone";
 import { BotaoScripts } from "../operacao/Scripts";
+import { BotaoAvaliar } from "../qualidade/Qualidade";
 
 const MARCAS: Record<MensagemDto["status"], { texto: string; rotulo: string }> = {
   pendente: { texto: "🕓", rotulo: "Enviando" },
@@ -231,6 +232,7 @@ function Cabecalho({ c, aoMudar }: { c: ConversaDetalheDto; aoMudar(): void }) {
       {c.telefone && (
         <BotaoLigar alvo={{ contatoId: c.contatoId, nome: c.contatoNome, numero: c.telefone }} rotulo="Ligar" classe="botao botao-secundario" />
       )}
+      {c.atribuidaA && c.atribuidaA !== eu?.usuario.id && <BotaoAvaliar alvo={{ conversaId: c.id }} />}
       {podeEditar && (
         <div className="chat-acoes">
           <label className="sr-only" htmlFor="atribuir">
