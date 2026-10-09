@@ -49,6 +49,8 @@ export const MarcaDto = z.object({
   nomeProduto: z.string(),
   corPrimaria: z.string(),
   corDestaque: z.string(),
+  logoClaro: z.string().nullable().optional(),
+  logoEscuro: z.string().nullable().optional(),
 });
 
 // Autenticação -------------------------------------------------------------------------------------

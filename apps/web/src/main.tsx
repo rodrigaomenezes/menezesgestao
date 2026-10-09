@@ -42,6 +42,10 @@ import { Catalogo, Entrega } from "./features/receita/Catalogo";
 import { Qualidade } from "./features/qualidade/Qualidade";
 import { Pesquisas, ResultadoPesquisa } from "./features/pesquisa/Pesquisas";
 import { PesquisaPublica } from "./features/pesquisa/PesquisaPublica";
+import { Cadastro } from "./features/whitelabel/Cadastro";
+import { PrimeirosPassos } from "./features/whitelabel/PrimeirosPassos";
+import { Plano } from "./features/whitelabel/Plano";
+import { Automacoes } from "./features/whitelabel/Automacoes";
 import "./app/estilos.css";
 
 function App() {
@@ -60,6 +64,7 @@ function App() {
       <Routes>
         {abertas}
         <Route path="/esqueci-senha" element={<EsqueciSenha />} />
+        <Route path="/cadastro" element={<Cadastro />} />
         <Route path="*" element={<Entrar />} />
       </Routes>
     );
@@ -94,6 +99,9 @@ function App() {
               <Route path="/qualidade" element={<Qualidade />} />
               <Route path="/pesquisas" element={<Pesquisas />} />
               <Route path="/pesquisas/:id" element={<ResultadoPesquisa />} />
+              <Route path="/primeiros-passos" element={<PrimeirosPassos />} />
+              <Route path="/plano" element={<Plano />} />
+              <Route path="/automacoes" element={<Automacoes />} />
               <Route path="/contatos" element={<Contatos />} />
               <Route path="/contatos/:id" element={<Contato />} />
               <Route path="/funil" element={<Funil />} />

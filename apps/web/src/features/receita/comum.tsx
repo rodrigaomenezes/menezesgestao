@@ -27,10 +27,10 @@ export function useTermosReceita() {
   return {
     oferta,
     Oferta: maiuscula(oferta),
-    Ofertas: maiuscula(plural(oferta)),
+    Ofertas: maiuscula(v.oferta_plural?.toLowerCase() ?? plural(oferta)),
     entrega,
     Entrega: maiuscula(entrega),
-    Entregas: maiuscula(plural(entrega)),
+    Entregas: maiuscula(v.entrega_plural?.toLowerCase() ?? plural(entrega)),
     prestador,
     Prestador: maiuscula(prestador),
   };

@@ -1888,3 +1888,146 @@ audio.gravacao {
   width: 1px;
   height: 1px;
 }
+
+/* Fase 6 — white-label ---------------------------------------------------------------------------- */
+
+.logo-topo {
+  display: block;
+  max-height: 32px;
+  max-width: 160px;
+  object-fit: contain;
+}
+
+.logo-entrada {
+  display: block;
+  max-height: 64px;
+  max-width: 220px;
+  margin: 0 auto 0.75rem;
+  object-fit: contain;
+}
+
+.logo-previa {
+  display: block;
+  max-height: 56px;
+  max-width: 200px;
+  object-fit: contain;
+  margin: 0.25rem 0;
+  padding: 0.25rem;
+  border: 1px solid var(--borda);
+  border-radius: 6px;
+}
+
+.logo-previa-escura {
+  background: #1c1f25;
+}
+
+.logo-campo input[type="file"] {
+  max-width: 100%;
+}
+
+.sem-borda {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.passos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.75rem;
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 0;
+  font-size: 0.9rem;
+  color: var(--texto-suave);
+}
+
+.passos span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  border: 1px solid var(--borda);
+}
+
+.passos .atual {
+  color: var(--texto);
+  font-weight: 700;
+}
+
+.passos .atual span,
+.passos .feito span {
+  background: var(--cor-primaria);
+  color: var(--cor-primaria-texto);
+  border-color: var(--cor-primaria);
+}
+
+.segmentos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 0.5rem;
+  margin: 0.75rem 0;
+}
+
+.segmento {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.75rem;
+  border: 1px solid var(--borda);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.segmento.escolhido {
+  border-color: var(--cor-primaria);
+  outline: 2px solid var(--cor-primaria);
+}
+
+.segmento input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+
+.destaque {
+  border-left: 4px solid var(--cor-destaque);
+}
+
+.planos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.75rem;
+}
+
+.plano {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border: 1px solid var(--borda);
+  border-radius: 8px;
+}
+
+.plano h3 {
+  margin: 0;
+}
+
+.plano-atual {
+  border-color: var(--cor-primaria);
+}
+
+.preco {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+fieldset legend {
+  font-weight: 600;
+}
