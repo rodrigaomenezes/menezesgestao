@@ -42,6 +42,8 @@ import { montarConversas } from "./modulos/conversas/modulo.js";
 import { rotasFila } from "./modulos/fila/fila.rotas.js";
 import { criarServicoTelefonia, rotasTelefonia } from "./modulos/telefonia/telefonia.rotas.js";
 import { rotasOperacao } from "./modulos/operacao/operacao.rotas.js";
+import { rotasReceita } from "./modulos/receita/receita.rotas.js";
+import { rotasQualidade } from "./modulos/qualidade/qualidade.rotas.js";
 import { FILA_LEMBRETE, criarServicoAgenda } from "./modulos/operacao/agenda.servico.js";
 
 z.config(z.locales.pt());
@@ -181,6 +183,8 @@ export async function criarApp(servicos: Servicos): Promise<AppMontado> {
   await servicos.jobs.agendar("telefonia.retencao", "23 4 * * *");
 
   await app.register(rotasOperacao(servicos));
+  await app.register(rotasReceita(servicos));
+  await app.register(rotasQualidade(servicos));
   const agenda = criarServicoAgenda(servicos);
   await servicos.jobs.trabalhar<{ empresaId: string; compromissoId: string; inicio: string; lembreteMinutos: number }>(FILA_LEMBRETE, (d) => agenda.lembrar(d));
 

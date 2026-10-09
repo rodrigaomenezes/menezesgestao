@@ -93,6 +93,21 @@ metas, compromissos, tarefas vencidas, retornos da fila e conversas esperando re
 - Scripts: roteiros por funil/etapa e por canal; na conversa, "Usar na mensagem" preenche o texto com o nome do
   cliente; na ligação, o painel mostra o roteiro da etapa em que o contato está.
 
+### Receita e qualidade (fase 5)
+
+Menus **Vendas**, **Comissões**, **Catálogo**, **Qualidade** e **Pesquisas**. Os nomes seguem o vocabulário da
+empresa (`oferta` → "curso", `entrega` → "turma", `prestador` → "professor").
+
+- Venda: pela ficha do contato ("Registrar venda") ou na tela de vendas; liga contato, oferta e vendedor e pode
+  reservar a vaga numa entrega (vagas travadas no banco: duas vendas ao mesmo tempo não estouram a turma). O
+  vendedor registra; quem confere o pagamento (financeiro) confirma ou cancela.
+- Comissão: uma regra geral e, se quiser, uma por oferta — percentual fixo ou por faixa do total vendido no mês
+  (o percentual da faixa alcançada vale para o total). Só vendas confirmadas contam. O financeiro fecha o mês:
+  o resultado fica gravado e as vendas daquele mês não mudam até a reabertura (com motivo).
+- Qualidade: o gestor avalia uma ligação (em Ligações) ou conversa com nota por critério (com peso); a pessoa
+  avaliada recebe o feedback no sino.
+- Pesquisa: o link público `/p/<código>` abre sem login; respostas não guardam IP nem identificam a pessoa.
+
 ## Testes
 
 ```bash

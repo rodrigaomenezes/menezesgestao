@@ -30,7 +30,7 @@ export function useConfigCrm() {
 const maiuscula = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 /** Plural simples do português para os termos configuráveis (aluno → alunos, cliente → clientes). */
-function plural(s: string): string {
+export function plural(s: string): string {
   if (/ão$/i.test(s)) return s.replace(/ão$/i, "ões");
   if (/[aeiou]$/i.test(s)) return `${s}s`;
   if (/[rsz]$/i.test(s)) return `${s}es`;

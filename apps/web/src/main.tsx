@@ -36,6 +36,12 @@ import { Desempenho } from "./features/operacao/Desempenho";
 import { Mapa } from "./features/operacao/Mapa";
 import { Scripts } from "./features/operacao/Scripts";
 import { ConfigRotina } from "./features/operacao/ConfigRotina";
+import { Vendas } from "./features/receita/Vendas";
+import { Comissoes } from "./features/receita/Comissoes";
+import { Catalogo, Entrega } from "./features/receita/Catalogo";
+import { Qualidade } from "./features/qualidade/Qualidade";
+import { Pesquisas, ResultadoPesquisa } from "./features/pesquisa/Pesquisas";
+import { PesquisaPublica } from "./features/pesquisa/PesquisaPublica";
 import "./app/estilos.css";
 
 function App() {
@@ -46,6 +52,7 @@ function App() {
   const abertas = [
     <Route key="convite" path="/convite" element={<AceitarConvite />} />,
     <Route key="redefinir" path="/redefinir-senha" element={<RedefinirSenha />} />,
+    <Route key="pesquisa" path="/p/:token" element={<PesquisaPublica />} />,
   ];
 
   if (!eu) {
@@ -80,6 +87,13 @@ function App() {
               <Route path="/mapa" element={<Mapa />} />
               <Route path="/scripts" element={<Scripts />} />
               <Route path="/rotina/configuracoes" element={<ConfigRotina />} />
+              <Route path="/vendas" element={<Vendas />} />
+              <Route path="/comissoes" element={<Comissoes />} />
+              <Route path="/catalogo" element={<Catalogo />} />
+              <Route path="/entregas/:id" element={<Entrega />} />
+              <Route path="/qualidade" element={<Qualidade />} />
+              <Route path="/pesquisas" element={<Pesquisas />} />
+              <Route path="/pesquisas/:id" element={<ResultadoPesquisa />} />
               <Route path="/contatos" element={<Contatos />} />
               <Route path="/contatos/:id" element={<Contato />} />
               <Route path="/funil" element={<Funil />} />

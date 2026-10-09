@@ -8,6 +8,7 @@ import { useTempoReal } from "../../app/tempo-real";
 import { useAviso, useConfirmar } from "../../ui/sobreposicoes";
 import { Campo, CarregarMais, Escolha, ListaVazia, Mensagem, Titulo, useEnvio, usePaginado } from "../../ui/ui";
 import { BotaoLigar } from "../telefonia/Telefone";
+import { VendasDoContato } from "../receita/Vendas";
 import {
   CamposPersonalizados,
   EscolhaEtiquetas,
@@ -332,6 +333,16 @@ const TEXTOS_EVENTO: Record<string, string> = {
   "conversa.aberta": "Conversa reaberta",
   "mensagem.recebida": "Mensagem recebida",
   "mensagem.criada": "Mensagem enviada",
+  "venda.registrada": "Venda registrada",
+  "venda.confirmada": "Pagamento confirmado",
+  "venda.cancelada": "Venda cancelada",
+  "venda.atualizada": "Venda alterada",
+  "compromisso.criado": "Compromisso marcado",
+  "compromisso.atualizado": "Compromisso alterado",
+  "compromisso.arquivado": "Compromisso desmarcado",
+  "entrega.participante_incluido": "Entrou em",
+  "entrega.participante_retirado": "Saiu de",
+  "avaliacao.registrada": "Atendimento avaliado",
 };
 
 function detalheEvento(h: HistoricoDto): string {
@@ -342,6 +353,8 @@ function detalheEvento(h: HistoricoDto): string {
     return d.atendida ? `atendida, ${Math.floor(seg / 60)}min ${String(seg % 60).padStart(2, "0")}s` : `não atendida${d.motivo ? ` (${String(d.motivo)})` : ""}`;
   }
   if (h.tipo.startsWith("mensagem.") && typeof d.resumo === "string") return d.resumo;
+  if (h.tipo.startsWith("entrega.") && typeof d.entrega === "string") return d.entrega;
+  if (h.tipo === "avaliacao.registrada" && typeof d.notaFinal === "number") return `nota ${d.notaFinal.toLocaleString("pt-BR")}`;
   if (typeof d.titulo === "string") return d.titulo;
   if (d.importacaoId) return "pela importação de planilha";
   return "";
@@ -350,7 +363,7 @@ function detalheEvento(h: HistoricoDto): string {
 function Historico({ contatoId }: { contatoId: string }) {
   const dataHora = useDataHora();
   const lista = usePaginado<HistoricoDto>(`/contatos/${contatoId}/historico?limite=30`);
-  useTempoReal(["contato.", "oportunidade.", "tarefa.", "nota.", "ligacao.", "fila.", "mensagem.", "conversa."], () => void lista.recarregar());
+  useTempoReal(["contato.", "oportunidade.", "tarefa.", "nota.", "ligacao.", "fila.", "mensagem.", "conversa.", "venda.", "compromisso.", "entrega.", "avaliacao."], () => void lista.recarregar());
   return (
     <section className="cartao" aria-labelledby="titulo-historico">
       <h2 id="titulo-historico">Histórico</h2>
@@ -539,6 +552,7 @@ export function Contato() {
       <div className="duas-colunas">
         <div>
           <Oportunidades contato={contato} config={config} />
+          <VendasDoContato contato={contato} />
           <Tarefas contato={contato} />
           <Notas contato={contato} />
         </div>

@@ -4,6 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { comoSistema } from "../../apps/api/src/infra/banco.js";
 import { email, logado, montarTeste, semearDuasEmpresas, type AmbienteTeste, type Cliente, type EmpresasTeste } from "../apoio/app-teste.js";
 import { esperar } from "../apoio/conversas.js";
+import { hojeNoFuso } from "../../apps/api/src/modulos/operacao/comum.js";
 
 let t: AmbienteTeste;
 let e: EmpresasTeste;
@@ -316,7 +317,8 @@ describe("agenda", () => {
       "lembrete do compromisso",
     );
 
-    const hoje = new Date().toISOString().slice(0, 10);
+    // "Hoje" no fuso da empresa (São Paulo), não em UTC.
+    const hoje = hojeNoFuso("America/Sao_Paulo");
     const lista = (await vendedor.get(`/api/compromissos?de=${hoje}&ate=${hoje}`)).json().itens;
     expect(lista.map((x: { id: string }) => x.id)).toContain(c.json().id);
     expect((await vendedor.get(`/api/compromissos?de=2026-01-01&ate=2026-06-01`)).statusCode).toBe(400);
