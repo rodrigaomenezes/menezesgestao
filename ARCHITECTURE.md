@@ -25,7 +25,8 @@ Um único serviço no Railway: o Fastify serve a API e o front compilado (`apps/
 ```
 apps/api/src
   app.ts, server.ts, config.ts      montagem, inicialização (falha cedo), configuração
-  infra/                             banco (comEmpresa/comoSistema), esquema Drizzle, migrador, jobs,
+  infra/                             banco (comEmpresa/comoSistema, depoisDoCommit), esquema Drizzle, migrador, jobs,
+                                     log.ts (logs JSON sem dados pessoais), backup.ts (conferência da cópia),
                                      erros (ErroApp), paginação por cursor, criptografia e senhas
   modulos/<dominio>/                 *.rotas.ts → *.servico.ts → *.repositorio.ts
     acesso/        sessão, CSRF, permissão × escopo (preValidation), filtro de escopo
@@ -58,9 +59,15 @@ apps/api/src
     onboarding/    cadastro aberto, assistente de 5 passos, segmentos, dados de exemplo
     cobranca/      interface ProvedorCobranca (provedor de demonstração), assinatura, faturas, ciclo diário (job)
     automacoes/    regras quando/se/então; varredura dos eventos por job (uma execução por regra × evento)
-  cli/                               criar-empresa, dados-exemplo, caixa-de-saida, migrar
+    auth/          (fase 7) duas-etapas.servico.ts: TOTP (infra/seguranca/totp.ts), código por e-mail,
+                   códigos de recuperação, desafio em cookie próprio, regra da empresa
+    lgpd/          exportar e anonimizar o titular; retenção por empresa e limpeza do sistema (job diário)
+    push/          interface ProvedorPush (web-push com VAPID ou demonstração), inscrições, varredura por job
+  cli/                               criar-empresa, dados-exemplo, caixa-de-saida, migrar, desligar-duas-etapas,
+                                     conferir-backup, chaves-push
 apps/web/src
-  app/        api (cliente), sessão, tema, tempo real, casca (menu, sino, aviso de sem conexão)
+  app/        api (cliente), sessão, tema, tempo real, casca (menu, sino, aviso de sem conexão),
+              offline.ts (cache dos dados limpo no login/logout, inscrição de push); public/sw-push.js
   ui/         campos, listas paginadas, modal, confirmação, avisos (toast)
   features/   acesso, inicio, usuarios, permissoes, empresa, auditoria, notificacoes, conta,
               crm (contatos, ficha, funil/kanban, tarefas, importar, configurar), conversas,
@@ -112,6 +119,12 @@ tests/      integration/ (Vitest + PostgreSQL real), e2e/ (Playwright, 5 largura
   passo do assistente. `assinatura` (uma por empresa) e `fatura` (única por assinatura × vencimento: o ciclo
   diário pode rodar de novo sem duplicar). `automacao_execucao` é única por `(regra_id, evento_id)` e não aceita
   UPDATE — o mesmo evento nunca dispara a mesma regra duas vezes.
+- Segurança e LGPD: `desafio_login` e `push_inscricao` são só do sistema (sem leitura para mg_app); o segredo do
+  app autenticador e as chaves do navegador vão cifrados; códigos de recuperação só como HMAC. `evento` e
+  `auditoria` continuam somente inserção — a única exceção é a anonimização, que troca o conteúdo
+  (`dados`/`antes`/`depois`) com `app.lgpd_redacao` ligado na transação do sistema (ADR-027).
+- Push: `notificacao.entregue_em` (chegou a uma tela aberta pelo tempo real) e `push_em` (já processada);
+  `so_celular` para avisos de ligação.
 - Campos personalizados: definição em `campo_personalizado`, valores em `campos jsonb` validados pelo serviço.
 - Sessões e tokens guardam só o HMAC (`SESSION_SECRET`); conteúdo sensível de jobs vai cifrado (`CRM_CHAVE`).
 

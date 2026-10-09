@@ -2062,3 +2062,23 @@ fieldset legend {
   overflow-wrap: anywhere;
   user-select: all;
 }
+
+/* Teclado: o primeiro Tab leva direto ao conteúdo, sem passar pelo menu inteiro. */
+.pular-conteudo {
+  position: absolute;
+  left: 0.5rem;
+  top: -3rem;
+  z-index: 100;
+  padding: 0.5rem 0.75rem;
+  background: var(--cor-primaria);
+  color: var(--cor-primaria-texto);
+  border-radius: 6px;
+}
+
+.pular-conteudo:focus {
+  top: 0.5rem;
+}
+
+.conteudo:focus {
+  outline: none;
+}

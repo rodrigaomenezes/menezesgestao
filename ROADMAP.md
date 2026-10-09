@@ -29,14 +29,19 @@ Detalhes e critérios de pronto de cada fase: `ESPECIFICACAO.md` ("Roteiro de co
       contraste, logos, ícone e app instalado da marca; vocabulário com plural; cadastro aberto com teste de 14 dias
       e assistente de 5 passos com segmentos prontos e dados de exemplo; planos que escondem módulos sem apagar;
       cobrança atrás de interface com provedor de demonstração; automações quando/se/então)
-- [ ] Fase 7 — Endurecimento
+- [x] Fase 7 — Endurecimento (login em duas etapas por app ou e-mail com códigos de recuperação e regra da empresa;
+      LGPD: exportar e anonimizar o titular, "não contatar" em toda saída, prazos de retenção com limpeza diária;
+      backup com restauração testada no CI e roteiro; logs estruturados sem dados pessoais e alerta de canal
+      desconectado por sino, e-mail e push; avisos no celular para quem está fora, ligação só no celular; leitura
+      offline com cache limpo no login/logout; modo escuro e teclado conferidos nas telas principais)
 
 ## Pendências fora das fases
 
 - [!] Homologação automática: depende de ativar **PR Environments** no Railway (ação no painel).
 - [!] E-mail real: depende de criar `SMTP_URL` e `EMAIL_REMETENTE` no Railway.
 - [!] Domínios: criar `DOMINIO_BASE` e o DNS curinga (`*.dominio`) apontando para o Railway.
-- [ ] Backup do PostgreSQL de produção: ativar e testar restauração (ver `TECH_DEBT.md` #8).
+- [!] Backup do PostgreSQL de produção: ativar os agendamentos no Railway e fazer o primeiro teste (`docs/BACKUP.md`).
+- [!] Avisos no celular: gerar as chaves (`npm run push:chaves`) e criar `VAPID_PUBLICA`/`VAPID_PRIVADA` no Railway.
 
 ## Ficou para fases seguintes
 
@@ -45,4 +50,5 @@ Detalhes e critérios de pronto de cada fase: `ESPECIFICACAO.md` ("Roteiro de co
 - Mensagens modelo (templates) da API oficial para falar fora da janela de 24 h; mídia em S3/R2.
 - White-label: provedor de cobrança real (Asaas/Stripe/Mercado Pago), bloqueio por atraso, painel da plataforma
   com todas as empresas, mais de uma condição por automação na tela.
-- Fase 7: duas etapas, Web Push, leitura offline, logs de negócio estruturados, limite de conexões de tempo real.
+- Endurecimento: limite de conexões de tempo real por pessoa, envio de mensagens a partir do modo offline
+  (fila local), painel de saúde da plataforma.

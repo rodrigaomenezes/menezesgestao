@@ -421,7 +421,9 @@ export function criarServicoTelefonia(s: Servicos, arquivos: ProvedorArquivos) {
       tx.db
         .select({ id: ligacao.id, empresaId: ligacao.empresaId, arquivoId: ligacao.gravacaoArquivoId, contatoId: ligacao.contatoId })
         .from(ligacao)
-        .where(and(isNotNull(ligacao.gravacaoArquivoId), lt(ligacao.gravacaoExpiraEm, new Date())))
+        .innerJoin(arquivo, eq(arquivo.id, ligacao.gravacaoArquivoId))
+        // Só as que ainda têm conteúdo: as já apagadas não ocupam o lote (senão as novas nunca chegariam a vez).
+        .where(and(isNotNull(ligacao.gravacaoArquivoId), lt(ligacao.gravacaoExpiraEm, new Date()), sql`octet_length(${arquivo.conteudo}) > 0`))
         .limit(500),
     );
     let apagadas = 0;

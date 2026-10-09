@@ -400,3 +400,44 @@ Atraso de até um minuto; nada de `setInterval` nem gatilho no banco chamando c�
 do mês, marca vencidas e põe a assinatura em atraso. Trocar de plano muda os módulos da empresa na hora (esconde,
 não apaga). Atraso hoje só mostra aviso; bloqueio fica para quando houver provedor real.
 
+# ADR-026 — Login em duas etapas: TOTP próprio ou e-mail, desafio em cookie
+
+## Decisão
+A pessoa escolhe: app autenticador (TOTP, RFC 6238, implementado com `node:crypto`, sem dependência) ou código
+de 6 dígitos por e-mail. A senha certa não abre sessão: cria um `desafio_login` (10 min, 5 tentativas) cujo
+token vai num cookie HttpOnly com caminho `/api/auth`; código errado também conta para o bloqueio progressivo
+da conta. O passo do TOTP usado é gravado (o mesmo código não vale duas vezes). 10 códigos de recuperação, só o
+HMAC no banco. A empresa exige de ninguém, de administradores (quem administra usuários ou configurações) ou de
+todos; quem é obrigado e não configurou só acessa rotas `autenticada` (configurar, sair). Quem exige precisa
+ter ligado antes (não se tranca fora). Sem reset pelo administrador da empresa: a pessoa é global (vale em todas
+as empresas); o suporte desliga pelo terminal (`desligar-duas-etapas`), com auditoria.
+
+# ADR-027 — LGPD: anonimizar mantém os fatos
+
+## Decisão
+Anonimizar troca os dados pessoais por marcadores e apaga o conteúdo de mídias e gravações, sem apagar linhas:
+metas, comissões e mapa (contados dos eventos) continuam fechando. No histórico, a única exceção ao "somente
+inserção": com `app.lgpd_redacao = on` na transação do sistema, o gatilho aceita UPDATE que mude só
+`evento.dados` ou `auditoria.antes/depois`. Vendas guardam o vínculo e a observação (obrigação fiscal; o mês
+fechado é travado). Exportar fica na auditoria (quem e quando, sem o conteúdo). Retenção por empresa:
+conteúdo de mensagens após N meses e anonimização de contatos arquivados há N meses; o sistema limpa caixa de
+saída (7 dias), desafios (30 dias) e planilhas importadas (30 dias após terminar).
+
+# ADR-028 — Backups do Railway, restauração provada
+
+## Decisão
+Os backups diários/semanais são os do Railway (sem bucket próprio por enquanto). A garantia vem do teste:
+`npm run backup:conferir` compara migrações, RLS e contagens da cópia restaurada com a original, e o CI faz
+`pg_dump` → banco novo → conferência a cada PR. Roteiro em `docs/BACKUP.md`.
+
+# ADR-029 — Push para quem está fora e leitura offline
+
+## Decisão
+Web Push atrás de `ProvedorPush` (`web-push` com VAPID; sem chaves, demonstração na caixa de saída). Um job a
+cada minuto manda as notificações não lidas que não chegaram a nenhuma tela aberta em 15 s (a instância que
+entrega pelo tempo real marca `entregue_em`); `push_em` é marcado antes de enviar (sem duplicar entre
+instâncias). Aviso de ligação (`so_celular`) só para inscrições de celular. Ao sair, o aparelho cancela a
+inscrição. Offline: Workbox `NetworkFirst` nas consultas GET da API (fora mídias, gravações, exportações, tempo
+real e push), cache `mg-dados` apagado quando a pessoa logada muda (login, logout). Somente leitura: escrever
+offline mostra "sem conexão".
+

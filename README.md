@@ -125,6 +125,22 @@ Menus **Empresa e marca**, **Plano e cobrança** e **Automações**; tela aberta
 - Automações: "quando [acontecer], se [condição], então [criar tarefa / mover etapa / avisar / enviar mensagem]".
   Rodam em até um minuto; uma automação nunca dispara outra; quem marcou "não contatar" não recebe mensagem.
 
+### Endurecimento (fase 7)
+
+- **Login em duas etapas** (em "Segurança da conta"): app autenticador (Google/Microsoft Authenticator, Authy) ou
+  código por e-mail, com 10 códigos de recuperação. Em "Empresa e marca → Segurança", a empresa pode exigir de
+  administradores ou de todos; quem ainda não configurou só acessa a configuração. Celular perdido sem códigos:
+  `node apps/api/dist/cli/desligar-duas-etapas.js --email pessoa@empresa.com.br` no terminal do servidor.
+- **LGPD**: na ficha do contato, "Exportar dados" (tudo o que a empresa guarda sobre o titular) e "Anonimizar"
+  (apaga nome, telefone, e-mail, notas, mensagens, gravações; os números de metas e vendas continuam). "Não deseja
+  ser contatado" vale para fila, discagem, conversa nova e mensagens automáticas. Prazos de retenção em
+  "Empresa e marca → Privacidade"; a limpeza roda todo dia.
+- **Avisos no celular**: em "Notificações → Avisos neste aparelho". Chegam quando a pessoa está fora do sistema;
+  lembrete de ligação (retorno da fila) só no celular. Precisa das chaves VAPID (veja as variáveis).
+- **Sem internet**: o app mostra os dados vistos por último (somente leitura); o cache é apagado ao entrar e ao sair.
+- **Backup**: backups diários do Railway + roteiro de restauração testado (`docs/BACKUP.md`, `npm run backup:conferir`).
+- **Logs**: uma linha JSON por evento de negócio (tipo, empresa, autor, ids) e por erro — sem dados pessoais.
+
 ## Testes
 
 ```bash
@@ -149,6 +165,8 @@ npm run build && npm run test:e2e   # Playwright em 360, 390, 768, 1024 e 1440 p
 | `PRODUTO_NOME` | não | Nome do produto na tela de entrada e no app instalado |
 | `DOMINIO_BASE` | não | Domínio das marcas por subdomínio (ex.: `seudominio.com.br` → `<slug>.seudominio.com.br`) |
 | `CADASTRO_ABERTO` | não | `nao` fecha o cadastro de novas empresas (padrão: aberto) |
+| `VAPID_PUBLICA`, `VAPID_PRIVADA` | não | Avisos no celular (Web Push). Gere uma vez com `npm run push:chaves`; sem elas, avisos só no sino |
+| `VAPID_CONTATO` | não | Contato do remetente dos avisos (padrão: `mailto:` + `EMAIL_REMETENTE`) |
 | `SMTP_URL`, `EMAIL_REMETENTE` | não | Envio real de e-mail (ex.: `smtps://usuario:senha@smtp.provedor.com:465`) |
 | `LIMITE_REQ_MINUTO`, `LIMITE_LOGIN_MINUTO` | não | Limites por IP (padrão 300 e 10 por minuto) |
 | `DATABASE_URL_TESTE` | só testes | Banco descartável dos testes |
@@ -170,6 +188,10 @@ O Railway publica a cada merge na `main` (`railway.json`: `npm run build`, `npm 
    Railway e adicione `*.seudominio.com.br` em Settings → Networking → Custom Domain; defina `DOMINIO_BASE`.
    Para o domínio próprio de uma empresa: ela cadastra em "Empresa e marca", cria o CNAME para o Railway e você
    adiciona o domínio no mesmo lugar do Railway (o certificado sai sozinho).
+5. **Backups:** serviço Postgres → **Backups** → agendamentos diário e semanal. Teste a restauração todo mês
+   (`docs/BACKUP.md`).
+6. **Avisos no celular:** rode `npm run push:chaves` uma vez (no seu computador) e crie `VAPID_PUBLICA` e
+   `VAPID_PRIVADA` nas variáveis do serviço.
 
 ## Fluxo de trabalho
 

@@ -108,6 +108,9 @@ export function Casca({ children }: { children: ReactNode }) {
   return (
     <ProvedorTelefoneSistema>
       <div className="casca">
+        <a href="#conteudo" className="pular-conteudo">
+          Pular para o conteúdo
+        </a>
         <header className="topo">
           <button
             type="button"
@@ -163,7 +166,7 @@ export function Casca({ children }: { children: ReactNode }) {
         </nav>
         {menuAberto && <div className="menu-fundo" onClick={() => setMenuAberto(false)} aria-hidden="true" />}
 
-        <main className="conteudo">
+        <main className="conteudo" id="conteudo" tabIndex={-1}>
           {!conectado && (
             <p className="mensagem mensagem-erro" role="alert">
               Sem conexão com a internet. Você vê os dados mais recentes; o que fizer agora não será salvo até a conexão voltar.
