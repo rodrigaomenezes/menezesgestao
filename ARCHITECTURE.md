@@ -49,6 +49,10 @@ apps/api/src
     operacao/      rotina (agrega os módulos que o perfil vê) e check-list, agenda (lembrete por job), escala e
                    horas (ponto, validação, fechamento), indicadores.ts (contagem dos eventos), metas e desempenho,
                    mapa de atividades e atividades manuais, scripts
+    receita/       ofertas e entregas (vaga com trava), vendas, calculo-comissao.ts (função pura, centavos),
+                   regras, prévia e fechamento de comissão
+    qualidade/     critérios e avaliações (nota ponderada, feedback no sino)
+    pesquisa/      pesquisas, link público (rotas /api/publico/…) e resultados agregados
   cli/                               criar-empresa, dados-exemplo, caixa-de-saida, migrar
 apps/web/src
   app/        api (cliente), sessão, tema, tempo real, casca (menu, sino, aviso de sem conexão)
@@ -56,7 +60,8 @@ apps/web/src
   features/   acesso, inicio, usuarios, permissoes, empresa, auditoria, notificacoes, conta,
               crm (contatos, ficha, funil/kanban, tarefas, importar, configurar), conversas,
               telefonia (ProvedorTelefone: treino, celular, SIP/JsSIP; painel da ligação), fila (discador),
-              operacao (rotina no Início, agenda, horas, desempenho, mapa, scripts)
+              operacao (rotina no Início, agenda, horas, desempenho, mapa, scripts),
+              receita (vendas, comissões, catálogo), qualidade, pesquisa (inclusive a página pública /p/:token)
 packages/shared/src                 @mg/shared: catálogo, marca, erros, DTOs (Zod, inclusive dto-crm), slug, datas, telefone
 database/   migrations/ (SQL), seeds/ (JSON fictício), docker/
 tests/      integration/ (Vitest + PostgreSQL real), e2e/ (Playwright, 5 larguras), apoio/
@@ -93,6 +98,10 @@ tests/      integration/ (Vitest + PostgreSQL real), e2e/ (Playwright, 5 largura
   `(empresa_id, tipo, criado_em)` e `(empresa_id, ator_id, criado_em)`). `registro_horas` tem gatilho que recusa
   qualquer INSERT/UPDATE em mês com `fechamento_horas` ativo (reabrir = marcar `reaberto_em`, nada é apagado).
   Escala trocada é arquivada, não sobrescrita.
+- Receita: `venda.data_venda` (dia no fuso da empresa) define o mês da comissão; `fechamento_comissao` +
+  gatilho travam as vendas do mês; `comissao` é o retrato do fechamento (somente inserção). Vagas:
+  `entrega` é travada (`FOR UPDATE`) antes de gravar a venda/participante; índice único de participante ativo.
+- Pesquisa: `pesquisa.token` (aleatório, único) é a única chave pública; `resposta_pesquisa` é somente inserção.
 - Campos personalizados: definição em `campo_personalizado`, valores em `campos jsonb` validados pelo serviço.
 - Sessões e tokens guardam só o HMAC (`SESSION_SECRET`); conteúdo sensível de jobs vai cifrado (`CRM_CHAVE`).
 

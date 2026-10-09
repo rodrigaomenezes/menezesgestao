@@ -21,7 +21,10 @@ Detalhes e critérios de pronto de cada fase: `ESPECIFICACAO.md` ("Roteiro de co
       retornos e conversas sem resposta; agenda com lembrete; escala e horas com validação do gestor e fechamento
       do mês travado no banco; metas e painel de desempenho e mapa de atividades calculados só dos eventos;
       atividades manuais corrigíveis; biblioteca de scripts aberta na conversa e na ligação)
-- [ ] Fase 5 — Receita e qualidade
+- [x] Fase 5 — Receita e qualidade (catálogo de ofertas e entregas com vagas travadas no banco e prestador; vendas
+      ligando contato, oferta e vendedor; regras de comissão percentual ou por faixa, prévia e fechamento mensal
+      pelo financeiro com retrato gravado; monitoramento de qualidade com critérios e nota ponderada; pesquisas
+      com link público e resultados agregados)
 - [ ] Fase 6 — White-label
 - [ ] Fase 7 — Endurecimento
 

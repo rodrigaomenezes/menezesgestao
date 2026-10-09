@@ -347,3 +347,25 @@ não haver registro em andamento ou aguardando validação. Reabrir exige motivo
 Fechar e reabrir pedem `agenda: administrar` (no perfil-base, só o dono); a empresa pode dar ao financeiro pela
 tela de perfis. Validar horas é para quem enxerga além de si e nunca sobre as próprias horas.
 
+---
+
+# ADR-021 — Comissão: regra por oferta ou geral, faixa em escada, retrato no fechamento
+
+## Decisão
+- Cada venda confirmada do mês cai em uma regra: a da oferta dela; senão, a geral; senão, nenhuma (contada à
+  parte e mostrada na tela). Uma regra ativa por oferta e uma geral (índice único).
+- Regra por faixa: a faixa é escolhida pelo total do vendedor naquela regra no mês e o percentual dela vale para
+  o total (escada, não progressiva) — é o formato mais comum e o mais fácil de conferir à mão.
+- Conta em centavos inteiros com `BigInt`, arredondando meio centavo para cima uma vez por vendedor × regra
+  (`receita/calculo-comissao.ts`, testada contra conta feita à mão).
+- Fechar o mês grava o retrato (`comissao`) e trava as vendas do mês com gatilho (como as horas, ADR-020). Mudar
+  regra depois não altera mês fechado. Fechar exige não haver venda aguardando pagamento no mês.
+- Regras e fechamento: quem tem `vendas: editar` com escopo da empresa (financeiro e dono no perfil-base).
+
+# ADR-022 — Pesquisa com link público
+
+## Decisão
+Token aleatório de 24 caracteres por pesquisa, nas rotas `/api/publico/pesquisas/:token` (acesso `publica`, com
+CSRF nas escritas como as demais rotas abertas). A busca pelo token roda como sistema; a gravação, na empresa da
+pesquisa (RLS). A resposta não guarda IP nem identifica quem respondeu; o limite de requisições por IP vale.
+

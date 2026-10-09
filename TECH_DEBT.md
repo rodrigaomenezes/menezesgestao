@@ -32,4 +32,7 @@ histórico do git.
 | 25 | Indicadores e mapa somados na consulta; empresas com muito volume podem sentir | MÉDIA | `modulos/operacao/indicadores.ts` | Visão materializada por dia × pessoa, atualizada por job (ADR-019) |
 | 26 | Scripts ainda não se ligam a oferta (o catálogo chega na fase 5) | BAIXA | `modulos/operacao/scripts.servico.ts` | Coluna `oferta_id` aditiva na fase 5 |
 | 27 | Retornos da rotina só aparecem para quem registrou o último resultado do item | BAIXA | `modulos/operacao/rotina.servico.ts` | Opção de "retorno da equipe" para o gestor |
+| 28 | Pesquisa pública aceita várias respostas da mesma pessoa (só o limite por IP segura) | BAIXA | `modulos/pesquisa` | Token de resposta por convite, quando a pesquisa for enviada a contatos |
+| 29 | Indicadores de metas ainda não contam vendas confirmadas (usam oportunidade ganha) | BAIXA | `modulos/operacao/indicadores.ts` | Indicador "vendas confirmadas" com estorno no cancelamento |
+| 30 | Escolher prestador e pessoas no catálogo usa a lista de usuários (precisa de "Usuários: ver") | BAIXA | `apps/web/src/features/receita/Catalogo.tsx` | Rota de opções de pessoas por módulo |
 
