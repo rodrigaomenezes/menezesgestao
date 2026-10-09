@@ -120,7 +120,7 @@ Menus **Empresa e marca**, **Plano e cobrança** e **Automações**; tela aberta
 - Cadastro aberto: a empresa cria a conta (14 dias de teste com todos os módulos) e um assistente de 5 passos
   deixa tudo pronto: marca → segmento (funil, termos e motivos de perda prontos) → equipe → canais → contatos
   (planilha ou dados de exemplo, apagáveis com um clique). `CADASTRO_ABERTO=nao` fecha o cadastro.
-- Plano: Essencial, Profissional ou Completo. Mudar de plano esconde módulos, não apaga nada. A cobrança está em
+- Plano: Essencial, Comercial ou Completo. Mudar de plano esconde módulos, não apaga nada. A cobrança está em
   modo de demonstração (nenhum valor é cobrado); a troca por um provedor real é uma interface (ADR-025).
 - Automações: "quando [acontecer], se [condição], então [criar tarefa / mover etapa / avisar / enviar mensagem]".
   Rodam em até um minuto; uma automação nunca dispara outra; quem marcou "não contatar" não recebe mensagem.
