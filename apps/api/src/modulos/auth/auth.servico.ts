@@ -16,6 +16,7 @@ import { DURACAO_SESSAO_DIAS, type Contexto } from "../acesso/acesso.js";
 import { auditar, registrar, type Origem } from "../auditoria/registro.js";
 import { notificar } from "../notificacoes/notificar.js";
 import * as repo from "./auth.repositorio.js";
+import { criarServicoDuasEtapas } from "./duas-etapas.servico.js";
 
 const VALIDADE_RECUPERACAO_MIN = 60;
 
@@ -36,6 +37,7 @@ const origem = (c: Cliente, empresaId: string | null, atorId: string | null): Or
 export function criarServicoAuth(s: Servicos) {
   const { banco, config } = s;
   const hash = (token: string) => hashToken(config.sessionSecret, token);
+  const duasEtapas = criarServicoDuasEtapas(s);
 
   /** Abre uma sessão nova; quem entra de novo no mesmo navegador não deixa a anterior aberta. */
   async function abrirSessao(tx: Tx, cliente: Cliente, usuarioId: string, empresaId: string): Promise<string> {
@@ -55,7 +57,7 @@ export function criarServicoAuth(s: Servicos) {
   async function entrar(
     cliente: Cliente,
     dados: { email: string; senha: string; empresaId?: string },
-  ): Promise<{ token: string }> {
+  ): Promise<{ token: string } | { desafio: { token: string; metodo: "totp" | "email"; destino: string | null } }> {
     const resultado = await comoSistema(banco, async (tx) => {
       const u = await repo.buscarUsuarioPorEmail(tx, dados.email);
 
@@ -97,6 +99,12 @@ export function criarServicoAuth(s: Servicos) {
           ),
         };
       }
+      // Com duas etapas, a senha certa só abre o desafio: a sessão vem depois do código.
+      if (u.duasEtapasMetodo) {
+        const desafio = await duasEtapas.iniciarLogin(tx, { ...u, duasEtapasMetodo: u.duasEtapasMetodo }, escolhida.id);
+        await auditar(tx, origem(cliente, escolhida.id, u.id), { acao: "login.senha_conferida", entidade: "usuario", entidadeId: u.id });
+        return { desafio };
+      }
       const token = await abrirSessao(tx, cliente, u.id, escolhida.id);
       await auditar(tx, origem(cliente, escolhida.id, u.id), { acao: "login", entidade: "usuario", entidadeId: u.id });
       return { token };
@@ -133,7 +141,13 @@ export function criarServicoAuth(s: Servicos) {
         logoEscuro: marca.logoEscuroId && ctx.empresaSlug ? `/api/publico/logo/${ctx.empresaSlug}/escuro?v=${marca.logoEscuroId.slice(0, 8)}` : null,
       },
       empresas,
+      duasEtapas: { ativa: ctx.duasEtapasAtiva, obrigatoria: ctx.duasEtapasObrigatoria, pendente: ctx.duasEtapasObrigatoria && !ctx.duasEtapasAtiva },
     };
+  }
+
+  /** Segunda etapa do login (código do app, do e-mail ou de recuperação). */
+  function confirmarDuasEtapas(cliente: Cliente, tokenDesafio: string | undefined, codigo: string) {
+    return duasEtapas.confirmarLogin(cliente, tokenDesafio, codigo, (tx, usuarioId, empresaId) => abrirSessao(tx, cliente, usuarioId, empresaId));
   }
 
   async function sair(cliente: Cliente, ctx: Contexto): Promise<void> {
@@ -267,6 +281,8 @@ export function criarServicoAuth(s: Servicos) {
 
   return {
     entrar,
+    confirmarDuasEtapas,
+    reenviarCodigo: duasEtapas.reenviarLogin,
     eu,
     sair,
     trocarEmpresa,

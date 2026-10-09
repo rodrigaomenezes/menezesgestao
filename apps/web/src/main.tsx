@@ -18,6 +18,7 @@ import { Empresa } from "./features/empresa/Empresa";
 import { Auditoria } from "./features/auditoria/Auditoria";
 import { Notificacoes } from "./features/notificacoes/Notificacoes";
 import { Dispositivos } from "./features/conta/Dispositivos";
+import { Seguranca } from "./features/conta/Seguranca";
 import { Contatos } from "./features/crm/Contatos";
 import { Contato } from "./features/crm/Contato";
 import { Funil } from "./features/crm/Funil";
@@ -70,6 +71,25 @@ function App() {
     );
   }
 
+  // A empresa exige duas etapas e a pessoa ainda não configurou: só a segurança da conta fica liberada.
+  if (eu.duasEtapas.pendente) {
+    return (
+      <Routes>
+        <Route
+          path="*"
+          element={
+            <Casca>
+              <Routes>
+                <Route path="/seguranca" element={<Seguranca />} />
+                <Route path="*" element={<Navigate to="/seguranca" replace />} />
+              </Routes>
+            </Casca>
+          }
+        />
+      </Routes>
+    );
+  }
+
   return (
     <Routes>
       {abertas}
@@ -116,6 +136,7 @@ function App() {
               <Route path="/auditoria" element={<Auditoria />} />
               <Route path="/notificacoes" element={<Notificacoes />} />
               <Route path="/dispositivos" element={<Dispositivos />} />
+              <Route path="/seguranca" element={<Seguranca />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </Casca>

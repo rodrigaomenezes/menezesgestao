@@ -2031,3 +2031,34 @@ audio.gravacao {
 fieldset legend {
   font-weight: 600;
 }
+
+/* Fase 7 — segurança da conta */
+.acoes-linha {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.codigos-recuperacao {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(8rem, 1fr));
+  gap: 0.25rem 1rem;
+  padding: 0;
+  list-style: none;
+  font-size: 1.05rem;
+}
+
+.qr-duas-etapas {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  background: #fff;
+  padding: 0.5rem;
+  border-radius: 8px;
+}
+
+.chave-totp {
+  overflow-wrap: anywhere;
+  user-select: all;
+}

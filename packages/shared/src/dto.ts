@@ -88,6 +88,8 @@ export const EuDto = z.object({
   permissoes: PermissoesDto,
   marca: MarcaDto,
   empresas: z.array(z.object({ id: Id, nome: z.string() })),
+  /** Duas etapas: pendente = a empresa exige e a pessoa ainda não configurou (só a configuração fica liberada). */
+  duasEtapas: z.object({ ativa: z.boolean(), obrigatoria: z.boolean(), pendente: z.boolean() }),
 });
 export type EuDto = z.infer<typeof EuDto>;
 

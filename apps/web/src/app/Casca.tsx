@@ -50,6 +50,7 @@ const MENU: ItemMenu[] = [
   { para: "/plano", texto: "Plano e cobrança", exige: ["configuracoes", "ver"] },
   { para: "/auditoria", texto: "Auditoria", exige: ["auditoria", "ver"] },
   { para: "/notificacoes", texto: "Notificações" },
+  { para: "/seguranca", texto: "Segurança da conta" },
   { para: "/dispositivos", texto: "Meus dispositivos" },
 ];
 
@@ -101,7 +102,8 @@ export function Casca({ children }: { children: ReactNode }) {
   useEffect(() => setMenuAberto(false), [local.pathname]);
   useEffect(() => (eu.empresa ? conectarTempoReal() : undefined), [eu.empresa]);
 
-  const itens = MENU.filter((i) => !i.exige || pode(...i.exige));
+  // Duas etapas pendentes: só a segurança da conta até configurar.
+  const itens = eu.duasEtapas.pendente ? MENU.filter((i) => i.para === "/seguranca") : MENU.filter((i) => !i.exige || pode(...i.exige));
 
   return (
     <ProvedorTelefoneSistema>

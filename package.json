@@ -25,7 +25,8 @@
     "db:migrate": "node --conditions=development --import tsx apps/api/src/cli/migrar.ts",
     "db:seed": "node --conditions=development --import tsx apps/api/src/cli/dados-exemplo.ts",
     "empresa:criar": "node --conditions=development --import tsx apps/api/src/cli/criar-empresa.ts",
-    "caixa-de-saida": "node --conditions=development --import tsx apps/api/src/cli/caixa-de-saida.ts"
+    "caixa-de-saida": "node --conditions=development --import tsx apps/api/src/cli/caixa-de-saida.ts",
+    "duas-etapas:desligar": "node --conditions=development --import tsx apps/api/src/cli/desligar-duas-etapas.ts"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
