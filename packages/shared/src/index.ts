@@ -11,3 +11,4 @@ export * from "./dto-conversas.js";
 export * from "./dto-telefonia.js";
 export * from "./dto-operacao.js";
 export * from "./dto-receita.js";
+export * from "./dto-whitelabel.js";

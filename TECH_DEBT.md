@@ -10,13 +10,11 @@ histórico do git.
 | 3 | Mensagens de erro do PostgreSQL podem conter dados pessoais no log de erro inesperado | MÉDIA | `apps/api/src/app.ts` | Sanitizar `detail` dos erros do banco antes de registrar (fase 7, observabilidade) |
 | 4 | Sem limite de conexões de tempo real por pessoa | MÉDIA | `modulos/eventos/tempo-real.ts` | Limitar por sessão e fechar as mais antigas |
 | 5 | Caixa de saída de demonstração guarda o texto do e-mail (com link) sem cifrar | MÉDIA | `modulos/avisos` | Cifrar com `CRM_CHAVE` ou limpar por job após 7 dias |
-| 6 | Primeiro acesso em produção depende do terminal (SSH) | MÉDIA | `apps/api/src/cli/criar-empresa.ts` | Assistente de primeiro acesso (fase 6) |
 | 7 | Logs de negócio estruturados (evento, empresa, ator, entidade) ainda não existem fora da auditoria | BAIXA | API | Registrar no log os eventos publicados, sem dados pessoais (fase 7) |
 | 8 | Backup do PostgreSQL de produção não verificado | ALTA | Railway | Ativar backups do Railway e testar restauração (fase 7; checar já) |
 | 9 | Arquivos (planilhas importadas) ficam no PostgreSQL para sempre | BAIXA | `modulos/arquivos` | Job de limpeza das planilhas de importações concluídas há mais de 30 dias; S3/R2 quando chegar mídia (fase 2) |
 | 10 | Kanban mostra até 50 oportunidades por etapa (o resto, pela busca) | BAIXA | `modulos/crm/oportunidades.servico.ts` | "Carregar mais" por coluna |
 | 11 | Mudanças de configuração do CRM não chegam em tempo real a perfis de escopo "próprio" | BAIXA | `modulos/eventos/tempo-real.ts` | Evento de configuração com destino "todos que têm o módulo" |
-| 12 | Plural do vocabulário é uma regra simples (aluno → alunos) | BAIXA | `apps/web/src/features/crm/comum.tsx` | Guardar singular e plural na configuração (fase 6) |
 | 13 | Sem mensagens modelo (templates) da API oficial: fora da janela de 24 h o envio falha com aviso claro | MÉDIA | `conversas/provedores/cloud-api.ts` | Cadastro de modelos aprovados e envio por modelo |
 | 14 | Conexão por QR segura o socket no processo: com mais de uma réplica, só uma pode ter `WHATSAPP_QR_ATIVO` | MÉDIA | `conversas/provedores/qr.ts` | Trava distribuída (advisory lock) por canal |
 | 15 | Mensagens enviadas direto pelo celular (fora do sistema) na conexão por QR não entram no histórico | BAIXA | `conversas/provedores/qr.ts` | Gravar `fromMe` como saída, deduplicando pelo id |
@@ -35,4 +33,8 @@ histórico do git.
 | 28 | Pesquisa pública aceita várias respostas da mesma pessoa (só o limite por IP segura) | BAIXA | `modulos/pesquisa` | Token de resposta por convite, quando a pesquisa for enviada a contatos |
 | 29 | Indicadores de metas ainda não contam vendas confirmadas (usam oportunidade ganha) | BAIXA | `modulos/operacao/indicadores.ts` | Indicador "vendas confirmadas" com estorno no cancelamento |
 | 30 | Escolher prestador e pessoas no catálogo usa a lista de usuários (precisa de "Usuários: ver") | BAIXA | `apps/web/src/features/receita/Catalogo.tsx` | Rota de opções de pessoas por módulo |
-
+| 31 | Assinatura em atraso só mostra aviso, não bloqueia | MÉDIA | `modulos/cobranca` | Bloquear escrita após N dias de atraso quando houver provedor real |
+| 32 | Cobrança só tem o provedor de demonstração | ALTA | `modulos/cobranca` | Provedor real (Asaas/Stripe/Mercado Pago) com webhook de pagamento antes de cobrar clientes |
+| 33 | A tela de automações cria só uma condição por regra (a API aceita várias) | BAIXA | `apps/web/src/features/whitelabel/Automacoes.tsx` | Lista de condições na tela |
+| 34 | Domínio próprio precisa ser adicionado à mão no Railway | BAIXA | Railway | API do Railway para cadastrar o domínio ao salvar |
+| 35 | Cache de domínio por instância (60 s): troca de domínio demora até 1 min em todas as réplicas | BAIXA | `modulos/marca/dominio.ts` | Invalidar por `pg_notify` |

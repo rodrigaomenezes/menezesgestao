@@ -30,6 +30,8 @@ export interface NovaEmpresa {
   vocabulario?: Record<string, string>;
   fuso?: string;
   nomeUnidade?: string;
+  /** Empresa criada pelo cadastro aberto: começa no assistente de primeiro acesso. */
+  assistente?: boolean;
 }
 
 export interface EmpresaCriada {
@@ -64,6 +66,7 @@ export async function criarEmpresa(tx: Tx, origem: Omit<Origem, "empresaId">, da
     marca: dados.marca ?? {},
     vocabulario: dados.vocabulario ?? {},
     fuso: dados.fuso ?? "America/Sao_Paulo",
+    onboarding: dados.assistente ? { passo: 1 } : { passo: 6, concluidoEm: new Date().toISOString() },
   });
 
   const perfis = {} as Record<PerfilBase, string>;

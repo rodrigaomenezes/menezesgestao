@@ -46,7 +46,9 @@ export function criarServicoEmpresas(s: Servicos) {
     await comEmpresa(banco, ctx.empresaId, async (tx) => {
       const antes = await buscarEmpresa(tx, ctx.empresaId);
       try {
-        await tx.db.update(empresa).set({ ...dados, atualizadoEm: new Date() }).where(eq(empresa.id, ctx.empresaId));
+        // A marca é mesclada: o logo (enviado em outra tela) não se perde ao trocar as cores.
+        const marca = dados.marca ? { ...lerMarca(antes.marca), ...dados.marca } : undefined;
+        await tx.db.update(empresa).set({ ...dados, ...(marca ? { marca } : {}), atualizadoEm: new Date() }).where(eq(empresa.id, ctx.empresaId));
       } catch (err) {
         // O RLS não deixa ver os slugs das outras empresas: quem garante a unicidade é o índice único do banco.
         if (codigoPg(err) === "23505") throw conflito("Este identificador já está em uso. Escolha outro.");

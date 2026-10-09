@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { MODULOS } from "@mg/shared";
 import { useEu, useSessao } from "../../app/sessao";
 import { Rotina } from "../operacao/Rotina";
+import { AvisoPrimeirosPassos } from "../whitelabel/PrimeirosPassos";
 
 // Módulos que chegam nas próximas fases do roteiro.
 const EM_CONSTRUCAO = new Set(["qualidade", "vendas", "servicos", "pesquisa"]);
@@ -23,6 +24,7 @@ export function Inicio() {
         </p>
         {eu.empresas.length > 1 && <p className="dica">Para trocar de empresa, use o menu.</p>}
       </section>
+      <AvisoPrimeirosPassos />
       {pode("rotina", "ver") && <Rotina />}
 
       {emBreve.length > 0 && (

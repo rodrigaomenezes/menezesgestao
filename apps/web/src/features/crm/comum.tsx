@@ -44,14 +44,18 @@ export function useTermos() {
   const eu = useEu();
   const contato = eu.empresa?.vocabulario.contato?.toLowerCase() ?? "contato";
   const oportunidade = eu.empresa?.vocabulario.oportunidade?.toLowerCase() ?? "oportunidade";
+  const v = eu.empresa?.vocabulario ?? {};
+  // Plural configurado pela empresa (quando não é regular) ou o plural simples.
+  const contatos = v.contato_plural?.toLowerCase() ?? plural(contato);
+  const oportunidades = v.oportunidade_plural?.toLowerCase() ?? plural(oportunidade);
   return {
     contato,
     Contato: maiuscula(contato),
-    contatos: plural(contato),
-    Contatos: maiuscula(plural(contato)),
+    contatos,
+    Contatos: maiuscula(contatos),
     oportunidade,
     Oportunidade: maiuscula(oportunidade),
-    Oportunidades: maiuscula(plural(oportunidade)),
+    Oportunidades: maiuscula(oportunidades),
   };
 }
 

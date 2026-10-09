@@ -125,7 +125,13 @@ export function criarServicoAuth(s: Servicos) {
         : null,
       perfil: ctx.perfilId ? { id: ctx.perfilId, nome: ctx.perfilNome ?? "" } : null,
       permissoes: ctx.permissoes,
-      marca: { ...marca, nomeProduto: marca.nomeProduto ?? config.produtoNome },
+      marca: {
+        nomeProduto: marca.nomeProduto ?? config.produtoNome,
+        corPrimaria: marca.corPrimaria,
+        corDestaque: marca.corDestaque,
+        logoClaro: marca.logoClaroId && ctx.empresaSlug ? `/api/publico/logo/${ctx.empresaSlug}/claro?v=${marca.logoClaroId.slice(0, 8)}` : null,
+        logoEscuro: marca.logoEscuroId && ctx.empresaSlug ? `/api/publico/logo/${ctx.empresaSlug}/escuro?v=${marca.logoEscuroId.slice(0, 8)}` : null,
+      },
       empresas,
     };
   }

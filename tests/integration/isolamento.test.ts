@@ -92,6 +92,12 @@ beforeAll(async () => {
       );
       await dono.pedir("PUT", `/api/escalas/${v.pessoas.vendedor.usuarioId}`, { intervalos: [{ diaSemana: 1, inicio: "08:00", fim: "12:00" }] });
     }
+    // White-label: regra de automação e domínio próprio.
+    const regraV = (await dono.post("/api/automacoes-regras", { nome: `Automação secreta ${L}`, gatilho: "contato.criado", acao: "avisar", parametros: { texto: `Aviso secreto ${L}` } })).json();
+    expect(regraV.id, JSON.stringify(regraV)).toBeTruthy();
+    // Desligada: o job de automações (a cada minuto) não pode mexer no retrato da vítima no meio da varredura.
+    expect((await dono.pedir("PATCH", `/api/automacoes-regras/${regraV.id}`, { ativa: false })).statusCode).toBe(200);
+    await dono.pedir("PUT", "/api/empresa/dominio", { dominio: `secreto-${lado}-${v.empresaId.slice(0, 8)}.example` });
     // Receita e qualidade: oferta, entrega com participante, venda, regra e fechamento de comissão, avaliação e pesquisa.
     const receita: string[] = [];
     let tokenPesquisa = "";
@@ -154,6 +160,7 @@ beforeAll(async () => {
       checkV.id,
       ...operacao,
       ...receita,
+      regraV.id,
     ];
     crm.canalId = canalId;
     crm.filaId = filaV.id;
@@ -183,6 +190,9 @@ beforeAll(async () => {
         ...(temTelefonia ? [`Resultado secreto ${lado.toUpperCase()}`] : []),
         `Base secreta ${lado.toUpperCase()}`,
         `Checklist secreto ${L}`,
+        `Automação secreta ${L}`,
+        `Aviso secreto ${L}`,
+        `secreto-${lado}-${v.empresaId.slice(0, 8)}.example`,
         ...(receita.length ? [`Oferta secreta ${L}`, `Turma secreta ${L}`, `Venda secreta ${L}`, `Regra secreta ${L}`, `Feedback secreto ${L}`, `Pesquisa secreta ${L}`, tokenPesquisa] : []),
         ...(temOperacao ? [`Script secreto ${L}`, `Roteiro secreto ${L}`, `Compromisso secreto ${L}`, `Atividade secreta ${L}`, `Horas secretas ${L}`] : []),
         ...v.d.pessoas.filter((p) => p.chave !== "consultor").flatMap((p) => [p.email, p.nome]),

@@ -15,6 +15,7 @@ export const empresa = pgTable("empresa", {
   plano: text("plano").notNull().default("essencial"),
   modulos: jsonb("modulos").$type<string[]>().notNull().default([]),
   vocabulario: jsonb("vocabulario").notNull().default({}),
+  onboarding: jsonb("onboarding").$type<{ passo?: number; segmento?: string; concluidoEm?: string }>().notNull().default({}),
   criadoEm: criadoEm(),
   atualizadoEm: atualizadoEm(),
   arquivadoEm: ts("arquivado_em"),
@@ -890,4 +891,68 @@ export const respostaPesquisa = pgTable("resposta_pesquisa", {
   pesquisaId: uuid("pesquisa_id").notNull(),
   respostas: jsonb("respostas").$type<Record<string, string | number>>().notNull(),
   criadoEm: criadoEm(),
+});
+
+// Fase 6 — White-label ----------------------------------------------------------------------------------------
+
+export interface CondicaoAutomacao {
+  campo: string;
+  operador: "igual" | "diferente" | "contem" | "tem" | "vazio" | "preenchido";
+  valor?: string;
+}
+
+export const regraAutomacao = pgTable("regra_automacao", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  empresaId: uuid("empresa_id").notNull(),
+  nome: text("nome").notNull(),
+  gatilho: text("gatilho").notNull(),
+  condicoes: jsonb("condicoes").$type<CondicaoAutomacao[]>().notNull().default([]),
+  acao: text("acao").$type<"criar_tarefa" | "mover_etapa" | "avisar" | "enviar_mensagem">().notNull(),
+  parametros: jsonb("parametros").$type<Record<string, string | number | null>>().notNull().default({}),
+  ativa: boolean("ativa").notNull().default(true),
+  criadoPor: uuid("criado_por"),
+  criadoEm: criadoEm(),
+  atualizadoEm: atualizadoEm(),
+  arquivadoEm: ts("arquivado_em"),
+});
+
+export const automacaoExecucao = pgTable("automacao_execucao", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  empresaId: uuid("empresa_id").notNull(),
+  regraId: uuid("regra_id").notNull(),
+  eventoId: uuid("evento_id").notNull(),
+  status: text("status").$type<"executada" | "ignorada" | "falhou">().notNull(),
+  detalhe: text("detalhe"),
+  criadoEm: criadoEm(),
+});
+
+export type StatusAssinatura = "teste" | "ativa" | "atrasada" | "cancelada";
+
+export const assinatura = pgTable("assinatura", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  empresaId: uuid("empresa_id").notNull(),
+  plano: text("plano").notNull(),
+  status: text("status").$type<StatusAssinatura>().notNull(),
+  valorCentavos: bigint("valor_centavos", { mode: "number" }).notNull(),
+  provedor: text("provedor").notNull(),
+  idExterno: text("id_externo"),
+  testeAte: date("teste_ate", { mode: "string" }),
+  proximaCobranca: date("proxima_cobranca", { mode: "string" }),
+  criadoEm: criadoEm(),
+  atualizadoEm: atualizadoEm(),
+});
+
+export const fatura = pgTable("fatura", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  empresaId: uuid("empresa_id").notNull(),
+  assinaturaId: uuid("assinatura_id").notNull(),
+  plano: text("plano").notNull(),
+  valorCentavos: bigint("valor_centavos", { mode: "number" }).notNull(),
+  vencimento: date("vencimento", { mode: "string" }).notNull(),
+  status: text("status").$type<"pendente" | "paga" | "vencida" | "cancelada">().notNull().default("pendente"),
+  link: text("link"),
+  idExterno: text("id_externo"),
+  pagaEm: ts("paga_em"),
+  criadoEm: criadoEm(),
+  atualizadoEm: atualizadoEm(),
 });

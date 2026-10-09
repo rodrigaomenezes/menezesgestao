@@ -53,6 +53,11 @@ apps/api/src
                    regras, prévia e fechamento de comissão
     qualidade/     critérios e avaliações (nota ponderada, feedback no sino)
     pesquisa/      pesquisas, link público (rotas /api/publico/…) e resultados agregados
+    marca/         dominio.ts (host → empresa, cache de 60 s), marca pública, cores (contraste), logos, ícone,
+                   domínio próprio, vocabulário; whitelabel.rotas.ts reúne as rotas da fase 6
+    onboarding/    cadastro aberto, assistente de 5 passos, segmentos, dados de exemplo
+    cobranca/      interface ProvedorCobranca (provedor de demonstração), assinatura, faturas, ciclo diário (job)
+    automacoes/    regras quando/se/então; varredura dos eventos por job (uma execução por regra × evento)
   cli/                               criar-empresa, dados-exemplo, caixa-de-saida, migrar
 apps/web/src
   app/        api (cliente), sessão, tema, tempo real, casca (menu, sino, aviso de sem conexão)
@@ -61,7 +66,8 @@ apps/web/src
               crm (contatos, ficha, funil/kanban, tarefas, importar, configurar), conversas,
               telefonia (ProvedorTelefone: treino, celular, SIP/JsSIP; painel da ligação), fila (discador),
               operacao (rotina no Início, agenda, horas, desempenho, mapa, scripts),
-              receita (vendas, comissões, catálogo), qualidade, pesquisa (inclusive a página pública /p/:token)
+              receita (vendas, comissões, catálogo), qualidade, pesquisa (inclusive a página pública /p/:token),
+              whitelabel (cadastro, primeiros passos, marca, plano, automações)
 packages/shared/src                 @mg/shared: catálogo, marca, erros, DTOs (Zod, inclusive dto-crm), slug, datas, telefone
 database/   migrations/ (SQL), seeds/ (JSON fictício), docker/
 tests/      integration/ (Vitest + PostgreSQL real), e2e/ (Playwright, 5 larguras), apoio/
@@ -102,6 +108,10 @@ tests/      integration/ (Vitest + PostgreSQL real), e2e/ (Playwright, 5 largura
   gatilho travam as vendas do mês; `comissao` é o retrato do fechamento (somente inserção). Vagas:
   `entrega` é travada (`FOR UPDATE`) antes de gravar a venda/participante; índice único de participante ativo.
 - Pesquisa: `pesquisa.token` (aleatório, único) é a única chave pública; `resposta_pesquisa` é somente inserção.
+- White-label: `empresa.dominio` tem índice único em `lower(dominio)`; `empresa.onboarding` (jsonb) guarda o
+  passo do assistente. `assinatura` (uma por empresa) e `fatura` (única por assinatura × vencimento: o ciclo
+  diário pode rodar de novo sem duplicar). `automacao_execucao` é única por `(regra_id, evento_id)` e não aceita
+  UPDATE — o mesmo evento nunca dispara a mesma regra duas vezes.
 - Campos personalizados: definição em `campo_personalizado`, valores em `campos jsonb` validados pelo serviço.
 - Sessões e tokens guardam só o HMAC (`SESSION_SECRET`); conteúdo sensível de jobs vai cifrado (`CRM_CHAVE`).
 

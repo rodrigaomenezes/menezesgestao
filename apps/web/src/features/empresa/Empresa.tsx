@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { contraste, corDoTextoSobre } from "@mg/shared";
 import { get, patch } from "../../app/api";
 import { Campo, Escolha, Mensagem, Titulo, useEnvio } from "../../ui/ui";
 import { useSessao } from "../../app/sessao";
+import { Link } from "react-router-dom";
+import { EnviarLogo, FormCores, FormDominio, FormVocabulario, useConfigMarca } from "../whitelabel/Marca";
 
 interface DadosEmpresa {
   nome: string;
@@ -26,24 +27,10 @@ const FUSOS_BR = [
   "America/Noronha",
 ];
 
-function Cor({ rotulo, nome, valor, aoMudar }: { rotulo: string; nome: string; valor: string; aoMudar(v: string): void }) {
-  const legivel = contraste(valor, corDoTextoSobre(valor)) >= 4.5;
-  return (
-    <div className="campo">
-      <label htmlFor={nome}>{rotulo}</label>
-      <div className="cor">
-        <input id={nome} type="color" value={valor} onChange={(e) => aoMudar(e.target.value)} />
-        <span className="cor-amostra" style={{ background: valor, color: corDoTextoSobre(valor) }}>
-          Texto de exemplo
-        </span>
-      </div>
-      {!legivel && <small className="dica">Pouco contraste: o texto pode ficar difícil de ler.</small>}
-    </div>
-  );
-}
 
 export function Empresa() {
   const { pode, recarregar } = useSessao();
+  const marca = useConfigMarca();
   const [dados, setDados] = useState<DadosEmpresa | null>(null);
   const [erroCarga, setErroCarga] = useState("");
   const [ok, setOk] = useState("");
@@ -56,12 +43,8 @@ export function Empresa() {
 
   const { enviando, erro, enviar } = useEnvio(async () => {
     if (!dados) return;
-    await patch("/empresa", {
-      nome: dados.nome,
-      fuso: dados.fuso,
-      marca: { ...dados.marca, nomeProduto: dados.marca.nomeProduto || undefined },
-    });
-    setOk("Dados salvos. A nova marca já aparece para todos da empresa.");
+    await patch("/empresa", { nome: dados.nome, fuso: dados.fuso });
+    setOk("Dados salvos.");
     await recarregar();
   });
 
@@ -72,7 +55,6 @@ export function Empresa() {
     setOk("");
     setDados({ ...dados, ...parcial });
   };
-  const mudarMarca = (parcial: Partial<DadosEmpresa["marca"]>) => mudar({ marca: { ...dados.marca, ...parcial } });
   const fusos = FUSOS_BR.includes(dados.fuso) ? FUSOS_BR : [dados.fuso, ...FUSOS_BR];
 
   return (
@@ -84,12 +66,10 @@ export function Empresa() {
             <Campo rotulo="Nome da empresa" nome="empresa-nome" valor={dados.nome} aoMudar={(nome) => mudar({ nome })} obrigatorio />
             <Escolha rotulo="Fuso horário" nome="empresa-fuso" valor={dados.fuso} aoMudar={(fuso) => mudar({ fuso })}
               opcoes={fusos.map((f) => ({ valor: f, texto: f.replace("America/", "").replace("_", " ") }))} />
-            <Campo rotulo="Nome do produto (opcional)" nome="empresa-produto" valor={dados.marca.nomeProduto ?? ""}
-              aoMudar={(nomeProduto) => mudarMarca({ nomeProduto })} dica="Aparece no topo, na aba do navegador e no app instalado." />
-            <Cor rotulo="Cor principal" nome="cor-primaria" valor={dados.marca.corPrimaria} aoMudar={(corPrimaria) => mudarMarca({ corPrimaria })} />
-            <Cor rotulo="Cor de destaque" nome="cor-destaque" valor={dados.marca.corDestaque} aoMudar={(corDestaque) => mudarMarca({ corDestaque })} />
           </div>
-          <p className="dica">Plano atual: {dados.plano}. Para mudar de plano, fale com o suporte.</p>
+          <p className="dica">
+            Plano atual: {dados.plano}. <Link to="/plano">Ver plano e cobrança</Link>
+          </p>
           <Mensagem tipo="erro">{erro}</Mensagem>
           <Mensagem tipo="sucesso">{ok}</Mensagem>
           <button type="submit" className="botao" disabled={enviando}>
@@ -97,6 +77,29 @@ export function Empresa() {
           </button>
         </fieldset>
       </form>
+      <Mensagem tipo="erro">{marca.erro}</Mensagem>
+      {marca.config && (
+        <fieldset className="sem-borda" disabled={!pode("configuracoes", "editar")}>
+          <section className="cartao" aria-labelledby="titulo-marca">
+            <h2 id="titulo-marca">Marca</h2>
+            <FormCores config={marca.config} aoSalvar={marca.setConfig} />
+            <div className="grade-campos">
+              <EnviarLogo tipo="claro" atual={marca.config.logoClaro} aoSalvar={marca.setConfig} />
+              <EnviarLogo tipo="escuro" atual={marca.config.logoEscuro} aoSalvar={marca.setConfig} />
+            </div>
+          </section>
+          <section className="cartao" aria-labelledby="titulo-vocabulario">
+            <h2 id="titulo-vocabulario">Vocabulário</h2>
+            <FormVocabulario config={marca.config} aoSalvar={marca.setConfig} />
+          </section>
+          {pode("configuracoes", "administrar") && (
+            <section className="cartao" aria-labelledby="titulo-endereco">
+              <h2 id="titulo-endereco">Endereço</h2>
+              <FormDominio config={marca.config} aoSalvar={marca.setConfig} />
+            </section>
+          )}
+        </fieldset>
+      )}
     </>
   );
 }
