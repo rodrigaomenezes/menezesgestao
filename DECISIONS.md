@@ -314,3 +314,36 @@ Sem trava em memória nem Redis; funciona com várias réplicas. O teste de 20 p
   pessoa, cada acesso auditado (`gravacao.acessada`). Job diário `telefonia.retencao` apaga o conteúdo vencido —
   exceção deliberada ao "nada some", exigida pela LGPD; o registro da ligação continua.
 
+---
+
+# ADR-019 — Indicadores contados dos eventos, na hora da consulta
+
+## Contexto
+Critério de pronto da fase 4: metas e mapa calculados só de eventos. Um número digitado ou um contador guardado à
+parte diverge da realidade e abre espaço para manipulação.
+
+## Decisão
+- O catálogo de indicadores fica em `@mg/shared` (nome e formato) e a definição em `operacao/indicadores.ts`: tipo
+  de evento, filtro e quem recebe o crédito — quem fez (`ator_id`) ou o dono do registro (`responsavel_id`; a venda
+  é de quem é dono da oportunidade, mesmo que outra pessoa tenha movido o card).
+- Contatos importados de planilha não contam como cadastro; mensagens de automação não têm ator e não contam.
+- Metas guardam só alvo × indicador × período × valor; o realizado é somado na consulta, no fuso da empresa
+  (semana começa na segunda).
+- O mapa conta as mesmas categorias por hora e soma os minutos das atividades lançadas à mão.
+
+## Consequências
+Sem tabela de agregados para manter coerente. Com volume grande, a consulta pode pesar: os índices novos cobrem o
+caso comum e, se precisar, entra uma visão materializada atualizada por job (sem mudar a regra).
+
+---
+
+# ADR-020 — Fechamento de horas travado no banco
+
+## Decisão
+`fechamento_horas` (um ativo por empresa e mês) + gatilho `bloquear_periodo_fechado` em `registro_horas`: qualquer
+INSERT ou UPDATE de um registro (pela data nova ou antiga) num mês fechado falha com `PERIODO_FECHADO`. O serviço
+confere antes para dar a mensagem clara (409 `PERIODO_FECHADO`); o gatilho garante mesmo fora da API. Fechar exige
+não haver registro em andamento ou aguardando validação. Reabrir exige motivo e fica na auditoria.
+Fechar e reabrir pedem `agenda: administrar` (no perfil-base, só o dono); a empresa pode dar ao financeiro pela
+tela de perfis. Validar horas é para quem enxerga além de si e nunca sobre as próprias horas.
+

@@ -78,6 +78,21 @@ Menu **Fila de ligações**, **Ligações** e **Configurar telefonia** (administ
 - Gravação (quando ativada): guardada cifrada, ouvida por link de 5 minutos, cada acesso fica na auditoria e o
   conteúdo é apagado depois do prazo de retenção configurado.
 
+### Operação (fase 4)
+
+O **Início** vira a rotina do dia: botão de ponto, check-list do perfil (configurado em **Configurar rotina**),
+metas, compromissos, tarefas vencidas, retornos da fila e conversas esperando resposta. Menus novos: **Agenda**,
+**Horas**, **Desempenho e metas**, **Mapa de atividades** e **Scripts**.
+
+- Horas: a pessoa bate o ponto (ou lança entrada e saída); o gestor valida ou recusa com motivo — ninguém valida
+  as próprias horas. O administrador fecha o mês: a partir daí nada daquele mês muda (trava no banco) até ser
+  reaberto, com motivo registrado. A escala semanal (montada pelo gestor) dá o previsto do mês.
+- Metas, painel de desempenho e mapa de atividades são contados das ações registradas (ligações encerradas,
+  mensagens enviadas, funil, fila, tarefas). Ninguém digita resultado; o que não passa pelo sistema (reunião,
+  visita) é lançado à mão no mapa e pode ser corrigido (fica na auditoria).
+- Scripts: roteiros por funil/etapa e por canal; na conversa, "Usar na mensagem" preenche o texto com o nome do
+  cliente; na ligação, o painel mostra o roteiro da etapa em que o contato está.
+
 ## Testes
 
 ```bash

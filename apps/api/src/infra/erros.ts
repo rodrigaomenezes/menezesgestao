@@ -31,3 +31,12 @@ export function codigoPg(err: unknown): string | undefined {
   const e = err as { code?: string; cause?: { code?: string } };
   return e?.code ?? e?.cause?.code;
 }
+
+export const periodoFechado = () =>
+  new ErroApp(409, "PERIODO_FECHADO", "Este mês já foi fechado e não aceita mudanças. Peça ao administrador para reabrir o período, se precisar corrigir.");
+
+/** O gatilho do banco recusa mudança em mês fechado (trava que vale mesmo fora da API). */
+export function ehPeriodoFechado(err: unknown): boolean {
+  const e = err as { message?: string; cause?: { message?: string } };
+  return codigoPg(err) === "P0001" && (e?.message?.includes("PERIODO_FECHADO") || e?.cause?.message?.includes("PERIODO_FECHADO")) === true;
+}

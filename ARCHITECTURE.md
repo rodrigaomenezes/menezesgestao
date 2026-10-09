@@ -46,13 +46,17 @@ apps/api/src
                    tarefas e notas, importação (planilha → fila crm.importacao), carteira, campos personalizados
     fila/          filas, lotes, tipos de base, itens com reserva exclusiva (FOR UPDATE SKIP LOCKED), resultados
     telefonia/     configuração, ramais SIP, ligações (estados), gravação cifrada + link temporário, retenção (job)
+    operacao/      rotina (agrega os módulos que o perfil vê) e check-list, agenda (lembrete por job), escala e
+                   horas (ponto, validação, fechamento), indicadores.ts (contagem dos eventos), metas e desempenho,
+                   mapa de atividades e atividades manuais, scripts
   cli/                               criar-empresa, dados-exemplo, caixa-de-saida, migrar
 apps/web/src
   app/        api (cliente), sessão, tema, tempo real, casca (menu, sino, aviso de sem conexão)
   ui/         campos, listas paginadas, modal, confirmação, avisos (toast)
   features/   acesso, inicio, usuarios, permissoes, empresa, auditoria, notificacoes, conta,
               crm (contatos, ficha, funil/kanban, tarefas, importar, configurar), conversas,
-              telefonia (ProvedorTelefone: treino, celular, SIP/JsSIP; painel da ligação), fila (discador)
+              telefonia (ProvedorTelefone: treino, celular, SIP/JsSIP; painel da ligação), fila (discador),
+              operacao (rotina no Início, agenda, horas, desempenho, mapa, scripts)
 packages/shared/src                 @mg/shared: catálogo, marca, erros, DTOs (Zod, inclusive dto-crm), slug, datas, telefone
 database/   migrations/ (SQL), seeds/ (JSON fictício), docker/
 tests/      integration/ (Vitest + PostgreSQL real), e2e/ (Playwright, 5 larguras), apoio/
@@ -85,6 +89,10 @@ tests/      integration/ (Vitest + PostgreSQL real), e2e/ (Playwright, 5 largura
   e `ordem` (identidade) para a ordem de chegada. A reserva é `reservado_por` + `reservado_ate` (CHECK: os dois juntos).
 - Ligações: `ligacao` guarda estado, provedor, duração e resultado; `ligacao_evento` é somente inserção.
   Gravação vai para `arquivo` cifrada com `CRM_CHAVE` e tem `gravacao_expira_em`.
+- Operação: metas, desempenho e mapa NÃO têm tabela de números — são contados de `evento` (índices
+  `(empresa_id, tipo, criado_em)` e `(empresa_id, ator_id, criado_em)`). `registro_horas` tem gatilho que recusa
+  qualquer INSERT/UPDATE em mês com `fechamento_horas` ativo (reabrir = marcar `reaberto_em`, nada é apagado).
+  Escala trocada é arquivada, não sobrescrita.
 - Campos personalizados: definição em `campo_personalizado`, valores em `campos jsonb` validados pelo serviço.
 - Sessões e tokens guardam só o HMAC (`SESSION_SECRET`); conteúdo sensível de jobs vai cifrado (`CRM_CHAVE`).
 

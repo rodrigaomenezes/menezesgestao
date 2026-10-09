@@ -28,4 +28,8 @@ histórico do git.
 | 21 | A escolha "Ligar por" vale só enquanto a tela está aberta (não é salva) | BAIXA | `apps/web/src/features/telefonia/Telefone.tsx` | Guardar a preferência no perfil da pessoa, no servidor |
 | 22 | Gravação de ligação SIP não é feita no navegador (só recebe upload) | MÉDIA | `modulos/telefonia` | Gravar o áudio da sessão WebRTC ou buscar no PABX por webhook |
 | 23 | Ligação que fica aberta (navegador fechado no meio) não é encerrada sozinha | BAIXA | `modulos/telefonia` | Job que encerra ligações sem mudança há mais de 4 h |
+| 24 | Horários digitados (agenda, horas, atividades) usam o fuso do aparelho; exibição usa o da empresa | BAIXA | `apps/web/src/features/operacao/comum.ts` | Converter com o fuso da empresa ao montar o instante |
+| 25 | Indicadores e mapa somados na consulta; empresas com muito volume podem sentir | MÉDIA | `modulos/operacao/indicadores.ts` | Visão materializada por dia × pessoa, atualizada por job (ADR-019) |
+| 26 | Scripts ainda não se ligam a oferta (o catálogo chega na fase 5) | BAIXA | `modulos/operacao/scripts.servico.ts` | Coluna `oferta_id` aditiva na fase 5 |
+| 27 | Retornos da rotina só aparecem para quem registrou o último resultado do item | BAIXA | `modulos/operacao/rotina.servico.ts` | Opção de "retorno da equipe" para o gestor |
 

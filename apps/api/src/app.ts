@@ -19,7 +19,7 @@ import { MARCA_PADRAO, type CodigoErro } from "@mg/shared";
 import type { Banco } from "./infra/banco.js";
 import type { Config } from "./config.js";
 import type { Jobs } from "./infra/jobs.js";
-import { ErroApp } from "./infra/erros.js";
+import { ErroApp, ehPeriodoFechado, periodoFechado } from "./infra/erros.js";
 import type { ProvedorAvisos } from "./modulos/avisos/avisos.js";
 import { registrarAcesso, type RotaRegistrada } from "./modulos/acesso/acesso.js";
 import type { TempoReal } from "./modulos/eventos/tempo-real.js";
@@ -41,6 +41,8 @@ import { LIMITE_BYTES } from "./modulos/crm/planilha.js";
 import { montarConversas } from "./modulos/conversas/modulo.js";
 import { rotasFila } from "./modulos/fila/fila.rotas.js";
 import { criarServicoTelefonia, rotasTelefonia } from "./modulos/telefonia/telefonia.rotas.js";
+import { rotasOperacao } from "./modulos/operacao/operacao.rotas.js";
+import { FILA_LEMBRETE, criarServicoAgenda } from "./modulos/operacao/agenda.servico.js";
 
 z.config(z.locales.pt());
 
@@ -129,6 +131,10 @@ export async function criarApp(servicos: Servicos): Promise<AppMontado> {
 
   app.setErrorHandler((erro, req, reply) => {
     if (erro instanceof ErroApp) return responderErro(reply, erro.status, erro.codigo, erro.message, erro.detalhes);
+    if (ehPeriodoFechado(erro)) {
+      const e = periodoFechado();
+      return responderErro(reply, e.status, e.codigo, e.message);
+    }
     if (hasZodFastifySchemaValidationErrors(erro)) {
       const primeiro = erro.validation[0];
       const campo = primeiro?.instancePath.replace(/^\//, "").replaceAll("/", ".");
@@ -173,6 +179,10 @@ export async function criarApp(servicos: Servicos): Promise<AppMontado> {
     await telefonia.aplicarRetencao();
   });
   await servicos.jobs.agendar("telefonia.retencao", "23 4 * * *");
+
+  await app.register(rotasOperacao(servicos));
+  const agenda = criarServicoAgenda(servicos);
+  await servicos.jobs.trabalhar<{ empresaId: string; compromissoId: string; inicio: string; lembreteMinutos: number }>(FILA_LEMBRETE, (d) => agenda.lembrar(d));
 
   // Trabalhadores das filas dos módulos.
   const importacoes = criarServicoImportacao(servicos, arquivos);

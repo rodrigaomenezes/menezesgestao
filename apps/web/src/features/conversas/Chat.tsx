@@ -18,6 +18,7 @@ import { Mensagem as Aviso } from "../../ui/ui";
 import { formatarTelefone, useConfigCrm, useTermos } from "../crm/comum";
 import { Audio, Gravador } from "./Gravador";
 import { BotaoLigar } from "../telefonia/Telefone";
+import { BotaoScripts } from "../operacao/Scripts";
 
 const MARCAS: Record<MensagemDto["status"], { texto: string; rotulo: string }> = {
   pendente: { texto: "🕓", rotulo: "Enviando" },
@@ -171,6 +172,7 @@ function Compositor({ conversa, aoEnviar }: { conversa: ConversaDetalheDto; aoEn
           Nota interna
         </label>
         <span className="espaco" />
+        <BotaoScripts contatoId={conversa.contatoId} uso="conversa" variaveis={conversa.variaveis} aoUsar={setTexto} />
         {!nota && (
           <>
             <input

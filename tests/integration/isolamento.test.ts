@@ -75,6 +75,23 @@ beforeAll(async () => {
     if (temTelefonia) await dono.post(`/api/ligacoes/${ligacaoV.id}/estado`, { estado: "encerrada" });
     const resultadoV = temTelefonia ? (await dono.post("/api/telefonia/resultados", { nome: `Resultado secreto ${lado.toUpperCase()}`, acao: "nenhuma" })).json() : { id: undefined };
     const tipoV = (await dono.post("/api/tipos-base", { nome: `Base secreta ${lado.toUpperCase()}` })).json();
+    // Operação: meta e check-list (plano das duas); agenda, horas, mapa e scripts só onde o plano tem.
+    const L = lado.toUpperCase();
+    const metaV = (await dono.post("/api/metas", { alvo: "empresa", indicador: "ligacoes", periodo: "dia", valor: 5 })).json();
+    const checkV = (await dono.post("/api/checklist", { texto: `Checklist secreto ${L}` })).json();
+    const temOperacao = (await dono.get("/api/scripts")).statusCode === 200;
+    const operacao: string[] = [];
+    if (temOperacao) {
+      const agora = Date.now();
+      operacao.push(
+        (await dono.post("/api/scripts", { titulo: `Script secreto ${L}`, texto: `Roteiro secreto ${L}` })).json().id,
+        (await dono.post("/api/compromissos", { titulo: `Compromisso secreto ${L}`, inicio: new Date(agora + 86_400_000).toISOString(), fim: new Date(agora + 90_000_000).toISOString() })).json().id,
+        (await dono.post("/api/atividades", { tipo: "reuniao", descricao: `Atividade secreta ${L}`, inicio: new Date(agora - 7_200_000).toISOString(), fim: new Date(agora - 3_600_000).toISOString() })).json().id,
+        (await dono.post("/api/horas", { entrada: new Date(agora - 50_000_000).toISOString(), saida: new Date(agora - 40_000_000).toISOString(), observacao: `Horas secretas ${L}` })).json().id,
+        (await dono.post("/api/horas/fechamentos", { mes: "2024-01" })).json().id,
+      );
+      await dono.pedir("PUT", `/api/escalas/${v.pessoas.vendedor.usuarioId}`, { intervalos: [{ diaSemana: 1, inicio: "08:00", fim: "12:00" }] });
+    }
     const sessao = await t.banco.pool.query<{ id: string }>(
       "SELECT id FROM sessao WHERE usuario_id = $1 AND encerrada_em IS NULL LIMIT 1",
       [v.pessoas.dono.usuarioId],
@@ -113,6 +130,9 @@ beforeAll(async () => {
       itemV.id,
       tipoV.id,
       ...(temTelefonia ? [ligacaoV.id as string, resultadoV.id as string] : []),
+      metaV.id,
+      checkV.id,
+      ...operacao,
     ];
     crm.canalId = canalId;
     crm.filaId = filaV.id;
@@ -141,6 +161,8 @@ beforeAll(async () => {
         `Fila secreta ${lado.toUpperCase()}`,
         ...(temTelefonia ? [`Resultado secreto ${lado.toUpperCase()}`] : []),
         `Base secreta ${lado.toUpperCase()}`,
+        `Checklist secreto ${L}`,
+        ...(temOperacao ? [`Script secreto ${L}`, `Roteiro secreto ${L}`, `Compromisso secreto ${L}`, `Atividade secreta ${L}`, `Horas secretas ${L}`] : []),
         ...v.d.pessoas.filter((p) => p.chave !== "consultor").flatMap((p) => [p.email, p.nome]),
       ],
     };
