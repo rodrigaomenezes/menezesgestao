@@ -5,6 +5,11 @@ import type pg from "pg";
 const PASTA = fileURLToPath(new URL("../../../../database/migrations/", import.meta.url));
 const TRAVA = 7_340_001; // pg_advisory_lock: duas instâncias subindo juntas não migram ao mesmo tempo.
 
+/** Migrações que existem no código, em ordem. */
+export async function arquivosDeMigracao(): Promise<string[]> {
+  return (await readdir(PASTA)).filter((a) => a.endsWith(".sql")).sort();
+}
+
 /** Aplica as migrações pendentes, em ordem, cada uma na sua transação. Devolve os nomes aplicados. */
 export async function migrar(pool: pg.Pool): Promise<string[]> {
   const cliente = await pool.connect();
