@@ -95,6 +95,8 @@ beforeAll(async () => {
     // White-label: regra de automação e domínio próprio.
     const regraV = (await dono.post("/api/automacoes-regras", { nome: `Automação secreta ${L}`, gatilho: "contato.criado", acao: "avisar", parametros: { texto: `Aviso secreto ${L}` } })).json();
     expect(regraV.id, JSON.stringify(regraV)).toBeTruthy();
+    // Desligada: o job de automações (a cada minuto) não pode mexer no retrato da vítima no meio da varredura.
+    expect((await dono.pedir("PATCH", `/api/automacoes-regras/${regraV.id}`, { ativa: false })).statusCode).toBe(200);
     await dono.pedir("PUT", "/api/empresa/dominio", { dominio: `secreto-${lado}-${v.empresaId.slice(0, 8)}.example` });
     // Receita e qualidade: oferta, entrega com participante, venda, regra e fechamento de comissão, avaliação e pesquisa.
     const receita: string[] = [];
