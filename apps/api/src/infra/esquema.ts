@@ -722,3 +722,172 @@ export const script = pgTable("script", {
   atualizadoEm: atualizadoEm(),
   arquivadoEm: ts("arquivado_em"),
 });
+
+// Fase 5 — Receita e qualidade -------------------------------------------------------------------------------
+
+export const oferta = pgTable("oferta", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  empresaId: uuid("empresa_id").notNull(),
+  nome: text("nome").notNull(),
+  descricao: text("descricao"),
+  precoCentavos: bigint("preco_centavos", { mode: "number" }),
+  criadoPor: uuid("criado_por"),
+  criadoEm: criadoEm(),
+  atualizadoEm: atualizadoEm(),
+  arquivadoEm: ts("arquivado_em"),
+});
+
+export const entrega = pgTable("entrega", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  empresaId: uuid("empresa_id").notNull(),
+  ofertaId: uuid("oferta_id").notNull(),
+  nome: text("nome").notNull(),
+  prestadorId: uuid("prestador_id"),
+  capacidade: integer("capacidade"),
+  inicio: date("inicio", { mode: "string" }),
+  fim: date("fim", { mode: "string" }),
+  horario: text("horario"),
+  status: text("status").$type<"aberta" | "encerrada">().notNull().default("aberta"),
+  criadoPor: uuid("criado_por"),
+  criadoEm: criadoEm(),
+  atualizadoEm: atualizadoEm(),
+  arquivadoEm: ts("arquivado_em"),
+});
+
+export const entregaParticipante = pgTable("entrega_participante", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  empresaId: uuid("empresa_id").notNull(),
+  entregaId: uuid("entrega_id").notNull(),
+  contatoId: uuid("contato_id").notNull(),
+  vendaId: uuid("venda_id"),
+  status: text("status").$type<"ativo" | "cancelado">().notNull().default("ativo"),
+  criadoPor: uuid("criado_por"),
+  criadoEm: criadoEm(),
+  atualizadoEm: atualizadoEm(),
+});
+
+export type StatusVenda = "pendente" | "confirmada" | "cancelada";
+
+export const venda = pgTable("venda", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  empresaId: uuid("empresa_id").notNull(),
+  contatoId: uuid("contato_id").notNull(),
+  ofertaId: uuid("oferta_id").notNull(),
+  vendedorId: uuid("vendedor_id").notNull(),
+  oportunidadeId: uuid("oportunidade_id"),
+  entregaId: uuid("entrega_id"),
+  valorCentavos: bigint("valor_centavos", { mode: "number" }).notNull(),
+  formaPagamento: text("forma_pagamento").notNull(),
+  parcelas: integer("parcelas").notNull().default(1),
+  status: text("status").$type<StatusVenda>().notNull().default("pendente"),
+  dataVenda: date("data_venda", { mode: "string" }).notNull(),
+  observacao: text("observacao"),
+  motivoCancelamento: text("motivo_cancelamento"),
+  criadoPor: uuid("criado_por"),
+  criadoEm: criadoEm(),
+  atualizadoEm: atualizadoEm(),
+});
+
+export const regraComissao = pgTable("regra_comissao", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  empresaId: uuid("empresa_id").notNull(),
+  nome: text("nome").notNull(),
+  ofertaId: uuid("oferta_id"),
+  tipo: text("tipo").$type<"percentual" | "faixa">().notNull(),
+  percentual: numeric("percentual", { precision: 5, scale: 2 }),
+  faixas: jsonb("faixas").$type<{ ateCentavos: number | null; percentual: number }[] | null>(),
+  criadoPor: uuid("criado_por"),
+  criadoEm: criadoEm(),
+  atualizadoEm: atualizadoEm(),
+  arquivadoEm: ts("arquivado_em"),
+});
+
+export const fechamentoComissao = pgTable("fechamento_comissao", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  empresaId: uuid("empresa_id").notNull(),
+  mes: date("mes", { mode: "string" }).notNull(),
+  totalCentavos: bigint("total_centavos", { mode: "number" }).notNull().default(0),
+  fechadoPor: uuid("fechado_por"),
+  fechadoEm: ts("fechado_em").notNull().defaultNow(),
+  reabertoPor: uuid("reaberto_por"),
+  reabertoEm: ts("reaberto_em"),
+  motivoReabertura: text("motivo_reabertura"),
+});
+
+export const comissao = pgTable("comissao", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  empresaId: uuid("empresa_id").notNull(),
+  fechamentoId: uuid("fechamento_id").notNull(),
+  vendedorId: uuid("vendedor_id").notNull(),
+  regraId: uuid("regra_id"),
+  regraNome: text("regra_nome").notNull(),
+  vendas: integer("vendas").notNull(),
+  baseCentavos: bigint("base_centavos", { mode: "number" }).notNull(),
+  percentual: numeric("percentual", { precision: 5, scale: 2 }).notNull(),
+  valorCentavos: bigint("valor_centavos", { mode: "number" }).notNull(),
+  criadoEm: criadoEm(),
+});
+
+export const criterioQualidade = pgTable("criterio_qualidade", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  empresaId: uuid("empresa_id").notNull(),
+  nome: text("nome").notNull(),
+  descricao: text("descricao"),
+  peso: integer("peso").notNull().default(1),
+  ordem: integer("ordem").notNull().default(0),
+  criadoEm: criadoEm(),
+  atualizadoEm: atualizadoEm(),
+  arquivadoEm: ts("arquivado_em"),
+});
+
+export interface NotaCriterio {
+  criterioId: string;
+  nome: string;
+  peso: number;
+  nota: number;
+}
+
+export const avaliacao = pgTable("avaliacao", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  empresaId: uuid("empresa_id").notNull(),
+  avaliadoId: uuid("avaliado_id").notNull(),
+  avaliadorId: uuid("avaliador_id").notNull(),
+  conversaId: uuid("conversa_id"),
+  ligacaoId: uuid("ligacao_id"),
+  notas: jsonb("notas").$type<NotaCriterio[]>().notNull(),
+  notaFinal: numeric("nota_final", { precision: 4, scale: 2 }).notNull(),
+  feedback: text("feedback"),
+  lidaEm: ts("lida_em"),
+  criadoEm: criadoEm(),
+  arquivadoEm: ts("arquivado_em"),
+});
+
+export interface PerguntaPesquisa {
+  id: string;
+  tipo: "texto" | "escolha" | "nota";
+  texto: string;
+  opcoes?: string[];
+  obrigatoria: boolean;
+}
+
+export const pesquisa = pgTable("pesquisa", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  empresaId: uuid("empresa_id").notNull(),
+  titulo: text("titulo").notNull(),
+  descricao: text("descricao"),
+  perguntas: jsonb("perguntas").$type<PerguntaPesquisa[]>().notNull(),
+  token: text("token").notNull(),
+  aberta: boolean("aberta").notNull().default(true),
+  criadoPor: uuid("criado_por"),
+  criadoEm: criadoEm(),
+  atualizadoEm: atualizadoEm(),
+  arquivadoEm: ts("arquivado_em"),
+});
+
+export const respostaPesquisa = pgTable("resposta_pesquisa", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  empresaId: uuid("empresa_id").notNull(),
+  pesquisaId: uuid("pesquisa_id").notNull(),
+  respostas: jsonb("respostas").$type<Record<string, string | number>>().notNull(),
+  criadoEm: criadoEm(),
+});

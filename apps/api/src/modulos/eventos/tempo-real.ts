@@ -38,6 +38,14 @@ export const MODULO_DA_ENTIDADE: Record<string, Modulo> = {
   atividade_manual: "mapa",
   checklist_item: "rotina",
   script: "scripts",
+  oferta: "servicos",
+  entrega: "servicos",
+  venda: "vendas",
+  regra_comissao: "vendas",
+  fechamento_comissao: "vendas",
+  criterio_qualidade: "qualidade",
+  avaliacao: "qualidade",
+  pesquisa: "pesquisa",
 };
 
 interface Conexao {

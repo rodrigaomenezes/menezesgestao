@@ -92,6 +92,26 @@ beforeAll(async () => {
       );
       await dono.pedir("PUT", `/api/escalas/${v.pessoas.vendedor.usuarioId}`, { intervalos: [{ diaSemana: 1, inicio: "08:00", fim: "12:00" }] });
     }
+    // Receita e qualidade: oferta, entrega com participante, venda, regra e fechamento de comissão, avaliação e pesquisa.
+    const receita: string[] = [];
+    let tokenPesquisa = "";
+    if ((await dono.get("/api/vendas")).statusCode === 200) {
+      const ofertaV = (await dono.post("/api/ofertas", { nome: `Oferta secreta ${L}` })).json();
+      const entregaV = (await dono.post("/api/entregas", { ofertaId: ofertaV.id, nome: `Turma secreta ${L}`, capacidade: 5 })).json();
+      const vendaV = (await dono.post("/api/vendas", { contatoId: crm.contatoId, ofertaId: ofertaV.id, entregaId: entregaV.id, valorCentavos: 12345, formaPagamento: "pix", status: "confirmada", observacao: `Venda secreta ${L}` })).json();
+      const participante = (await dono.get(`/api/entregas/${entregaV.id}/participantes`)).json().itens[0];
+      const regraV = (await dono.post("/api/comissoes/regras", { nome: `Regra secreta ${L}`, tipo: "percentual", percentual: 5 })).json();
+      const fechV = (await dono.post("/api/comissoes/fechamentos", { mes: "2024-02" })).json();
+      const vendedorV = await logado(t.app, email(v, "vendedor"));
+      const lig = (await vendedorV.post("/api/ligacoes", { provedor: "treino", numero: "(11) 95555-0000" })).json();
+      const criterios = (await dono.get("/api/qualidade/criterios")).json().itens;
+      const gestor = await logado(t.app, email(v, "gestor"));
+      const avaliacaoV = (await gestor.post("/api/avaliacoes", { ligacaoId: lig.id, notas: [{ criterioId: criterios[0].id, nota: 9 }], feedback: `Feedback secreto ${L}` })).json();
+      const pesquisaV = (await dono.post("/api/pesquisas", { titulo: `Pesquisa secreta ${L}`, perguntas: [{ id: "a", tipo: "texto", texto: "?" }] })).json();
+      tokenPesquisa = pesquisaV.token;
+      for (const x of [ofertaV, entregaV, vendaV, participante, regraV, lig, avaliacaoV, pesquisaV]) expect(x?.id, JSON.stringify(x)).toBeTruthy();
+      receita.push(ofertaV.id, entregaV.id, vendaV.id, participante.id, regraV.id, fechV.fechamento.id, lig.id, criterios[0].id, avaliacaoV.id, pesquisaV.id);
+    }
     const sessao = await t.banco.pool.query<{ id: string }>(
       "SELECT id FROM sessao WHERE usuario_id = $1 AND encerrada_em IS NULL LIMIT 1",
       [v.pessoas.dono.usuarioId],
@@ -133,6 +153,7 @@ beforeAll(async () => {
       metaV.id,
       checkV.id,
       ...operacao,
+      ...receita,
     ];
     crm.canalId = canalId;
     crm.filaId = filaV.id;
@@ -162,6 +183,7 @@ beforeAll(async () => {
         ...(temTelefonia ? [`Resultado secreto ${lado.toUpperCase()}`] : []),
         `Base secreta ${lado.toUpperCase()}`,
         `Checklist secreto ${L}`,
+        ...(receita.length ? [`Oferta secreta ${L}`, `Turma secreta ${L}`, `Venda secreta ${L}`, `Regra secreta ${L}`, `Feedback secreto ${L}`, `Pesquisa secreta ${L}`, tokenPesquisa] : []),
         ...(temOperacao ? [`Script secreto ${L}`, `Roteiro secreto ${L}`, `Compromisso secreto ${L}`, `Atividade secreta ${L}`, `Horas secretas ${L}`] : []),
         ...v.d.pessoas.filter((p) => p.chave !== "consultor").flatMap((p) => [p.email, p.nome]),
       ],
