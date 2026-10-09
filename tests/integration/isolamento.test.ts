@@ -307,7 +307,7 @@ for (const [atacante, alvo] of [
 
       expect(chamadas).toBeGreaterThan(200);
       expect(await retrato(e[alvo].empresaId)).toEqual(antes);
-    });
+    }, 180_000); // a varredura cresce a cada rota nova: todas as rotas × todos os ids da outra empresa
 
     it(`listagens de ${A} devolvem só dados de ${A}`, async () => {
       const dono = await logado(t.app, email(e[atacante], "dono"));
