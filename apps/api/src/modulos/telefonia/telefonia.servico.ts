@@ -223,7 +223,7 @@ export function criarServicoTelefonia(s: Servicos, arquivos: ProvedorArquivos) {
       if (d.filaItemId) {
         const [i] = await tx.db.select().from(filaItem).where(and(eq(filaItem.id, d.filaItemId), eq(filaItem.empresaId, ctx.empresaId)));
         if (!i) throw naoEncontrado("Item da fila");
-        if (i.status !== "reservado" || i.reservadoPor !== ctx.usuarioId) throw new ErroApp(409, "CONFLITO", "Este contato da fila não está reservado para você. Pegue o próximo.");
+        if (i.status !== "reservado" || i.reservadoPor !== ctx.usuarioId) throw new ErroApp(409, "CONFLITO", "{Este contato} da fila não está reservad{o|a:contato} para você. Pegue o próximo.");
         contatoId = i.contatoId;
       }
       let numero = d.numero ? normalizarTelefone(d.numero) : null;
@@ -233,10 +233,10 @@ export function criarServicoTelefonia(s: Servicos, arquivos: ProvedorArquivos) {
           escopo === "empresa" || d.filaItemId ? sql`true` : sql`(${contato.responsavelId} IS NULL OR ${filtroUsuariosVisiveis(ctx, escopo, contato.responsavelId)})`;
         const [c] = await tx.db.select().from(contato).where(and(eq(contato.id, contatoId), eq(contato.empresaId, ctx.empresaId), condicao));
         if (!c) throw naoEncontrado("Contato");
-        if (c.naoContatar) throw invalido("Este contato pediu para não ser contatado (LGPD). A ligação não foi feita.");
+        if (c.naoContatar) throw invalido("{Este contato} pediu para não ser contatad{o|a:contato} (LGPD). A ligação não foi feita.");
         numero = numero ?? c.telefone;
       }
-      if (!numero) throw invalido("Este contato não tem telefone. Cadastre o número para ligar.");
+      if (!numero) throw invalido("{Este contato} não tem telefone. Cadastre o número para ligar.");
       // Número digitado à mão: se for de um contato que pediu para não ser contatado, também não liga.
       if (!contatoId) {
         const [dono] = await tx.db
@@ -244,7 +244,7 @@ export function criarServicoTelefonia(s: Servicos, arquivos: ProvedorArquivos) {
           .from(contato)
           .where(and(eq(contato.empresaId, ctx.empresaId), inArray(contato.telefone, variantesTelefone(numero)), eq(contato.naoContatar, true)))
           .limit(1);
-        if (dono) throw invalido("Este número é de um contato que pediu para não ser contatado (LGPD). A ligação não foi feita.");
+        if (dono) throw invalido("Este número é de {um contato} que pediu para não ser contatad{o|a:contato} (LGPD). A ligação não foi feita.");
       }
       if (d.provedor === "sip") {
         const meu = await tx.db.select({ id: ramal.id }).from(ramal).where(and(eq(ramal.empresaId, ctx.empresaId), eq(ramal.usuarioId, ctx.usuarioId), eq(ramal.ativo, true)));

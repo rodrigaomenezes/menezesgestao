@@ -3,11 +3,13 @@ import { MODULOS } from "@mg/shared";
 import { useEu, useSessao } from "../../app/sessao";
 import { Rotina } from "../operacao/Rotina";
 import { AvisoPrimeirosPassos } from "../whitelabel/PrimeirosPassos";
+import { useVocabulario } from "../../app/vocabulario";
 
 // Módulos que chegam nas próximas fases do roteiro.
 const EM_CONSTRUCAO = new Set(["qualidade", "vendas", "servicos", "pesquisa"]);
 
 export function Inicio() {
+  const termos = useVocabulario();
   const eu = useEu();
   const { pode } = useSessao();
   const primeiroNome = eu.usuario.nome.split(" ")[0];
@@ -33,7 +35,7 @@ export function Inicio() {
           <ul className="lista-simples">
             {emBreve.map((m) => (
               <li key={m.id}>
-                {m.nome} <span className="selo">em construção</span>
+                {termos.t(m.nome)} <span className="selo">em construção</span>
               </li>
             ))}
           </ul>

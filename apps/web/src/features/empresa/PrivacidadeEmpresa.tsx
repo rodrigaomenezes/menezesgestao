@@ -4,12 +4,14 @@ import { LIMITES_RETENCAO, type RetencaoDto } from "@mg/shared";
 import { get, put } from "../../app/api";
 import { useSessao } from "../../app/sessao";
 import { Escolha, Mensagem, useEnvio } from "../../ui/ui";
+import { useVocabulario } from "../../app/vocabulario";
 
 const MESES_MENSAGENS = [6, 12, 24, 36, 60];
 const MESES_ARQUIVADOS = [1, 3, 6, 12, 24];
 const texto = (m: number) => (m % 12 === 0 ? `${m / 12} ano(s)` : `${m} meses`);
 
 export function PrivacidadeEmpresa() {
+  const termos = useVocabulario();
   const { pode } = useSessao();
   const [r, setR] = useState<RetencaoDto | null>(null);
   const [ok, setOk] = useState("");
@@ -41,7 +43,7 @@ export function PrivacidadeEmpresa() {
             opcoes={opcoes(MESES_MENSAGENS, LIMITES_RETENCAO.mensagensMeses)}
           />
           <Escolha
-            rotulo="Anonimizar contatos arquivados há mais de"
+            rotulo={termos.t("Anonimizar {contatos} arquivad{os|as:contatos} há mais de")}
             nome="retencao-arquivados"
             valor={r.arquivadosMeses ? String(r.arquivadosMeses) : ""}
             aoMudar={(v) => mudar("arquivadosMeses", v)}

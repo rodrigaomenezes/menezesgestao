@@ -130,14 +130,14 @@ export function criarServicoOportunidades(s: Servicos) {
   ): Promise<OportunidadeDto> {
     return comEmpresa(banco, ctx.empresaId, async (tx) => {
       const c = await contatos.buscarVisivel(tx, ctx.empresaId, ctx, escopo, dados.contatoId);
-      if (!c || c.arquivadoEm) throw invalido("Escolha um contato ativo da sua carteira.");
+      if (!c || c.arquivadoEm) throw invalido("Escolha {um contato} ativo da sua carteira.");
       const [f] = await tx.db.select().from(funil).where(and(eq(funil.id, dados.funilId), eq(funil.empresaId, ctx.empresaId), isNull(funil.arquivadoEm)));
       if (!f) throw invalido("Escolha um funil ativo.");
       const [inicial] = dados.etapaId
         ? await tx.db.select().from(etapa).where(and(eq(etapa.id, dados.etapaId), eq(etapa.funilId, f.id), isNull(etapa.arquivadoEm)))
         : await tx.db.select().from(etapa).where(and(eq(etapa.funilId, f.id), eq(etapa.tipo, "aberta"), isNull(etapa.arquivadoEm))).orderBy(asc(etapa.ordem)).limit(1);
       if (!inicial) throw invalido("O funil não tem etapa ativa para começar. Configure as etapas.");
-      if (inicial.tipo !== "aberta") throw invalido("Uma oportunidade nova começa numa etapa em andamento.");
+      if (inicial.tipo !== "aberta") throw invalido("{Uma oportunidade} nov{o|a:oportunidade} começa numa etapa em andamento.");
       const responsavelId = await validarResponsavel(tx, ctx, escopo, dados.responsavelId);
       const campos = validarCampos(await definicoesDeCampos(tx, ctx.empresaId, "oportunidade"), dados.campos ?? {}, { exigirObrigatorios: true });
       await exigirCompleta(tx, ctx.empresaId, inicial, { valorCentavos: dados.valorCentavos ?? null, oferta: dados.oferta ?? null, campos });
@@ -225,7 +225,7 @@ export function criarServicoOportunidades(s: Servicos) {
   ): Promise<OportunidadeDto> {
     return comEmpresa(banco, ctx.empresaId, async (tx) => {
       const o = await carregar(tx, ctx, escopo, id);
-      if (o.arquivadoEm) throw invalido("Restaure a oportunidade antes de mudá-la de etapa.");
+      if (o.arquivadoEm) throw invalido("Restaure {a oportunidade} antes de mudá-l{o|a:oportunidade} de etapa.");
       if (o.etapaId === dados.etapaId) return dto(o);
       const anterior = await buscarEtapa(tx, ctx.empresaId, o.etapaId);
       const nova = await buscarEtapa(tx, ctx.empresaId, dados.etapaId);

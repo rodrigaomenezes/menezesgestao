@@ -15,7 +15,7 @@ import {
 import { ErroApi, get, patch, post } from "../../app/api";
 import { useAviso } from "../../ui/sobreposicoes";
 import { Campo, Escolha, ListaVazia, Mensagem, Titulo, useEnvio } from "../../ui/ui";
-import { useTermos } from "./comum";
+import { useVocabulario } from "../../app/vocabulario";
 
 function useCarregar<T>(caminho: string, inicial: T) {
   const [dados, setDados] = useState<T>(inicial);
@@ -262,7 +262,7 @@ const paraChave = (rotulo: string) =>
     .slice(0, 40);
 
 function Campos() {
-  const termos = useTermos();
+  const termos = useVocabulario();
   const { dados: campos, erro, recarregar } = useCarregar<CampoPersonalizadoDto[]>("/crm/campos", []);
   const [entidade, setEntidade] = useState("contato");
   const [rotulo, setRotulo] = useState("");

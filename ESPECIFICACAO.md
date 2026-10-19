@@ -214,14 +214,35 @@ O que diferencia uma empresa da outra fica em **configuração**, nunca em códi
 
 ### Vocabulário
 
-Cada segmento chama as coisas de um jeito. Um **dicionário por empresa** troca os rótulos da interface sem mudar o modelo de dados:
+Cada segmento chama as coisas de um jeito. Um **dicionário por empresa** troca os nomes em todo o sistema — telas,
+menus, botões, mensagens de erro, avisos, automações e relatórios — sem mudar o modelo de dados nem os módulos.
+São **7 termos**, cada um com **singular, plural e gênero** (o gênero acerta "novo aluno", "nova matrícula",
+"paciente não encontrado", "turma encerrada"):
 
-| Conceito interno | Escola / cursos | Clínica | Consultoria | Varejo B2B |
-| --- | --- | --- | --- | --- |
-| contato | aluno / interessado | paciente | cliente | comprador |
-| oferta | curso | procedimento | projeto | produto |
-| entrega | turma | consulta | sessão | pedido |
-| prestador | professor | profissional | consultor | representante |
+| Termo interno | Para quê | Escola | Clínica | Consultoria | Imobiliária | Varejo B2B |
+| --- | --- | --- | --- | --- | --- | --- |
+| contato | quem compra ou é atendido | aluno | paciente | cliente | cliente | comprador |
+| oportunidade | cada negócio no funil | matrícula | atendimento | negócio | negócio | pedido |
+| oferta | o que a empresa vende | curso | procedimento | projeto | imóvel | produto |
+| entrega | como o serviço acontece | turma | consulta | sessão | visita | pedido |
+| prestador | quem executa o serviço | professor | profissional | consultor | corretor | representante |
+| colaborador | quem usa o sistema para vender ou atender | consultor | atendente | executivo de contas | corretor | vendedor |
+| unidade | filial ou local de atendimento | unidade | clínica | escritório | loja | loja |
+
+Regras:
+
+- **Colaborador ≠ prestador.** Colaborador é quem opera o comercial (ranking, comissão, carteira); prestador é quem
+  executa o serviço vendido (aparece na agenda e na entrega). Numa escola, a consultora que atende no WhatsApp não é
+  o professor da turma. A mesma pessoa pode ser os dois.
+- **Pacote de segmento:** escolher o segmento (no primeiro acesso ou em *Configurações › Segmento e termos*) traz os
+  7 termos, o funil, os motivos de perda e os **campos típicos** (ex.: convênio e data de nascimento na clínica;
+  responsável financeiro, série e turno na escola). Trocar de segmento depois **só renomeia** e cria os campos que
+  faltam — funis, etapas e dados ficam como estão.
+- **Ajuste fino:** o administrador muda qualquer termo, o plural irregular e o gênero, com prévia de como as telas
+  vão falar. Em branco, vale o termo padrão.
+- **Nenhum texto fixo:** todo texto que fala de um desses conceitos é escrito com marcadores (ex.: `{Novo contato}`,
+  `{Contato} não encontrad{o|a:contato}`) e montado com o vocabulário da empresa. Um teste automático falha se
+  alguma tela escrever "contato" ou "oportunidade" fixo.
 
 ### Estrutura configurável
 
@@ -348,6 +369,7 @@ Cada fase entrega algo usável e só termina quando os **critérios de pronto** 
 | **5. Receita e qualidade** | Ofertas e entregas (turmas/agendas), vendas, regras de comissão, monitoramento de qualidade, pesquisa de mercado | Comissão do mês confere com cálculo manual de um caso de teste; venda vincula contato, oferta e vendedor |
 | **6. White-label** | Marca, domínio, vocabulário, módulos por plano, automações configuráveis, assistente de primeiro acesso, cobrança | Uma empresa nova configura marca e segmento sozinha em menos de 15 minutos; nenhum nome de cliente aparece no código |
 | **7. Endurecimento** | LGPD (exportar, anonimizar, não contatar, retenção), duas etapas, backups testados, observabilidade, push e offline no celular | Checklist de qualidade (seção final) 100% marcado; restauração de backup testada |
+| **7.5. Vocabulário por segmento** | 7 termos com singular, plural e gênero em todo o sistema (telas, erros, avisos, automações); pacote de segmento com campos típicos; tela Segmento e termos | Uma clínica vê "Pacientes", "Novo paciente" e "Paciente não encontrado" e uma escola vê "Nova matrícula" no mesmo deploy; trocar de segmento não apaga nada |
 
 Sugestão de ritmo: fases 0 a 2 formam o **produto mínimo vendável** (CRM + WhatsApp). As fases seguintes podem ser vendidas como módulos adicionais à medida que ficam prontas.
 

@@ -8,10 +8,11 @@ import { useTempoReal } from "../../app/tempo-real";
 import { useAviso } from "../../ui/sobreposicoes";
 import { BotaoAlternar, CarregarMais, Campo, Escolha, FiltroArquivados, ListaVazia, Mensagem, Titulo, useEnvio, usePaginado } from "../../ui/ui";
 import { formatarDinheiro } from "../crm/comum";
-import { EscolherContato, paraCentavos, paraReais, useTermosReceita } from "./comum";
+import { EscolherContato, paraCentavos, paraReais } from "./comum";
+import { useVocabulario } from "../../app/vocabulario";
 
 function FormOferta({ inicial, aoSalvar, aoCancelar }: { inicial?: OfertaDto; aoSalvar(): void; aoCancelar?(): void }) {
-  const termos = useTermosReceita();
+  const termos = useVocabulario();
   const avisar = useAviso();
   const sufixo = inicial?.id ?? "nova";
   const [nome, setNome] = useState(inicial?.nome ?? "");
@@ -30,7 +31,7 @@ function FormOferta({ inicial, aoSalvar, aoCancelar }: { inicial?: OfertaDto; ao
     aoSalvar();
   });
   return (
-    <form onSubmit={envio.enviar} aria-label={inicial ? `Editar ${termos.oferta}` : `Cadastrar ${termos.oferta}`}>
+    <form onSubmit={envio.enviar} aria-label={termos.t(inicial ? "Editar {oferta}" : "Cadastrar {oferta}")}>
       <div className="grade-campos">
         <Campo rotulo="Nome" nome={`oferta-nome-${sufixo}`} valor={nome} aoMudar={setNome} obrigatorio />
         <Campo rotulo="Preço (R$, opcional)" nome={`oferta-preco-${sufixo}`} valor={preco} aoMudar={setPreco} />
@@ -52,7 +53,7 @@ function FormOferta({ inicial, aoSalvar, aoCancelar }: { inicial?: OfertaDto; ao
 }
 
 function NovaEntrega({ ofertas, aoCriar }: { ofertas: OfertaDto[]; aoCriar(): void }) {
-  const termos = useTermosReceita();
+  const termos = useVocabulario();
   const avisar = useAviso();
   const [pessoas, setPessoas] = useState<{ id: string; nome: string }[]>([]);
   const [ofertaId, setOfertaId] = useState("");
@@ -71,7 +72,7 @@ function NovaEntrega({ ofertas, aoCriar }: { ofertas: OfertaDto[]; aoCriar(): vo
     aoCriar();
   });
   return (
-    <form className="cartao" onSubmit={envio.enviar} aria-label={`Cadastrar ${termos.entrega}`}>
+    <form className="cartao" onSubmit={envio.enviar} aria-label={termos.t("Cadastrar {entrega}")}>
       <div className="grade-campos">
         <Escolha rotulo={termos.Oferta} nome="entrega-oferta" valor={ofertaId} aoMudar={setOfertaId} vazio="Escolha" obrigatorio opcoes={ofertas.map((o) => ({ valor: o.id, texto: o.nome }))} />
         <Campo rotulo="Nome" nome="entrega-nome" valor={nome} aoMudar={setNome} obrigatorio />
@@ -90,7 +91,7 @@ function NovaEntrega({ ofertas, aoCriar }: { ofertas: OfertaDto[]; aoCriar(): vo
 
 export function Catalogo() {
   const { pode } = useSessao();
-  const termos = useTermosReceita();
+  const termos = useVocabulario();
   const avisar = useAviso();
   const [arquivados, setArquivados] = useState(false);
   const [nova, setNova] = useState(false);
@@ -110,7 +111,7 @@ export function Catalogo() {
   };
   return (
     <>
-      <Titulo acao={pode("servicos", "criar") && <BotaoAlternar aberto={nova} aoMudar={setNova} texto={`Cadastrar ${termos.oferta}`} />}>Catálogo</Titulo>
+      <Titulo acao={pode("servicos", "criar") && <BotaoAlternar aberto={nova} aoMudar={setNova} texto={termos.t("Cadastrar {oferta}")} />}>Catálogo</Titulo>
       {nova && (
         <section className="cartao">
           <FormOferta aoSalvar={() => (setNova(false), void ofertas.recarregar())} />
@@ -158,7 +159,7 @@ export function Catalogo() {
       <section className="cartao" aria-labelledby="titulo-entregas">
         <h2 id="titulo-entregas" className="titulo-secao">
           {termos.Entregas}
-          {pode("servicos", "criar") && <BotaoAlternar aberto={novaEntrega} aoMudar={setNovaEntrega} texto={`Cadastrar ${termos.entrega}`} />}
+          {pode("servicos", "criar") && <BotaoAlternar aberto={novaEntrega} aoMudar={setNovaEntrega} texto={termos.t("Cadastrar {entrega}")} />}
         </h2>
         {novaEntrega && <NovaEntrega ofertas={ofertas.itens.filter((o) => !o.arquivadoEm)} aoCriar={() => (setNovaEntrega(false), void entregas.recarregar())} />}
         {!entregas.carregando && !entregas.itens.length && <ListaVazia>Nada cadastrado ainda.</ListaVazia>}
@@ -188,7 +189,7 @@ export function Catalogo() {
 export function Entrega() {
   const { id = "" } = useParams();
   const { pode } = useSessao();
-  const termos = useTermosReceita();
+  const termos = useVocabulario();
   const avisar = useAviso();
   const [e, setE] = useState<EntregaDto | null>(null);
   const [erro, setErro] = useState("");
@@ -254,7 +255,7 @@ export function Entrega() {
         <h2 id="titulo-participantes">Participantes</h2>
         {pode("servicos", "editar") && e.status === "aberta" && (
           <form className="form-linha" onSubmit={(x) => (x.preventDefault(), contato && void agir(() => post(`/entregas/${e.id}/participantes`, { contatoId: contato.id }), "Incluído."))}>
-            <EscolherContato rotulo="Incluir contato" nome="entrega-incluir" aoEscolher={setContato} />
+            <EscolherContato rotulo={termos.t("Incluir {contato}")} nome="entrega-incluir" aoEscolher={setContato} />
             <button type="submit" className="botao" disabled={!contato}>
               Incluir
             </button>

@@ -38,4 +38,7 @@ histórico do git.
 | 38 | Offline é só leitura: o que a pessoa faz sem conexão não é guardado para enviar depois | MÉDIA | `apps/web/src/app/offline.ts` | Fila local de ações com reenvio e resolução de conflito |
 | 39 | Push depende das chaves VAPID; trocar as chaves desfaz as inscrições dos aparelhos | BAIXA | `modulos/push` | Avisar no app quando a inscrição sumir e pedir para ligar de novo |
 | 40 | Retenção não apaga o conteúdo antigo do histórico (`evento.dados`), só de mensagens e de contatos anonimizados | BAIXA | `modulos/lgpd` | Prazo para os resumos de mensagens nos eventos |
-
+| 41 | Dados gravados com nome genérico não seguem o vocabulário (etapa "Novo contato" do funil inicial, contato "Contato do WhatsApp", "Contato anonimizado") | BAIXA | `modulos/crm`, `conversas`, `lgpd` | São dados editáveis; renomear na troca de segmento quando ainda forem o padrão |
+| 42 | Nomes dos perfis-base ("Vendedor / Atendente", "Operação / Prestador") não usam o vocabulário | BAIXA | `packages/shared/src/catalogo.ts` | Perfis são renomeáveis; criar com o termo de colaborador e prestador do segmento |
+| 43 | Termo personalizado sem gênero escolhido usa a terminação da palavra ("dia" sairia feminino) | BAIXA | `packages/shared/src/vocabulario.ts` | A tela já pede o gênero; tornar obrigatório quando o termo mudar |
+| 44 | Resumos da documentação da API (OpenAPI) usam os nomes internos (contato, oportunidade) | BAIXA | `modulos/*/…rotas.ts` | Intencional: é documentação técnica; rever se a API for aberta a clientes (Fase 14) |

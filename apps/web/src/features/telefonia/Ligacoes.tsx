@@ -9,6 +9,7 @@ import { useAviso } from "../../ui/sobreposicoes";
 import { CarregarMais, ListaVazia, Mensagem, Titulo, usePaginado } from "../../ui/ui";
 import { EscolhaProvedor } from "./Telefone";
 import { BotaoAvaliar } from "../qualidade/Qualidade";
+import { useVocabulario } from "../../app/vocabulario";
 
 const duracao = (s: number | null) => (s === null ? "" : `${Math.floor(s / 60)}min ${String(s % 60).padStart(2, "0")}s`);
 
@@ -35,6 +36,7 @@ function Gravacao({ l }: { l: LigacaoDto }) {
 }
 
 export function Ligacoes() {
+  const termos = useVocabulario();
   const eu = useEu();
   const dataHora = useDataHora();
   const lista = usePaginado<LigacaoDto>("/ligacoes?limite=30");
@@ -45,7 +47,7 @@ export function Ligacoes() {
       <section className="cartao">
         <EscolhaProvedor />
         <Mensagem tipo="erro">{lista.erro}</Mensagem>
-        {!lista.carregando && !lista.itens.length && <ListaVazia>Nenhuma ligação ainda. Ligue pela ficha do contato, pelo funil ou pela fila.</ListaVazia>}
+        {!lista.carregando && !lista.itens.length && <ListaVazia>{termos.t("Nenhuma ligação ainda. Ligue pela ficha {do contato}, pelo funil ou pela fila.")}</ListaVazia>}
         <ul className="lista">
           {lista.itens.map((l) => (
             <li key={l.id} className="item">
@@ -55,7 +57,7 @@ export function Ligacoes() {
                   {formatarTelefone(l.numero)} · {dataHora(l.iniciadaEm)} · {l.usuarioNome}
                 </span>
                 <span className="item-detalhe">
-                  {NOMES_PROVEDORES_TELEFONE[l.provedor]} · {l.estado === "encerrada" ? (l.motivoFim ?? "encerrada") : NOMES_ESTADOS_LIGACAO[l.estado]}
+                  {termos.t(NOMES_PROVEDORES_TELEFONE[l.provedor])} · {l.estado === "encerrada" ? (l.motivoFim ?? "encerrada") : NOMES_ESTADOS_LIGACAO[l.estado]}
                   {l.duracaoSegundos ? ` · ${duracao(l.duracaoSegundos)}` : ""}
                   {l.resultadoNome && ` · ${l.resultadoNome}`}
                 </span>

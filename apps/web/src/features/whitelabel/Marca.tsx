@@ -1,6 +1,6 @@
 // Blocos de marca usados no assistente e em "Empresa e marca": cores, logo, vocabulário e domínio.
 import { useCallback, useEffect, useState } from "react";
-import { CONTRASTE_MINIMO, TERMOS, contrasteDaCor, corDoTextoSobre, type ConfigMarcaDto } from "@mg/shared";
+import { CONTRASTE_MINIMO, contrasteDaCor, corDoTextoSobre, type ConfigMarcaDto } from "@mg/shared";
 import { ErroApi, enviarArquivo, get, post, put } from "../../app/api";
 import { useSessao } from "../../app/sessao";
 import { useAviso } from "../../ui/sobreposicoes";
@@ -91,33 +91,6 @@ export function EnviarLogo({ tipo, atual, aoSalvar }: { tipo: "claro" | "escuro"
       )}
       <Mensagem tipo="erro">{erro}</Mensagem>
     </div>
-  );
-}
-
-export function FormVocabulario({ config, aoSalvar }: { config: ConfigMarcaDto; aoSalvar(c: ConfigMarcaDto): void }) {
-  const { recarregar } = useSessao();
-  const avisar = useAviso();
-  const [vocab, setVocab] = useState<Record<string, string>>(config.vocabulario);
-  const envio = useEnvio(async () => {
-    const limpo = Object.fromEntries(Object.entries(vocab).filter(([, v]) => v.trim()));
-    aoSalvar(await put<ConfigMarcaDto>("/empresa/vocabulario", limpo));
-    avisar("Vocabulário salvo. As telas já usam os novos termos.");
-    await recarregar();
-  });
-  return (
-    <form onSubmit={envio.enviar} aria-label="Vocabulário">
-      <p className="dica">Como a sua empresa chama cada coisa. Deixe em branco para usar o termo padrão. Plural só se não for regular (ex.: sessão → sessões).</p>
-      {TERMOS.map((t) => (
-        <div key={t.chave} className="grade-campos">
-          <Campo rotulo={`${t.rotulo} (padrão: ${t.padrao})`} nome={`vocab-${t.chave}`} valor={vocab[t.chave] ?? ""} aoMudar={(v) => setVocab({ ...vocab, [t.chave]: v })} />
-          <Campo rotulo="Plural (opcional)" nome={`vocab-${t.chave}-plural`} valor={vocab[`${t.chave}_plural`] ?? ""} aoMudar={(v) => setVocab({ ...vocab, [`${t.chave}_plural`]: v })} />
-        </div>
-      ))}
-      <Mensagem tipo="erro">{envio.erro}</Mensagem>
-      <button type="submit" className="botao" disabled={envio.enviando}>
-        Salvar vocabulário
-      </button>
-    </form>
   );
 }
 

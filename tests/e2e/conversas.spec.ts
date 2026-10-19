@@ -33,7 +33,7 @@ test("canal de demonstração: cliente escreve, a conversa aparece e a resposta 
   await semRolagemLateral(page);
 
   await canal.getByRole("button", { name: "Simular cliente" }).click();
-  await canal.getByLabel("Telefone do cliente").fill(telefone);
+  await canal.getByLabel("Telefone do aluno").fill(telefone);
   await canal.getByLabel("Nome (opcional)").fill(cliente);
   await canal.getByLabel("Mensagem").fill("Oi, quero saber o preço do curso");
   await canal.getByRole("button", { name: "Simular mensagem do cliente" }).click();

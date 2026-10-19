@@ -17,10 +17,12 @@ import { useAviso } from "../../ui/sobreposicoes";
 import { BotaoAlternar, CarregarMais, Campo, Escolha, ListaVazia, Mensagem, Titulo, useEnvio, usePaginado } from "../../ui/ui";
 import { hojeNoFuso, useFuso } from "./comum";
 import { ProgressoMeta } from "./Rotina";
+import { useVocabulario } from "../../app/vocabulario";
 
 const NOMES_PERIODO_PAINEL: Record<PeriodoId, string> = { dia: "Dia", semana: "Semana", mes: "Mês" };
 
 function NovaMeta({ pessoas, aoCriar }: { pessoas: { id: string; nome: string }[]; aoCriar(): void }) {
+  const termos = useVocabulario();
   const eu = useEu();
   const { pode } = useSessao();
   const avisar = useAviso();
@@ -64,7 +66,7 @@ function NovaMeta({ pessoas, aoCriar }: { pessoas: { id: string; nome: string }[
         />
         {alvo === "pessoa" && <Escolha rotulo="Pessoa" nome="meta-pessoa" valor={usuarioId} aoMudar={setUsuarioId} vazio="Escolha" obrigatorio opcoes={pessoas.map((p) => ({ valor: p.id, texto: p.nome }))} />}
         {alvo === "equipe" && <Escolha rotulo="Equipe" nome="meta-equipe" valor={equipeId} aoMudar={setEquipeId} vazio="Escolha" obrigatorio opcoes={equipes.map((e) => ({ valor: e.id, texto: e.nome }))} />}
-        <Escolha rotulo="Indicador" nome="meta-indicador" valor={indicador} aoMudar={setIndicador} opcoes={INDICADORES.map((i) => ({ valor: i.id, texto: i.nome }))} />
+        <Escolha rotulo="Indicador" nome="meta-indicador" valor={indicador} aoMudar={setIndicador} opcoes={INDICADORES.map((i) => ({ valor: i.id, texto: termos.t(i.nome) }))} />
         <Escolha rotulo="Período" nome="meta-periodo" valor={periodo} aoMudar={setPeriodo} opcoes={PERIODOS.map((p) => ({ valor: p, texto: NOMES_PERIODOS[p] }))} />
         <Campo rotulo="Meta" nome="meta-valor" tipo="text" valor={valor} aoMudar={setValor} obrigatorio dica={indicador === "valor_vendido" ? "Em reais." : undefined} />
       </div>
@@ -77,6 +79,7 @@ function NovaMeta({ pessoas, aoCriar }: { pessoas: { id: string; nome: string }[
 }
 
 export function Desempenho() {
+  const termos = useVocabulario();
   const eu = useEu();
   const { pode } = useSessao();
   const fuso = useFuso();
@@ -165,7 +168,7 @@ export function Desempenho() {
                 <dl className="indicadores">
                   {INDICADORES.map((i) => (
                     <div key={i.id} className={p.valores[i.id] ? "" : "zerado"}>
-                      <dt>{i.nome}</dt>
+                      <dt>{termos.t(i.nome)}</dt>
                       <dd>{formatarIndicador(i.id as IndicadorId, p.valores[i.id] ?? 0)}</dd>
                     </div>
                   ))}

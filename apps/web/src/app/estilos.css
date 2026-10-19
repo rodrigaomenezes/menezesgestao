@@ -2082,3 +2082,28 @@ fieldset legend {
 .conteudo:focus {
   outline: none;
 }
+
+/* Segmento e termos: cada termo em um bloco; o gênero em dois botões lado a lado. */
+.termo {
+  border: 1px solid var(--borda);
+  border-radius: 8px;
+  padding: 0.75rem;
+  margin: 0 0 0.75rem;
+}
+
+.genero {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.genero label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-height: 44px;
+  padding: 0 0.75rem;
+  border: 1px solid var(--borda);
+  border-radius: 8px;
+  cursor: pointer;
+}

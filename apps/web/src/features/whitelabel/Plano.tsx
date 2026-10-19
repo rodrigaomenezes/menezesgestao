@@ -6,10 +6,12 @@ import { useSessao } from "../../app/sessao";
 import { useAviso, useConfirmar } from "../../ui/sobreposicoes";
 import { ListaVazia, Mensagem, Titulo } from "../../ui/ui";
 import { formatarDinheiro } from "../crm/comum";
+import { useVocabulario } from "../../app/vocabulario";
 
 const data = (d: string | null) => (d ? d.split("-").reverse().join("/") : "—");
 
 export function Plano() {
+  const termos = useVocabulario();
   const { pode, recarregar } = useSessao();
   const avisar = useAviso();
   const confirmar = useConfirmar();
@@ -23,7 +25,7 @@ export function Plano() {
 
   const trocar = async (plano: keyof typeof PRECOS_PLANOS) => {
     const sai = (a?.modulos ?? []).filter((m) => !(PLANOS[plano].modulos as readonly string[]).includes(m));
-    const nomes = MODULOS.filter((m) => sai.includes(m.id)).map((m) => m.nome);
+    const nomes = MODULOS.filter((m) => sai.includes(m.id)).map((m) => termos.t(m.nome));
     const ok = await confirmar({
       titulo: `Mudar para o plano ${PLANOS[plano].nome}`,
       mensagem: nomes.length
@@ -73,7 +75,7 @@ export function Plano() {
               <p className="preco">{formatarDinheiro(PRECOS_PLANOS[p])}/mês</p>
               <ul className="lista-simples">
                 {MODULOS.filter((m) => (PLANOS[p].modulos as readonly string[]).includes(m.id)).map((m) => (
-                  <li key={m.id}>{m.nome}</li>
+                  <li key={m.id}>{termos.t(m.nome)}</li>
                 ))}
               </ul>
               {a.plano === p ? (

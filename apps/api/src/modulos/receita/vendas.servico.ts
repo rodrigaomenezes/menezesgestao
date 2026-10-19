@@ -122,13 +122,13 @@ export function criarServicoVendas(s: Servicos) {
     if (d.status === "confirmada" && !confere(escopo)) throw invalido("A venda entra como aguardando pagamento; quem confere o pagamento confirma.");
     return comEmpresa(banco, ctx.empresaId, async (tx) => {
       const escopoCrm = temPermissao(ctx.permissoes, "crm", "ver");
-      if (!escopoCrm || !(await contatos.buscarVisivel(tx, ctx.empresaId, ctx, escopoCrm, d.contatoId))) throw invalido("Contato não encontrado na sua carteira.");
+      if (!escopoCrm || !(await contatos.buscarVisivel(tx, ctx.empresaId, ctx, escopoCrm, d.contatoId))) throw invalido("{Contato} não encontrad{o|a:contato} na sua carteira.");
       const [o] = await tx.db.select({ nome: oferta.nome }).from(oferta).where(and(eq(oferta.id, d.ofertaId), eq(oferta.empresaId, ctx.empresaId), isNull(oferta.arquivadoEm)));
-      if (!o) throw invalido("Oferta não encontrada.");
+      if (!o) throw invalido("{Oferta} não encontrad{o|a:oferta}.");
       const vendedorId = await exigirPessoa(tx, ctx, escopo, d.vendedorId);
       if (d.oportunidadeId) {
         const [op] = await tx.db.select({ contatoId: oportunidade.contatoId }).from(oportunidade).where(and(eq(oportunidade.id, d.oportunidadeId), eq(oportunidade.empresaId, ctx.empresaId)));
-        if (!op || op.contatoId !== d.contatoId) throw invalido("A oportunidade é de outro contato.");
+        if (!op || op.contatoId !== d.contatoId) throw invalido("{A oportunidade} é de {outro contato}.");
       }
       const dataVenda = d.dataVenda ?? hojeNoFuso(fusoDe(ctx));
       if (await mesFechado(tx, ctx.empresaId, dataVenda)) throw periodoFechado();
@@ -136,7 +136,7 @@ export function criarServicoVendas(s: Servicos) {
       // compartilhado; pegar a exclusiva depois faria duas vendas simultâneas se bloquearem mutuamente).
       if (d.entregaId) {
         const { rows } = await tx.cliente.query<{ oferta_id: string }>("SELECT oferta_id FROM entrega WHERE id = $1 AND empresa_id = $2 FOR UPDATE", [d.entregaId, ctx.empresaId]);
-        if (!rows[0] || rows[0].oferta_id !== d.ofertaId) throw invalido("A entrega escolhida é de outra oferta.");
+        if (!rows[0] || rows[0].oferta_id !== d.ofertaId) throw invalido("{A entrega} escolhid{o|a:entrega} é de {outra oferta}.");
       }
       let id: string;
       try {
@@ -159,7 +159,7 @@ export function criarServicoVendas(s: Servicos) {
           })
           .returning({ id: venda.id });
       } catch (err) {
-        if (codigoPg(err) === "23505") throw conflito("Esta oportunidade já tem uma venda registrada.");
+        if (codigoPg(err) === "23505") throw conflito("{Esta oportunidade} já tem uma venda registrada.");
         throw err;
       }
       // Vaga na entrega (turma/agenda) junto com a venda.
@@ -266,7 +266,7 @@ export function criarServicoVendas(s: Servicos) {
     return comEmpresa(banco, ctx.empresaId, async (tx) => {
       if (d.ofertaId) {
         const [o] = await tx.db.select({ id: oferta.id }).from(oferta).where(and(eq(oferta.id, d.ofertaId), eq(oferta.empresaId, ctx.empresaId)));
-        if (!o) throw invalido("Oferta não encontrada.");
+        if (!o) throw invalido("{Oferta} não encontrad{o|a:oferta}.");
       }
       let id: string;
       try {
@@ -283,7 +283,7 @@ export function criarServicoVendas(s: Servicos) {
           })
           .returning({ id: regraComissao.id });
       } catch (err) {
-        if (codigoPg(err) === "23505") throw conflito(d.ofertaId ? "Esta oferta já tem uma regra ativa. Arquive a antiga antes." : "Já existe uma regra geral ativa. Arquive a antiga antes.");
+        if (codigoPg(err) === "23505") throw conflito(d.ofertaId ? "{Esta oferta} já tem uma regra ativa. Arquive a antiga antes." : "Já existe uma regra geral ativa. Arquive a antiga antes.");
         throw err;
       }
       await registrar(tx, origem, { acao: "regra_comissao.criada", entidade: "regra_comissao", entidadeId: id, depois: { ...d, faixas } });
@@ -300,7 +300,7 @@ export function criarServicoVendas(s: Servicos) {
         .where(and(eq(regraComissao.id, id), eq(regraComissao.empresaId, ctx.empresaId)))
         .returning({ id: regraComissao.id })
         .catch((err: unknown) => {
-          if (codigoPg(err) === "23505") throw conflito("Já existe outra regra ativa para esta oferta.");
+          if (codigoPg(err) === "23505") throw conflito("Já existe outra regra ativa para {esta oferta}.");
           throw err;
         });
       if (!r) throw naoEncontrado("Regra de comissão");

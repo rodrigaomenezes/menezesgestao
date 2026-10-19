@@ -5,6 +5,7 @@ import { get, post } from "../../app/api";
 import { useDataHora, useSessao } from "../../app/sessao";
 import { useAviso } from "../../ui/sobreposicoes";
 import { Campo, Mensagem, useEnvio } from "../../ui/ui";
+import { useVocabulario } from "../../app/vocabulario";
 
 /** Baixa um JSON como arquivo, sem guardar nada no navegador. */
 function baixarJson(dados: unknown, nome: string) {
@@ -17,6 +18,7 @@ function baixarJson(dados: unknown, nome: string) {
 }
 
 export function Privacidade({ contato, aoMudar }: { contato: ContatoDto; aoMudar(): void }) {
+  const termos = useVocabulario();
   const { pode } = useSessao();
   const dataHora = useDataHora();
   const avisar = useAviso();
@@ -61,7 +63,7 @@ export function Privacidade({ contato, aoMudar }: { contato: ContatoDto; aoMudar
       )}
       <Mensagem tipo="erro">{exportar.erro}</Mensagem>
       {anonimizando && (
-        <form onSubmit={anonimizar.enviar} aria-label="Anonimizar contato">
+        <form onSubmit={anonimizar.enviar} aria-label={termos.t("Anonimizar {contato}")}>
           <Mensagem tipo="erro">
             Não tem volta: nome, telefone, e-mail, notas, mensagens, gravações e campos deste cadastro serão apagados. Vendas e números
             (metas, comissões) continuam valendo.

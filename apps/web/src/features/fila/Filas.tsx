@@ -8,6 +8,7 @@ import { useTempoReal } from "../../app/tempo-real";
 import { useAviso, useConfirmar } from "../../ui/sobreposicoes";
 import { BotaoAlternar, Campo, Escolha, ListaVazia, Mensagem, Titulo, useEnvio } from "../../ui/ui";
 import { useConfigCrm } from "../crm/comum";
+import { useVocabulario } from "../../app/vocabulario";
 
 export function useTiposBase() {
   const [tipos, setTipos] = useState<TipoBaseDto[]>([]);
@@ -18,6 +19,7 @@ export function useTiposBase() {
 }
 
 function NovaFila({ aoCriar }: { aoCriar(): void }) {
+  const termos = useVocabulario();
   const tipos = useTiposBase().filter((t) => !t.arquivadoEm);
   const { config } = useConfigCrm();
   const [nome, setNome] = useState("");
@@ -36,7 +38,7 @@ function NovaFila({ aoCriar }: { aoCriar(): void }) {
         <Campo rotulo="Nome da fila" nome="fila-nome" valor={nome} aoMudar={setNome} obrigatorio dica="Ex.: Leads da feira de outubro" />
         <Escolha rotulo="Tipo de base" nome="fila-tipo" valor={tipoBaseId} aoMudar={setTipoBaseId} opcoes={tipos.map((t) => ({ valor: t.id, texto: t.nome }))} vazio="Sem tipo" />
         <Escolha rotulo="Convertidos vão para o funil" nome="fila-funil" valor={funilId} aoMudar={setFunilId} opcoes={config.funis.map((f) => ({ valor: f.id, texto: f.nome }))} vazio="Primeiro funil" />
-        <Campo rotulo="Reserva (minutos)" nome="fila-reserva" tipo="number" valor={reserva} aoMudar={setReserva} dica="Tempo que o contato fica só com quem pegou" />
+        <Campo rotulo="Reserva (minutos)" nome="fila-reserva" tipo="number" valor={reserva} aoMudar={setReserva} dica={termos.t("Tempo que {o contato} fica só com quem pegou")} />
         <Campo rotulo="Tentativas máximas" nome="fila-tentativas" tipo="number" valor={tentativas} aoMudar={setTentativas} />
       </div>
       <Mensagem tipo="erro">{erro}</Mensagem>
@@ -48,6 +50,7 @@ function NovaFila({ aoCriar }: { aoCriar(): void }) {
 }
 
 function CartaoFila({ f, aoMudar }: { f: FilaDto; aoMudar(): void }) {
+  const termos = useVocabulario();
   const { pode } = useSessao();
   const avisar = useAviso();
   const confirmar = useConfirmar();
@@ -113,7 +116,7 @@ function CartaoFila({ f, aoMudar }: { f: FilaDto; aoMudar(): void }) {
             type="button"
             className="botao botao-secundario"
             onClick={async () => {
-              if (await confirmar({ titulo: "Encerrar fila", mensagem: `Encerrar ${f.nome}? Ninguém mais recebe contatos dela; o histórico fica.`, acao: "Encerrar", perigosa: true }))
+              if (await confirmar({ titulo: "Encerrar fila", mensagem: termos.t(`Encerrar ${f.nome}? Ninguém mais recebe {contatos} dela; o histórico fica.`), acao: "Encerrar", perigosa: true }))
                 void mudar({ status: "encerrada" }, "Fila encerrada.");
             }}
           >

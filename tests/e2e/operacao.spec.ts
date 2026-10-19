@@ -5,7 +5,8 @@ import { abrirMenu, dados, entrar, pessoa, semRolagemLateral } from "./apoio.js"
 
 const PROJETOS = ["celular-360", "celular-390", "tablet-768", "notebook-1024", "computador-1440"];
 const INDICADORES = ["ligacoes", "mensagens", "contatos_novos", "tarefas_concluidas", "resultados_fila"];
-const NOMES = ["Ligações feitas", "Mensagens enviadas", "Contatos cadastrados", "Tarefas concluídas", "Resultados na fila"];
+// A empresa A chama contato de "aluno": o indicador aparece como "Alunos cadastrados".
+const NOMES = ["Ligações feitas", "Mensagens enviadas", "Alunos cadastrados", "Tarefas concluídas", "Resultados na fila"];
 
 async function api<T = { id: string }>(page: Page, metodo: "GET" | "POST" | "PUT" | "PATCH", url: string, data?: unknown): Promise<{ status: number; json: T }> {
   const csrf = (await page.context().cookies()).find((c) => c.name === "mg_csrf")?.value ?? "";

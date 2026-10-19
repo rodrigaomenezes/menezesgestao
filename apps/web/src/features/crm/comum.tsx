@@ -1,9 +1,8 @@
-// Peças comuns das telas do CRM: configuração (funis, etiquetas, campos), vocabulário da empresa,
+// Peças comuns das telas do CRM: configuração (funis, etiquetas, campos),
 // dinheiro e o formulário de campos personalizados.
 import { useCallback, useEffect, useState } from "react";
 import type { CampoPersonalizadoDto, ConfiguracaoCrmDto } from "@mg/shared";
 import { get } from "../../app/api";
-import { useEu } from "../../app/sessao";
 import { useTempoReal } from "../../app/tempo-real";
 
 export { formatarTelefone } from "@mg/shared";
@@ -25,38 +24,6 @@ export function useConfigCrm() {
   useEffect(recarregar, [recarregar]);
   useTempoReal(["funil.", "etapa.", "etiqueta.", "motivo_perda.", "campo_personalizado."], recarregar);
   return { config, carregada, recarregar };
-}
-
-const maiuscula = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
-
-/** Plural simples do português para os termos configuráveis (aluno → alunos, cliente → clientes). */
-export function plural(s: string): string {
-  if (/ão$/i.test(s)) return s.replace(/ão$/i, "ões");
-  if (/[aeiou]$/i.test(s)) return `${s}s`;
-  if (/[rsz]$/i.test(s)) return `${s}es`;
-  if (/l$/i.test(s)) return s.replace(/l$/i, "is");
-  if (/m$/i.test(s)) return s.replace(/m$/i, "ns");
-  return `${s}s`;
-}
-
-/** Termos da empresa: "contato" pode ser "aluno", "paciente", "cliente"… (configuração, nunca código). */
-export function useTermos() {
-  const eu = useEu();
-  const contato = eu.empresa?.vocabulario.contato?.toLowerCase() ?? "contato";
-  const oportunidade = eu.empresa?.vocabulario.oportunidade?.toLowerCase() ?? "oportunidade";
-  const v = eu.empresa?.vocabulario ?? {};
-  // Plural configurado pela empresa (quando não é regular) ou o plural simples.
-  const contatos = v.contato_plural?.toLowerCase() ?? plural(contato);
-  const oportunidades = v.oportunidade_plural?.toLowerCase() ?? plural(oportunidade);
-  return {
-    contato,
-    Contato: maiuscula(contato),
-    contatos,
-    Contatos: maiuscula(contatos),
-    oportunidade,
-    Oportunidade: maiuscula(oportunidade),
-    Oportunidades: maiuscula(oportunidades),
-  };
 }
 
 const MOEDA = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });

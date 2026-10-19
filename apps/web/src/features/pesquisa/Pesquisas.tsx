@@ -7,6 +7,7 @@ import { useDataHora, useSessao } from "../../app/sessao";
 import { useTempoReal } from "../../app/tempo-real";
 import { useAviso } from "../../ui/sobreposicoes";
 import { BotaoAlternar, CarregarMais, Campo, Escolha, ListaVazia, Mensagem, Titulo, useEnvio, usePaginado } from "../../ui/ui";
+import { useVocabulario } from "../../app/vocabulario";
 
 interface Rascunho {
   tipo: string;
@@ -19,6 +20,7 @@ const nova = (): Rascunho => ({ tipo: "escolha", texto: "", opcoes: "", obrigato
 export const linkPublico = (token: string) => `${window.location.origin}/p/${token}`;
 
 function NovaPesquisa({ aoCriar }: { aoCriar(): void }) {
+  const termos = useVocabulario();
   const avisar = useAviso();
   const [titulo, setTitulo] = useState("");
   const [descricao, setDescricao] = useState("");
@@ -36,7 +38,7 @@ function NovaPesquisa({ aoCriar }: { aoCriar(): void }) {
         ...(p.tipo === "escolha" ? { opcoes: p.opcoes.split("\n").map((o) => o.trim()).filter(Boolean) } : {}),
       })),
     });
-    avisar("Pesquisa criada. Copie o link e envie para os clientes.");
+    avisar(termos.t("Pesquisa criada. Copie o link e envie para {os contatos}."));
     aoCriar();
   });
   return (

@@ -152,7 +152,7 @@ export async function validarLotacao(
       .select({ id: unidade.id })
       .from(unidade)
       .where(and(eq(unidade.id, unidadeId), eq(unidade.empresaId, empresaId), isNull(unidade.arquivadoEm)));
-    if (!u) throw invalido("A unidade escolhida não existe ou foi arquivada.");
+    if (!u) throw invalido("{A unidade} escolhid{o|a:unidade} não existe ou foi arquivad{o|a:unidade}.");
   }
   if (equipeId) {
     const [e] = await tx.db

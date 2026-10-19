@@ -16,6 +16,7 @@ import { useSessao } from "../../app/sessao";
 import { useAviso } from "../../ui/sobreposicoes";
 import { BotaoScripts } from "../operacao/Scripts";
 import { provedorCelular, provedorSip, provedorTreino, type Chamada, type ProvedorTelefone } from "./provedores";
+import { useVocabulario } from "../../app/vocabulario";
 
 export interface AlvoLigacao {
   contatoId?: string | null;
@@ -205,6 +206,7 @@ function useGravacao(ligacaoId: string) {
 }
 
 function PainelLigacao({ l, chamada, meu, aoFechar }: { l: LigacaoAtiva; chamada: React.RefObject<Chamada | null>; meu: MeuTelefoneDto | null; aoFechar(): void }) {
+  const termos = useVocabulario();
   const { eu } = useSessao();
   const agora = useRelogio(l.estado !== "encerrada");
   const audio = useRef<HTMLAudioElement>(null);
@@ -235,7 +237,7 @@ function PainelLigacao({ l, chamada, meu, aoFechar }: { l: LigacaoAtiva; chamada
       <header className="painel-topo">
         <strong>{l.alvo.nome ?? formatarTelefone(l.numero)}</strong>
         <span className="item-detalhe">
-          {formatarTelefone(l.numero)} · {NOMES_PROVEDORES_TELEFONE[l.provedor]}
+          {formatarTelefone(l.numero)} · {termos.t(NOMES_PROVEDORES_TELEFONE[l.provedor])}
         </span>
         <span className={`estado-ligacao estado-${l.estado}`}>
           {NOMES_ESTADOS_LIGACAO[l.estado]}
@@ -420,6 +422,7 @@ export function BotaoLigar({ alvo, rotulo = "Ligar", classe = "botao" }: { alvo:
 
 /** Escolha da forma de ligar (vale enquanto a tela estiver aberta). */
 export function EscolhaProvedor() {
+  const termos = useVocabulario();
   const tel = useTelefone();
   if (!tel.disponivel) return null;
   return (
@@ -428,7 +431,7 @@ export function EscolhaProvedor() {
       <select id="provedor-telefone" value={tel.provedorId} onChange={(e) => tel.escolherProvedor(e.target.value as ProvedorTelefoneId)}>
         {tel.provedores.map((p) => (
           <option key={p} value={p}>
-            {NOMES_PROVEDORES_TELEFONE[p]}
+            {termos.t(NOMES_PROVEDORES_TELEFONE[p])}
           </option>
         ))}
       </select>

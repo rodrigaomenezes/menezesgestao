@@ -17,7 +17,8 @@ import { Modal, useAviso } from "../../ui/sobreposicoes";
 import { CarregarMais, Campo, Escolha, ListaVazia, Mensagem, Titulo, useEnvio, usePaginado } from "../../ui/ui";
 import { formatarDinheiro } from "../crm/comum";
 import { mesAtual, nomeDoMes, somarMeses, useFuso } from "../operacao/comum";
-import { EscolherContato, paraCentavos, paraReais, useTermosReceita } from "./comum";
+import { EscolherContato, paraCentavos, paraReais } from "./comum";
+import { useVocabulario } from "../../app/vocabulario";
 
 const SELO: Record<string, string> = { confirmada: "selo-ganha", cancelada: "selo-perdida" };
 
@@ -29,7 +30,7 @@ export function useConfereVendas(): boolean {
 }
 
 export function FormVenda({ contato, aoSalvar }: { contato?: { id: string; nome: string }; aoSalvar(v: VendaDto): void }) {
-  const termos = useTermosReceita();
+  const termos = useVocabulario();
   const confere = useConfereVendas();
   const avisar = useAviso();
   const [contatoEscolhido, setContato] = useState(contato ?? null);
@@ -52,7 +53,7 @@ export function FormVenda({ contato, aoSalvar }: { contato?: { id: string; nome:
     get<Pagina<EntregaDto>>(`/entregas${query({ ofertaId, status: "aberta", limite: 100 })}`).then((p) => setEntregas(p.itens), () => setEntregas([]));
   }, [ofertaId, ofertas]);
   const envio = useEnvio(async () => {
-    if (!contatoEscolhido) throw new ErroApi(400, "DADOS_INVALIDOS", "Escolha o contato da venda.");
+    if (!contatoEscolhido) throw new ErroApi(400, "DADOS_INVALIDOS", termos.t("Escolha {o contato} da venda."));
     const valorCentavos = paraCentavos(valor);
     if (!valorCentavos) throw new ErroApi(400, "DADOS_INVALIDOS", "Informe o valor da venda (ex.: 1.200,00).");
     const v = await post<VendaDto>("/vendas", {

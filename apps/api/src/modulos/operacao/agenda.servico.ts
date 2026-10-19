@@ -65,7 +65,7 @@ export function criarServicoAgenda(s: Servicos) {
     if (!contatoId) return null;
     const escopoCrm = temPermissao(ctx.permissoes, "crm", "ver");
     if (!escopoCrm || !(await contatos.buscarVisivel(tx, ctx.empresaId, ctx, escopoCrm, contatoId))) {
-      throw invalido("Contato não encontrado na sua carteira.");
+      throw invalido("{Contato} não encontrad{o|a:contato} na sua carteira.");
     }
     return contatoId;
   }

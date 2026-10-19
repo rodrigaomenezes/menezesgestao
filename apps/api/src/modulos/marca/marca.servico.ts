@@ -60,6 +60,7 @@ export function criarServicoMarca(s: Servicos, arquivos: ProvedorArquivos) {
       dominio: e.dominio,
       subdominio: config.dominioBase ? `${e.slug}.${config.dominioBase}` : null,
       vocabulario: vocab,
+      segmento: e.onboarding?.segmento ?? null,
     };
   }
 

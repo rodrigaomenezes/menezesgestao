@@ -116,7 +116,12 @@ Menus **Empresa e marca**, **Plano e cobrança** e **Automações**; tela aberta
   `escola-sol.seudominio.com.br`) ou o domínio próprio da empresa (ex.: `crm.escolasol.com.br`). A tela de entrada,
   o ícone e o app instalado já saem com nome, cores e logo daquela empresa — e o login entra direto nela.
 - Marca: cores (o sistema recusa combinações sem contraste suficiente para leitura), logo para fundo claro e
-  escuro (PNG, JPG ou WebP até 512 KB), nome do produto e vocabulário com singular e plural (ex.: "aluno/alunos").
+  escuro (PNG, JPG ou WebP até 512 KB) e nome do produto.
+- **Segmento e termos** (menu próprio): escola, clínica, consultoria, imobiliária, varejo ou outro. O segmento
+  troca os nomes em todo o sistema — 7 termos (cliente, oportunidade, oferta, entrega, prestador, colaborador e
+  unidade) com singular, plural e gênero: a escola vê "Alunos" e "Nova matrícula", a clínica vê "Pacientes" e
+  "Paciente não encontrado". Também cria os campos típicos (ex.: convênio na clínica). Trocar de segmento só
+  renomeia; nada é apagado.
 - Cadastro aberto: a empresa cria a conta (14 dias de teste com todos os módulos) e um assistente de 5 passos
   deixa tudo pronto: marca → segmento (funil, termos e motivos de perda prontos) → equipe → canais → contatos
   (planilha ou dados de exemplo, apagáveis com um clique). `CADASTRO_ABERTO=nao` fecha o cadastro.

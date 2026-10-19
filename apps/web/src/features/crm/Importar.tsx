@@ -6,7 +6,8 @@ import { ErroApi, enviarArquivo, get, post } from "../../app/api";
 import { useDataHora, useSessao } from "../../app/sessao";
 import { useTempoReal } from "../../app/tempo-real";
 import { Campo, CarregarMais, Escolha, ListaVazia, Mensagem, Titulo, useEnvio, usePaginado } from "../../ui/ui";
-import { EscolhaEtiquetas, useConfigCrm, useTermos } from "./comum";
+import { EscolhaEtiquetas, useConfigCrm } from "./comum";
+import { useVocabulario } from "../../app/vocabulario";
 
 const NOMES_STATUS: Record<ImportacaoDto["status"], string> = {
   PRONTA: "Aguardando confirmação",
@@ -56,7 +57,7 @@ function Enviar({ aoReceber }: { aoReceber(i: ImportacaoDto): void }) {
 
 function Mapear({ imp, aoConfirmar }: { imp: ImportacaoDto; aoConfirmar(i: ImportacaoDto): void }) {
   const { config } = useConfigCrm();
-  const termos = useTermos();
+  const termos = useVocabulario();
   const destinos = [
     ...DESTINOS_FIXOS.map((d) => ({ chave: d, rotulo: NOMES_DESTINOS[d] })),
     ...config.campos.filter((c) => c.entidade === "contato").map((c) => ({ chave: `campo:${c.chave}`, rotulo: c.rotulo })),
@@ -142,7 +143,7 @@ function Mapear({ imp, aoConfirmar }: { imp: ImportacaoDto; aoConfirmar(i: Impor
       <h3>Opções</h3>
       <div className="grade-campos">
         {config.responsaveis.length > 1 && (
-          <Escolha rotulo={`Responsável pelos novos ${termos.contatos}`} nome="imp-responsavel" valor={responsavelId} aoMudar={setResponsavelId} opcoes={config.responsaveis.map((r) => ({ valor: r.id, texto: r.nome }))} vazio="Eu mesmo" />
+          <Escolha rotulo={termos.t("Responsável {pelos novos contatos}")} nome="imp-responsavel" valor={responsavelId} aoMudar={setResponsavelId} opcoes={config.responsaveis.map((r) => ({ valor: r.id, texto: r.nome }))} vazio="Eu mesmo" />
         )}
         <Campo rotulo="Origem (quando a planilha não tiver)" nome="imp-origem" valor={origem} aoMudar={setOrigem} dica="Ex.: Feira 2026" />
       </div>
@@ -154,7 +155,7 @@ function Mapear({ imp, aoConfirmar }: { imp: ImportacaoDto; aoConfirmar(i: Impor
       {podeFila && (
         <div className="grade-campos">
           <Escolha
-            rotulo="Pôr os contatos numa fila de ligação"
+            rotulo={termos.t("Pôr {os contatos} numa fila de ligação")}
             nome="imp-fila"
             valor={destinoFila}
             aoMudar={setDestinoFila}
@@ -293,7 +294,7 @@ function Anteriores({ aoAbrir }: { aoAbrir(id: string): void }) {
 
 export function Importar() {
   const [parametros, setParametros] = useSearchParams();
-  const termos = useTermos();
+  const termos = useVocabulario();
   const [recebida, setRecebida] = useState<ImportacaoDto | null>(null);
   const id = parametros.get("id");
   const abrir = (novo: string) => {
