@@ -20,12 +20,15 @@ export function pessoa(empresa: DescricaoEmpresa, chave: string) {
   return p;
 }
 
+/** Título do Início: "Bom dia, Fernanda" (conforme a hora no fuso da empresa). */
+export const SAUDACAO = /^(Bom dia|Boa tarde|Boa noite), /;
+
 export async function entrar(page: Page, email: string, senha = dados().senha) {
   await page.goto("/");
   await page.getByLabel("E-mail").fill(email);
   await page.getByLabel("Senha").fill(senha);
   await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(page.getByRole("heading", { name: /^Olá/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: SAUDACAO })).toBeVisible();
 }
 
 /** Abre o menu no celular (no computador ele já fica visível). */

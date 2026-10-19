@@ -47,6 +47,7 @@ import { Cadastro } from "./features/whitelabel/Cadastro";
 import { PrimeirosPassos } from "./features/whitelabel/PrimeirosPassos";
 import { Plano } from "./features/whitelabel/Plano";
 import { Automacoes } from "./features/whitelabel/Automacoes";
+import "./app/fonte.css";
 import "./app/estilos.css";
 import { SegmentoTermos } from "./features/whitelabel/SegmentoTermos";
 

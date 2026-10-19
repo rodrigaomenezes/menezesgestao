@@ -38,8 +38,10 @@ Detalhes e critérios de pronto de cada fase: `ESPECIFICACAO.md` ("Roteiro de co
       colaborador e unidade — com singular, plural e gênero em todo o sistema: telas, menus, erros do servidor,
       avisos, automações e importação; pacote de segmento com campos típicos; tela Segmento e termos com prévia;
       trocar de segmento só renomeia; teste que barra termo fixo nas telas)
-- [ ] Fase 7.6 — Interface nova (visual "limpo e arejado" e Início que cada pessoa monta com blocos, igual no
-      celular e no computador; protótipo aprovado no canvas "Menezes Gestão — Interface"). Plano a apresentar.
+- [x] Fase 7.6 — Interface nova (visual "limpo e arejado" com a fonte Plus Jakarta Sans servida pelo app; menu
+      lateral com ícones em grupos; barra de baixo no celular e no tablet; Início em 12 blocos que cada pessoa
+      monta — subir, descer, tirar, adicionar, voltar ao padrão do perfil —, salvo no servidor; protótipo aprovado
+      no canvas "Menezes Gestão — Interface")
 
 ## Próximas fases (planejadas, não iniciadas)
 

@@ -42,3 +42,6 @@ histórico do git.
 | 42 | Nomes dos perfis-base ("Vendedor / Atendente", "Operação / Prestador") não usam o vocabulário | BAIXA | `packages/shared/src/catalogo.ts` | Perfis são renomeáveis; criar com o termo de colaborador e prestador do segmento |
 | 43 | Termo personalizado sem gênero escolhido usa a terminação da palavra ("dia" sairia feminino) | BAIXA | `packages/shared/src/vocabulario.ts` | A tela já pede o gênero; tornar obrigatório quando o termo mudar |
 | 44 | Resumos da documentação da API (OpenAPI) usam os nomes internos (contato, oportunidade) | BAIXA | `modulos/*/…rotas.ts` | Intencional: é documentação técnica; rever se a API for aberta a clientes (Fase 14) |
+| 45 | Início padrão só automático: o administrador não monta o padrão de um perfil | BAIXA | `modulos/inicio` | Coluna aditiva no perfil com a ordem padrão, se pedirem |
+| 46 | Blocos de funil, ranking e comissão fazem uma consulta cada ao abrir o Início | BAIXA | `apps/web/src/features/inicio` | Rota de resumo única para o Início, se pesar |
+| 47 | Personalizar usa setas (subir/descer), sem arrastar | BAIXA | `apps/web/src/features/inicio` | Arrastar com teclado acessível, mantendo as setas |

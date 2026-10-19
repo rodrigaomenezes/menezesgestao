@@ -1,7 +1,7 @@
 // Checklist de qualidade (Fase 7): as telas principais funcionam no modo escuro (texto legível, sem rolar
 // para o lado) e só com o teclado (entrar, pular para o conteúdo, foco sempre visível).
 import { expect, test, type Page } from "@playwright/test";
-import { dados, entrar, pessoa, semRolagemLateral } from "./apoio.js";
+import { SAUDACAO, dados, entrar, pessoa, semRolagemLateral } from "./apoio.js";
 
 const TELAS = ["/", "/contatos", "/funil", "/conversas", "/filas", "/agenda", "/desempenho", "/vendas", "/empresa", "/seguranca", "/notificacoes"];
 
@@ -43,7 +43,7 @@ test("só com o teclado: entra, pula para o conteúdo e o foco aparece", async (
   await page.keyboard.press("Tab");
   await page.keyboard.type(senha);
   await page.keyboard.press("Enter");
-  await expect(page.getByRole("heading", { name: /^Olá/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: SAUDACAO })).toBeVisible();
 
   await page.keyboard.press("Tab");
   const pular = page.getByRole("link", { name: "Pular para o conteúdo" });

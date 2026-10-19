@@ -17,7 +17,7 @@ export default defineConfig({
       injectRegister: null,
       registerType: "autoUpdate",
       workbox: {
-        globPatterns: ["**/*.{js,css,html,png,svg}"],
+        globPatterns: ["**/*.{js,css,html,png,svg,woff2}"],
         navigateFallback: "/index.html",
         navigateFallbackDenylist: [/^\/api\//, /^\/manifest\.webmanifest$/],
         // Avisos no celular (push e clique no aviso).

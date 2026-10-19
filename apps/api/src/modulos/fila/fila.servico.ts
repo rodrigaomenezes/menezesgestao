@@ -374,6 +374,9 @@ export function criarServicoFila(s: Servicos) {
         .from(contato)
         .where(and(eq(contato.empresaId, ctx.empresaId), inArray(contato.id, [...new Set(contatoIds)]), isNull(contato.arquivadoEm), contatoVisivel(ctx, escopo)));
       const r = { adicionados: 0, emOutraFila: 0, jaNaFila: 0, semTelefone: 0, naoContatar: 0 };
+      // Ordem de chegada = a ordem pedida (o banco devolve as linhas em qualquer ordem).
+      const posicao = new Map(contatoIds.map((id, i) => [id, i] as const));
+      visiveis.sort((x, y) => (posicao.get(x.id) ?? 0) - (posicao.get(y.id) ?? 0));
       for (const c of visiveis) {
         if (c.naoContatar) {
           r.naoContatar++;
