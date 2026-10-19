@@ -63,11 +63,14 @@ apps/api/src
     auth/          (fase 7) duas-etapas.servico.ts: TOTP (infra/seguranca/totp.ts), código por e-mail,
                    códigos de recuperação, desafio em cookie próprio, regra da empresa
     lgpd/          exportar e anonimizar o titular; retenção por empresa e limpeza do sistema (job diário)
+    inicio/        (fase 7.6) Início por pessoa: ordem dos blocos em inicio_pessoa (null = padrão do perfil,
+                   montado de permissões por inicioPadrao em @mg/shared/dto-inicio.ts)
     push/          interface ProvedorPush (web-push com VAPID ou demonstração), inscrições, varredura por job
   cli/                               criar-empresa, dados-exemplo, caixa-de-saida, migrar, desligar-duas-etapas,
                                      conferir-backup, chaves-push
 apps/web/src
-  app/        api (cliente), sessão, tema, tempo real, vocabulario.ts (useVocabulario: termos e t() das telas),
+  app/        api (cliente), sessão, tema, fonte.css (Plus Jakarta Sans local), tempo real,
+              vocabulario.ts (useVocabulario: termos e t() das telas),
               casca (menu, sino, aviso de sem conexão),
               offline.ts (cache dos dados limpo no login/logout, inscrição de push); public/sw-push.js
   ui/         campos, listas paginadas, modal, confirmação, avisos (toast)

@@ -461,3 +461,18 @@ Uma frase como "Novo {termo}" quebra no feminino ("Novo matrícula") e mensagens
 fixo. Gênero explícito evita adivinhar pela terminação; marcadores mantêm o texto legível no código e o mesmo
 mecanismo serve ao servidor e ao front. Alternativa descartada: i18n completo com chaves por frase — pesado demais
 para trocar 7 palavras, e não resolve a concordância sozinho.
+
+# ADR-031 — Início por pessoa: só a ordem dos blocos no banco
+
+## Decisão
+O catálogo de blocos (12) vive no contrato (`@mg/shared/dto-inicio.ts`), com o que cada um exige (módulo × ação).
+A tabela `inicio_pessoa` guarda só a lista ordenada de ids por pessoa × empresa (RLS por empresa); `null` = padrão
+do perfil, montado na hora pelas permissões (gestão, financeiro ou atendimento). O servidor recusa bloco sem
+permissão ao salvar e filtra ao ler: perder uma permissão tira o bloco sem apagar a escolha. Voltar ao padrão grava
+`null` (nada é apagado). Cada bloco busca os próprios dados nas rotas que já existem; os da rotina dividem uma
+consulta só. Fonte servida pelo app (`@fontsource-variable`, só latim), no precache do PWA.
+
+## Por quê
+Padrão automático foi a escolha do analista: nenhuma tela nova para o administrador e o Início certo desde o
+primeiro acesso. Guardar só a ordem deixa o catálogo evoluir sem migração.
+

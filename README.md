@@ -146,6 +146,17 @@ Menus **Empresa e marca**, **Plano e cobrança** e **Automações**; tela aberta
 - **Backup**: backups diários do Railway + roteiro de restauração testado (`docs/BACKUP.md`, `npm run backup:conferir`).
 - **Logs**: uma linha JSON por evento de negócio (tipo, empresa, autor, ids) e por erro — sem dados pessoais.
 
+### Interface (fase 7.6)
+
+- Visual limpo e arejado: fundo claro, uma só cor de destaque (a da marca), fonte Plus Jakarta Sans servida pelo
+  próprio app (funciona offline).
+- Menu lateral com ícones, em grupos (Dia a dia, Resultados, Configurações, Sua conta). No celular e no tablet,
+  barra de baixo com Início, Conversas, Funil, Agenda e Mais.
+- **Início que cada pessoa monta**: até 12 blocos (atalhos, conversas esperando, metas, agenda, tarefas,
+  retornos, check-list, ponto, funil, ranking, comissão, avisos). "Personalizar início" sobe, desce, tira e
+  adiciona; a escolha vale no celular e no computador. Sem escolha, o perfil traz um padrão (atendimento, gestão
+  ou financeiro). Só aparecem blocos de módulos que o perfil pode ver.
+
 ## Testes
 
 ```bash
