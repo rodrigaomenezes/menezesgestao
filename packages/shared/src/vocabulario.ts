@@ -59,7 +59,7 @@ const FEMININO: Record<string, string> = {
   pelo: "pela", pelos: "pelas", este: "esta", estes: "estas", deste: "desta", destes: "destas", neste: "nesta",
   esse: "essa", esses: "essas", desse: "dessa", nesse: "nessa", novo: "nova", novos: "novas", outro: "outra",
   outros: "outras", nenhum: "nenhuma", seu: "sua", seus: "suas", todo: "toda", todos: "todas", meu: "minha",
-  meus: "minhas", mesmo: "mesma", mesmos: "mesmas", primeiro: "primeira", próprio: "própria", próprios: "próprias", algum: "alguma", alguns: "algumas",
+  meus: "minhas", quanto: "quanta", quantos: "quantas", mesmo: "mesma", mesmos: "mesmas", primeiro: "primeira", próprio: "própria", próprios: "próprias", algum: "alguma", alguns: "algumas",
 };
 
 const MASCULINO: Record<string, string> = Object.fromEntries(Object.entries(FEMININO).map(([m, f]) => [f, m]));

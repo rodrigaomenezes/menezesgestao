@@ -995,3 +995,15 @@ export const fatura = pgTable("fatura", {
   criadoEm: criadoEm(),
   atualizadoEm: atualizadoEm(),
 });
+
+export const inicioPessoa = pgTable(
+  "inicio_pessoa",
+  {
+    empresaId: uuid("empresa_id").notNull(),
+    usuarioId: uuid("usuario_id").notNull(),
+    /** null = padrão do perfil. */
+    blocos: jsonb("blocos").$type<string[] | null>(),
+    atualizadoEm: atualizadoEm(),
+  },
+  (t) => [primaryKey({ columns: [t.empresaId, t.usuarioId] })],
+);

@@ -34,6 +34,7 @@ import { rotasUsuarios } from "./modulos/usuarios/usuarios.rotas.js";
 import { rotasPerfis } from "./modulos/permissoes/perfis.rotas.js";
 import { rotasAuditoria } from "./modulos/auditoria/auditoria.rotas.js";
 import { rotasNotificacoes } from "./modulos/notificacoes/notificacoes.rotas.js";
+import { rotasInicio } from "./modulos/inicio/inicio.rotas.js";
 import { rotasSistema } from "./modulos/sistema/sistema.rotas.js";
 import { provedorArquivosBanco } from "./modulos/arquivos/armazenamento.js";
 import { rotasConfiguracaoCrm } from "./modulos/crm/configuracao.rotas.js";
@@ -177,6 +178,7 @@ export async function criarApp(servicos: Servicos): Promise<AppMontado> {
   await app.register(rotasPerfis(servicos));
   await app.register(rotasAuditoria(servicos));
   await app.register(rotasNotificacoes(servicos));
+  await app.register(rotasInicio(servicos));
 
   const arquivos = provedorArquivosBanco(servicos.banco);
   await app.register(rotasConfiguracaoCrm(servicos));
