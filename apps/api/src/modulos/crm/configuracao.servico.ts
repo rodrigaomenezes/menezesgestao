@@ -181,7 +181,7 @@ export function criarServicoConfiguracaoCrm(s: Servicos) {
   async function validarCamposObrigatorios(tx: Tx, empresaId: string, chaves: string[]) {
     const definidas = new Set((await definicoesDeCampos(tx, empresaId, "oportunidade")).map((d) => d.chave));
     const desconhecida = chaves.find((c) => !CHAVES_FIXAS_OBRIGATORIAS.has(c) && !definidas.has(c));
-    if (desconhecida) throw invalido(`O campo "${desconhecida}" não existe nas oportunidades. Crie o campo antes de exigi-lo.`);
+    if (desconhecida) throw invalido(`O campo "${desconhecida}" não existe {nas oportunidades}. Crie o campo antes de exigi-lo.`);
   }
 
   async function criarEtapa(

@@ -83,7 +83,7 @@ function erroGraph(status: number, corpo: unknown): ErroProvedor {
   const e = (corpo as { error?: { code?: number; message?: string } })?.error;
   const codigo = e?.code;
   if (codigo === 131047)
-    return new ErroProvedor("Fora da janela de 24 horas: o cliente precisa escrever primeiro (mensagens modelo chegam numa próxima versão).", false);
+    return new ErroProvedor("Fora da janela de 24 horas: {o contato} precisa escrever primeiro (mensagens modelo chegam numa próxima versão).", false);
   if (codigo === 190) return new ErroProvedor("O token da Meta expirou ou foi revogado. Cadastre um token novo no canal.", false);
   if (codigo === 131026) return new ErroProvedor("O número não pode receber mensagens no WhatsApp.", false);
   if (codigo === 100) return new ErroProvedor("A Meta recusou os dados enviados (confira o Phone number ID e o número).", false);

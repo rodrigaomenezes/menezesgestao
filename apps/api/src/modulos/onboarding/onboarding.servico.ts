@@ -2,9 +2,9 @@
 // empresa e marca → segmento (pré-carrega vocabulário e funil) → equipe → canais → contatos (ou exemplos).
 import { randomUUID } from "node:crypto";
 import { and, eq, isNull, sql } from "drizzle-orm";
-import { SEGMENTOS, normalizarTelefone, type OnboardingDto } from "@mg/shared";
-import { comEmpresa, comoSistema } from "../../infra/banco.js";
-import { contato, empresa, etapa, funil, motivoPerda, oportunidade, usuario, vinculo } from "../../infra/esquema.js";
+import { SEGMENTOS, normalizarTelefone, type OnboardingDto, type Segmento } from "@mg/shared";
+import { comEmpresa, comoSistema, type Tx } from "../../infra/banco.js";
+import { campoPersonalizado, contato, empresa, etapa, funil, motivoPerda, oportunidade, usuario, vinculo } from "../../infra/esquema.js";
 import { ErroApp, conflito, invalido } from "../../infra/erros.js";
 import { gerarHashSenha } from "../../infra/seguranca/senha.js";
 import type { Servicos } from "../../app.js";
@@ -22,6 +22,17 @@ const EXEMPLOS = [
   ["Diego Exemplo", "(11) 90000-0004", 2],
   ["Elisa Exemplo", "(11) 90000-0005", 0],
 ] as const;
+
+/** Campos típicos do segmento: cria só os que faltam (a chave é única por empresa; nada é sobrescrito). */
+async function criarCamposDoPacote(tx: Tx, ctx: ContextoEmpresa, seg: Segmento): Promise<string[]> {
+  if (!seg.campos.length) return [];
+  const criados = await tx.db
+    .insert(campoPersonalizado)
+    .values(seg.campos.map((c, i) => ({ empresaId: ctx.empresaId, entidade: c.entidade, chave: c.chave, rotulo: c.rotulo, tipo: c.tipo, opcoes: c.opcoes ?? [], ordem: 100 + i, criadoPor: ctx.usuarioId })))
+    .onConflictDoNothing()
+    .returning({ chave: campoPersonalizado.chave });
+  return criados.map((c) => c.chave);
+}
 
 export function criarServicoOnboarding(s: Servicos) {
   const { banco, config } = s;
@@ -101,13 +112,39 @@ export function criarServicoOnboarding(s: Servicos) {
       const novos = seg.motivosPerda.filter((m) => !existentes.has(m.toLowerCase()));
       if (novos.length) await tx.db.insert(motivoPerda).values(novos.map((nome, i) => ({ empresaId: ctx.empresaId, nome, ordem: 100 + i })));
       const vocabulario = { ...((e?.vocabulario ?? {}) as Record<string, string>), ...seg.vocabulario };
+      const campos = await criarCamposDoPacote(tx, ctx, seg);
       await tx.db
         .update(empresa)
         .set({ vocabulario, onboarding: { ...(e?.onboarding ?? {}), segmento: seg.id, passo: Math.max(e?.onboarding?.passo ?? 1, 3) }, atualizadoEm: new Date() })
         .where(eq(empresa.id, ctx.empresaId));
-      await registrar(tx, origem, { acao: "empresa.segmento_aplicado", entidade: "empresa", entidadeId: ctx.empresaId, depois: { segmento: seg.id, funil: seg.funil.nome, vocabulario } });
+      await registrar(tx, origem, { acao: "empresa.segmento_aplicado", entidade: "empresa", entidadeId: ctx.empresaId, depois: { segmento: seg.id, funil: seg.funil.nome, vocabulario, campos } });
     });
     return estado(ctx);
+  }
+
+  /**
+   * Troca de segmento depois do primeiro acesso (Configurações › Segmento e termos): renomeia — os termos voltam ao
+   * padrão do segmento — e cria os campos típicos que faltam. Funis, etapas e dados ficam como estão.
+   */
+  async function trocarSegmento(ctx: ContextoEmpresa, origem: Origem, segmentoId: string): Promise<void> {
+    const seg = SEGMENTOS.find((x) => x.id === segmentoId);
+    if (!seg) throw invalido("Segmento desconhecido.");
+    await comEmpresa(banco, ctx.empresaId, async (tx) => {
+      const [e] = await tx.db.select({ onboarding: empresa.onboarding, vocabulario: empresa.vocabulario }).from(empresa).where(eq(empresa.id, ctx.empresaId));
+      const vocabulario = { ...seg.vocabulario } as Record<string, string>;
+      const campos = await criarCamposDoPacote(tx, ctx, seg);
+      await tx.db
+        .update(empresa)
+        .set({ vocabulario, onboarding: { ...(e?.onboarding ?? {}), segmento: seg.id }, atualizadoEm: new Date() })
+        .where(eq(empresa.id, ctx.empresaId));
+      await registrar(tx, origem, {
+        acao: "empresa.segmento_alterado",
+        entidade: "empresa",
+        entidadeId: ctx.empresaId,
+        antes: { segmento: e?.onboarding?.segmento ?? null, vocabulario: e?.vocabulario },
+        depois: { segmento: seg.id, vocabulario, campos },
+      });
+    });
   }
 
   /** Dados de exemplo (contatos com uma oportunidade cada), para ver o sistema funcionando antes de importar. */
@@ -152,5 +189,5 @@ export function criarServicoOnboarding(s: Servicos) {
     return estado(ctx);
   }
 
-  return { cadastrar, estado, avancar, aplicarSegmento, criarExemplos, limparExemplos };
+  return { cadastrar, estado, avancar, aplicarSegmento, trocarSegmento, criarExemplos, limparExemplos };
 }

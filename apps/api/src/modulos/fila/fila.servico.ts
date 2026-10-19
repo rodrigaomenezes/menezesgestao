@@ -239,7 +239,7 @@ export function criarServicoFila(s: Servicos) {
     const [i] = await tx.db.select().from(filaItem).where(and(eq(filaItem.id, itemId), eq(filaItem.empresaId, ctx.empresaId))).for("update");
     if (!i) throw naoEncontrado("Item da fila");
     if (i.status !== "reservado" || i.reservadoPor !== ctx.usuarioId) {
-      throw new ErroApp(409, "CONFLITO", "Este contato não está mais reservado para você (a reserva venceu ou outra pessoa pegou). Pegue o próximo da fila.");
+      throw new ErroApp(409, "CONFLITO", "{Este contato} não está mais reservad{o|a:contato} para você (a reserva venceu ou outra pessoa pegou). Pegue o próximo da fila.");
     }
     return i;
   }

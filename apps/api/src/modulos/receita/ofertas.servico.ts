@@ -21,8 +21,8 @@ export async function ocuparVaga(tx: Tx, empresaId: string, entregaId: string, c
     [entregaId, empresaId],
   );
   const e = rows[0];
-  if (!e || e.arquivado_em) throw invalido("Entrega não encontrada.");
-  if (e.status !== "aberta") throw conflito("Esta entrega está encerrada e não recebe mais participantes.");
+  if (!e || e.arquivado_em) throw invalido("{Entrega} não encontrad{o|a:entrega}.");
+  if (e.status !== "aberta") throw conflito("{Esta entrega} está encerrad{o|a:entrega} e não recebe mais participantes.");
   const { rows: c } = await tx.cliente.query<{ n: number }>("SELECT count(*)::int AS n FROM entrega_participante WHERE entrega_id = $1 AND status = 'ativo'", [entregaId]);
   if (e.capacidade !== null && c[0].n >= e.capacidade) throw conflito(`Não há vagas: as ${e.capacidade} vagas já estão ocupadas.`);
   try {
@@ -32,7 +32,7 @@ export async function ocuparVaga(tx: Tx, empresaId: string, entregaId: string, c
       .returning({ id: entregaParticipante.id });
     return p.id;
   } catch (err) {
-    if (codigoPg(err) === "23505") throw conflito("Esta pessoa já está nesta entrega.");
+    if (codigoPg(err) === "23505") throw conflito("Esta pessoa já está {nesta entrega}.");
     throw err;
   }
 }
@@ -97,7 +97,7 @@ export function criarServicoOfertas(s: Servicos) {
             .where(eq(oferta.id, ofertaId));
         }
       } catch (err) {
-        if (codigoPg(err) === "23505") throw conflito("Já existe uma oferta ativa com esse nome.");
+        if (codigoPg(err) === "23505") throw conflito("Já existe {uma oferta} ativ{o|a:oferta} com esse nome.");
         throw err;
       }
       await registrar(tx, origem, {
@@ -191,13 +191,13 @@ export function criarServicoOfertas(s: Servicos) {
     return comEmpresa(banco, ctx.empresaId, async (tx) => {
       if (d.ofertaId) {
         const [o] = await tx.db.select({ id: oferta.id }).from(oferta).where(and(eq(oferta.id, d.ofertaId), eq(oferta.empresaId, ctx.empresaId), isNull(oferta.arquivadoEm)));
-        if (!o) throw invalido("Oferta não encontrada.");
+        if (!o) throw invalido("{Oferta} não encontrad{o|a:oferta}.");
       }
       // O prestador pode ser qualquer pessoa ativa da empresa (escopo empresa para escolher).
       const prestadorId = d.prestadorId ? await exigirPessoa(tx, ctx, "empresa", d.prestadorId) : d.prestadorId;
       let entregaId = id;
       if (!entregaId) {
-        if (!d.ofertaId || !d.nome) throw invalido("Informe a oferta e o nome.");
+        if (!d.ofertaId || !d.nome) throw invalido("Informe {a oferta} e o nome.");
         const [n] = await tx.db
           .insert(entrega)
           .values({
@@ -271,7 +271,7 @@ export function criarServicoOfertas(s: Servicos) {
       const e = await carregarEntrega(tx, ctx, escopo, entregaId);
       const escopoCrm = temPermissao(ctx.permissoes, "crm", "ver");
       const c = escopoCrm ? await contatos.buscarVisivel(tx, ctx.empresaId, ctx, escopoCrm, contatoId) : null;
-      if (!c) throw invalido("Contato não encontrado na sua carteira.");
+      if (!c) throw invalido("{Contato} não encontrad{o|a:contato} na sua carteira.");
       const id = await ocuparVaga(tx, ctx.empresaId, entregaId, contatoId, ctx.usuarioId, null);
       await registrar(tx, origem, { acao: "entrega.participante_incluido", entidade: "entrega", entidadeId: entregaId, contatoId, dados: { entrega: e.nome } });
       const [p] = await tx.db

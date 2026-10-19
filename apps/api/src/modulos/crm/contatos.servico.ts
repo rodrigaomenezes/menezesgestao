@@ -67,17 +67,17 @@ export function criarServicoContatos(s: Servicos) {
       409,
       "CONFLITO",
       visivel
-        ? `Já existe um contato com este telefone: ${visivel.nome}${visivel.arquivadoEm ? " (arquivado — restaure em vez de cadastrar de novo)" : ""}.`
-        : "Já existe um contato com este telefone na empresa, na carteira de outra pessoa. Peça ao gestor para transferir.",
+        ? `Já existe {um contato} com este telefone: ${visivel.nome}${visivel.arquivadoEm ? " (arquivado — restaure em vez de cadastrar de novo)" : ""}.`
+        : "Já existe {um contato} com este telefone na empresa, na carteira de outra pessoa. Peça ao gestor para transferir.",
       visivel ? { contatoId: visivel.id } : undefined,
     );
   }
 
   async function validarOrganizacao(tx: Tx, ctx: ContextoEmpresa, escopo: Escopo, organizacaoId: string | null | undefined, proprioId?: string) {
     if (!organizacaoId) return;
-    if (organizacaoId === proprioId) throw invalido("Um contato não pode ser a própria empresa.");
+    if (organizacaoId === proprioId) throw invalido("{Um contato} não pode ser a própria empresa.");
     const org = await repo.buscarVisivel(tx, ctx.empresaId, ctx, escopo, organizacaoId);
-    if (!org || org.tipo !== "empresa") throw invalido("Escolha um contato do tipo empresa como organização.");
+    if (!org || org.tipo !== "empresa") throw invalido("Escolha {um contato} do tipo empresa como organização.");
   }
 
   async function listar(ctx: ContextoEmpresa, escopo: Escopo, f: repo.FiltroContatos): Promise<Pagina<ContatoDto>> {

@@ -1,6 +1,6 @@
 // Erros da aplicação: código estável + mensagem para a pessoa (o que aconteceu e o que fazer).
 // A API responde sempre { error: { code, message, details } }.
-import type { CodigoErro } from "@mg/shared";
+import { CHAVES_TERMOS, type CodigoErro } from "@mg/shared";
 
 export class ErroApp extends Error {
   constructor(
@@ -13,8 +13,18 @@ export class ErroApp extends Error {
   }
 }
 
-export const naoEncontrado = (oQue = "Registro") =>
-  new ErroApp(404, "NAO_ENCONTRADO", `${oQue} não encontrado. Ele pode ter sido arquivado ou o link está errado.`);
+/**
+ * "Contato", "Oportunidade", "Oferta", "Entrega" e "Unidade" viram marcadores do vocabulário ("Paciente não encontrado",
+ * "Matrícula não encontrada"); os demais concordam pelo final da primeira palavra ("Conversa não encontrada").
+ */
+export const naoEncontrado = (oQue = "Registro") => {
+  const chave = oQue.toLowerCase();
+  if ((CHAVES_TERMOS as readonly string[]).includes(chave)) {
+    return new ErroApp(404, "NAO_ENCONTRADO", `{${oQue}} não encontrad{o|a:${chave}}. Pode ter sido arquivad{o|a:${chave}} ou o link está errado.`);
+  }
+  const f = /(a|ção|gem|dade|equipe)$/i.test(oQue.split(" ")[0]!) ? "a" : "o";
+  return new ErroApp(404, "NAO_ENCONTRADO", `${oQue} não encontrad${f}. Pode ter sido arquivad${f} ou o link está errado.`);
+};
 
 export const semPermissao = () =>
   new ErroApp(403, "SEM_PERMISSAO", "Seu perfil não tem acesso a esta ação. Se precisar, fale com o administrador da empresa.");

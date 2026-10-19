@@ -107,6 +107,18 @@ export const rotasWhiteLabel =
         { config: config("editar"), schema: { tags, summary: "Termos da empresa (aluno, curso, turma…)", body: VocabularioEntrada, response: { 200: ConfigMarcaDto } } },
         async (req) => marca.salvarVocabulario(exigirEmpresa(req), origemDe(req), req.body),
       );
+      app.put(
+        "/api/empresa/segmento",
+        {
+          config: config("editar"),
+          schema: { tags, summary: "Trocar o segmento: termos voltam ao padrão dele e campos típicos que faltam são criados (nada é apagado)", body: SegmentoEntrada, response: { 200: ConfigMarcaDto } },
+        },
+        async (req) => {
+          const ctx = exigirEmpresa(req);
+          await onboarding.trocarSegmento(ctx, origemDe(req), req.body.segmento);
+          return marca.configuracao(ctx);
+        },
+      );
     }
 
     // Cadastro aberto e assistente ----------------------------------------------------------------------

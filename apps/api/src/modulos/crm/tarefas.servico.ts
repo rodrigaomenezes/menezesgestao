@@ -80,12 +80,12 @@ export function criarServicoTarefas(s: Servicos) {
         .select({ id: oportunidade.id, contatoId: oportunidade.contatoId })
         .from(oportunidade)
         .where(and(eq(oportunidade.id, oportunidadeId), eq(oportunidade.empresaId, ctx.empresaId), filtroUsuariosVisiveis(ctx, escopo, oportunidade.responsavelId)));
-      if (!o) throw invalido("Oportunidade não encontrada na sua carteira.");
-      if (contatoFinal && contatoFinal !== o.contatoId) throw invalido("A oportunidade é de outro contato.");
+      if (!o) throw invalido("{Oportunidade} não encontrad{o|a:oportunidade} na sua carteira.");
+      if (contatoFinal && contatoFinal !== o.contatoId) throw invalido("{A oportunidade} é de {outro contato}.");
       contatoFinal = o.contatoId;
     }
     if (contatoFinal && !(await contatos.buscarVisivel(tx, ctx.empresaId, ctx, escopo, contatoFinal))) {
-      throw invalido("Contato não encontrado na sua carteira.");
+      throw invalido("{Contato} não encontrad{o|a:contato} na sua carteira.");
     }
     return contatoFinal;
   }
@@ -249,7 +249,7 @@ export function criarServicoTarefas(s: Servicos) {
           .select({ id: oportunidade.id })
           .from(oportunidade)
           .where(and(eq(oportunidade.id, dados.oportunidadeId), eq(oportunidade.contatoId, contatoId)));
-        if (!o) throw invalido("A oportunidade não é deste contato.");
+        if (!o) throw invalido("{A oportunidade} não é {deste contato}.");
       }
       const [{ id }] = await tx.db
         .insert(nota)

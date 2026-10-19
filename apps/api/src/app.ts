@@ -15,7 +15,7 @@ import {
   validatorCompiler,
 } from "fastify-type-provider-zod";
 import { z } from "zod";
-import { MARCA_PADRAO, type CodigoErro } from "@mg/shared";
+import { MARCA_PADRAO, texto, textoProfundo, type CodigoErro } from "@mg/shared";
 import type { Banco } from "./infra/banco.js";
 import type { Config } from "./config.js";
 import type { Jobs } from "./infra/jobs.js";
@@ -79,8 +79,10 @@ export function ocultarTokens(url: string): string {
   return url.replace(/([?&]token=)[^&]*/gi, "$1***");
 }
 
+/** A mensagem sai no vocabulário da empresa de quem pediu ("{Contato} não encontrado" → "Paciente não encontrado"). */
 function responderErro(reply: FastifyReply, status: number, code: CodigoErro, message: string, details?: Record<string, unknown>) {
-  return reply.status(status).send({ error: { code, message, ...(details ? { details } : {}) } });
+  const v = reply.request.ctx?.vocabulario;
+  return reply.status(status).send({ error: { code, message: texto(message, v), ...(details ? { details: textoProfundo(details, v) } : {}) } });
 }
 
 // Monta o app sem abrir porta, para os testes usarem app.inject().

@@ -5,7 +5,8 @@ import { normalizarTelefone, type Escopo, type ImportacaoDto, type Pagina } from
 import { comEmpresa, type Tx } from "../../infra/banco.js";
 import { contato, contatoEtiqueta, fila, filaLote, importacao } from "../../infra/esquema.js";
 import { incluirNaFila } from "../fila/fila.servico.js";
-import { temPermissao } from "@mg/shared";
+import { temPermissao, texto } from "@mg/shared";
+import { vocabularioDa } from "../marca/vocabulario.js";
 import { invalido, naoEncontrado } from "../../infra/erros.js";
 import { condicaoCursor, iso, lerCursor, montarPagina } from "../../infra/paginacao.js";
 import type { Servicos } from "../../app.js";
@@ -152,7 +153,7 @@ export function criarServicoImportacao(s: Servicos, arquivos: ProvedorArquivos) 
         filaId = nova.id;
         await auditar(tx, origem, { acao: "fila.criada", entidade: "fila", entidadeId: nova.id, depois: { nome: dados.novaFila.nome, importacaoId: id } });
       } else if (dados.filaId) {
-        if (!temPermissao(ctx.permissoes, "fila", "criar")) throw invalido("Seu perfil não põe contatos em filas.");
+        if (!temPermissao(ctx.permissoes, "fila", "criar")) throw invalido("Seu perfil não põe {contatos} em filas.");
         const [f] = await tx.db.select().from(fila).where(and(eq(fila.id, dados.filaId), eq(fila.empresaId, ctx.empresaId)));
         if (!f || f.arquivadoEm || f.status === "encerrada") throw invalido("Fila não encontrada ou encerrada.");
         filaId = f.id;
@@ -200,9 +201,10 @@ export function criarServicoImportacao(s: Servicos, arquivos: ProvedorArquivos) 
       else naFila.atualizados++;
     };
     const erros: { linha: number; motivo: string }[] = [];
+    const vocabulario = await comEmpresa(banco, empresaId, (tx) => vocabularioDa(tx, empresaId));
     const ignorar = (linha: number, motivo: string) => {
       contagem.ignorados++;
-      if (erros.length < MAX_ERROS) erros.push({ linha, motivo });
+      if (erros.length < MAX_ERROS) erros.push({ linha, motivo: texto(motivo, vocabulario) });
     };
 
     try {
@@ -288,11 +290,11 @@ export function criarServicoImportacao(s: Servicos, arquivos: ProvedorArquivos) 
             }
 
             if (existente.arquivadoEm) {
-              ignorar(numero, "Já existe um contato com este telefone na lixeira. Restaure-o para atualizar.");
+              ignorar(numero, "Já existe {um contato} com este telefone na lixeira. Restaure-{o|a:contato} para atualizar.");
               continue;
             }
             if (visiveis !== "todos" && (!existente.responsavelId || !visiveis.has(existente.responsavelId))) {
-              ignorar(numero, "Este telefone já é de um contato na carteira de outra pessoa.");
+              ignorar(numero, "Este telefone já é de {um contato} na carteira de outra pessoa.");
               continue;
             }
             const novosCampos = { ...(existente.campos ?? {}), ...campos };

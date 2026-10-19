@@ -249,8 +249,8 @@ export function criarServicoConversas(s: Servicos, arquivos: ProvedorArquivos, e
       if (!cn) throw naoEncontrado("Canal");
       const ct = await contatos.buscarVisivel(tx, ctx.empresaId, ctx, escopo, dados.contatoId);
       if (!ct || ct.arquivadoEm) throw naoEncontrado("Contato");
-      if (!ct.telefone) throw invalido("Este contato não tem telefone. Cadastre o número para conversar pelo WhatsApp.");
-      if (ct.naoContatar) throw invalido("Este contato pediu para não ser contatado (LGPD). Responda só se ele escrever primeiro.");
+      if (!ct.telefone) throw invalido("{Este contato} não tem telefone. Cadastre o número para conversar pelo WhatsApp.");
+      if (ct.naoContatar) throw invalido("{Este contato} pediu para não ser contatad{o|a:contato} (LGPD). Responda só se a pessoa escrever primeiro.");
       const [existente] = await tx.db
         .select({ id: conversa.id })
         .from(conversa)

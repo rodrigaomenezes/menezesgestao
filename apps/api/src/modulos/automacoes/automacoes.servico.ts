@@ -3,7 +3,8 @@
 // na mesma transação da ação, com índice único (regra × evento) — passar duas vezes não repete nada.
 import { erroSeguro, registrarLog } from "../../infra/log.js";
 import { and, desc, eq, isNull, sql } from "drizzle-orm";
-import { preencherVariaveis, type RegraAutomacaoDto } from "@mg/shared";
+import { preencherVariaveis, texto, type RegraAutomacaoDto } from "@mg/shared";
+import { vocabularioDa } from "../marca/vocabulario.js";
 import { comEmpresa, comoSistema, type Tx } from "../../infra/banco.js";
 import {
   automacaoExecucao,
@@ -168,7 +169,7 @@ export function criarServicoAutomacoes(s: Servicos, envio: ServicoEnvio | null) 
 
     switch (r.acao) {
       case "criar_tarefa": {
-        if (!ct) throw new Ignorar("O evento não tem contato.");
+        if (!ct) throw new Ignorar("O evento não tem {contato}.");
         const horas = Number(p.horas ?? 0);
         const [t] = await tx.db
           .insert(tarefa)
@@ -197,7 +198,7 @@ export function criarServicoAutomacoes(s: Servicos, envio: ServicoEnvio | null) 
                   .orderBy(desc(oportunidade.atualizadoEm))
                   .limit(1)
               : [];
-        if (!op || op.funilId !== destino.funilId || op.status !== "aberta" || op.etapaId === destino.id) throw new Ignorar("Nenhuma oportunidade aberta para mover nesse funil.");
+        if (!op || op.funilId !== destino.funilId || op.status !== "aberta" || op.etapaId === destino.id) throw new Ignorar("{Nenhuma oportunidade} abert{o|a:oportunidade} para mover nesse funil.");
         const status = destino.tipo === "aberta" ? "aberta" : destino.tipo;
         await tx.db.update(oportunidade).set({ etapaId: destino.id, status, atualizadoEm: new Date() }).where(eq(oportunidade.id, op.id));
         await registrar(tx, origem, {
@@ -238,8 +239,8 @@ export function criarServicoAutomacoes(s: Servicos, envio: ServicoEnvio | null) 
       }
       case "enviar_mensagem": {
         if (!envio) throw new Ignorar("Mensagens indisponíveis.");
-        if (!ct?.telefone || ct.arquivadoEm) throw new Ignorar("Contato sem telefone.");
-        if (ct.naoContatar) throw new Ignorar("Contato pediu para não ser contatado (LGPD).");
+        if (!ct?.telefone || ct.arquivadoEm) throw new Ignorar("{Contato} sem telefone.");
+        if (ct.naoContatar) throw new Ignorar("{Contato} pediu para não ser contatad{o|a:contato} (LGPD).");
         const [cn] = await tx.db.select().from(canal).where(and(eq(canal.id, String(p.canalId)), isNull(canal.arquivadoEm)));
         if (!cn) throw new Ignorar("O canal não existe mais.");
         let [c] = await tx.db
@@ -277,7 +278,8 @@ export function criarServicoAutomacoes(s: Servicos, envio: ServicoEnvio | null) 
             resultado = { status: "ignorada", detalhe: err.message };
           }
         }
-        await tx.db.insert(automacaoExecucao).values({ empresaId: ev.empresa_id, regraId: r.id, eventoId: ev.id, status: resultado.status, detalhe: resultado.detalhe ?? null });
+        const detalhe = resultado.detalhe?.includes("{") ? texto(resultado.detalhe, await vocabularioDa(tx, ev.empresa_id)) : resultado.detalhe;
+        await tx.db.insert(automacaoExecucao).values({ empresaId: ev.empresa_id, regraId: r.id, eventoId: ev.id, status: resultado.status, detalhe: detalhe ?? null });
         return resultado;
       });
     } catch (err) {
