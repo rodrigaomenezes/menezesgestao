@@ -11,7 +11,7 @@ export const PROVEDORES_TELEFONE = ["treino", "celular", "sip"] as const;
 export type ProvedorTelefoneId = (typeof PROVEDORES_TELEFONE)[number];
 export const NOMES_PROVEDORES_TELEFONE: Record<ProvedorTelefoneId, string> = {
   treino: "Modo treino (simulado)",
-  celular: "Celular do vendedor",
+  celular: "Celular {do colaborador}",
   sip: "Telefone pelo navegador (SIP)",
 };
 
@@ -72,7 +72,7 @@ export const NovaLigacaoEntrada = z
     oportunidadeId: IdOpcional,
     filaItemId: IdOpcional,
   })
-  .refine((l) => l.numero || l.contatoId || l.filaItemId, { error: "Informe o número ou o contato." });
+  .refine((l) => l.numero || l.contatoId || l.filaItemId, { error: "Informe o número ou {o contato}." });
 
 export const EstadoLigacaoEntrada = z.object({
   estado: z.enum(ESTADOS_LIGACAO),
@@ -230,7 +230,7 @@ export type ProximoDto = z.infer<typeof ProximoDto>;
 export const FiltroItensFila = Paginacao.extend({ status: z.enum(STATUS_ITEM_FILA).optional() });
 
 export const AdicionarItensEntrada = z.object({
-  contatoIds: z.array(Id).min(1, { error: "Escolha ao menos um contato." }).max(500, { error: "No máximo 500 por vez." }),
+  contatoIds: z.array(Id).min(1, { error: "Escolha ao menos {um contato}." }).max(500, { error: "No máximo 500 por vez." }),
 });
 export const ResultadoAdicionarDto = z.object({
   adicionados: z.number().int(),

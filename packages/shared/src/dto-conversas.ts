@@ -100,7 +100,7 @@ export const CanalResumoDto = z.object({ id: Id, nome: z.string(), provedor: z.e
 export const STATUS_CONVERSA = ["aberta", "aguardando", "resolvida"] as const;
 export const NOMES_STATUS_CONVERSA: Record<(typeof STATUS_CONVERSA)[number], string> = {
   aberta: "Aberta",
-  aguardando: "Aguardando cliente",
+  aguardando: "Aguardando {contato}",
   resolvida: "Resolvida",
 };
 
@@ -188,9 +188,9 @@ export const AtualizarRespostaRapidaEntrada = RespostaRapidaEntrada.partial().ex
 export const TIPOS_AUTOMACAO = ["boas_vindas", "fora_horario", "follow_up"] as const;
 export type TipoAutomacaoId = (typeof TIPOS_AUTOMACAO)[number];
 export const NOMES_AUTOMACAO: Record<TipoAutomacaoId, { nome: string; dica: string }> = {
-  boas_vindas: { nome: "Boas-vindas", dica: "Enviada na primeira mensagem de um cliente novo." },
-  fora_horario: { nome: "Fora do horário", dica: "Enviada quando o cliente escreve fora do horário de atendimento do canal (no máximo uma vez a cada 12 h)." },
-  follow_up: { nome: "Follow-up", dica: "Enviada quando o cliente não responde à sua última mensagem depois de algumas horas." },
+  boas_vindas: { nome: "Boas-vindas", dica: "Enviada na primeira mensagem de {um contato} nov{o|a:contato}." },
+  fora_horario: { nome: "Fora do horário", dica: "Enviada quando {o contato} escreve fora do horário de atendimento do canal (no máximo uma vez a cada 12 h)." },
+  follow_up: { nome: "Follow-up", dica: "Enviada quando {o contato} não responde à sua última mensagem depois de algumas horas." },
 };
 
 export const AutomacaoDto = z.object({

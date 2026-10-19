@@ -4,26 +4,25 @@ import { z } from "zod";
 import { DataIso, Email, Id, SenhaNova } from "./dto.js";
 import { DataDia } from "./dto-operacao.js";
 import { COR_HEX, contraste, corDoTextoSobre } from "./marca.js";
+import { CHAVES_TERMOS, type ChaveTermo } from "./vocabulario.js";
 
 const texto = (max: number, rotulo: string) =>
   z.string().trim().min(1, { error: `${rotulo}: preencha.` }).max(max, { error: `${rotulo}: no máximo ${max} caracteres.` });
 
 // Vocabulário ---------------------------------------------------------------------------------------------
 
-export const TERMOS = [
-  { chave: "contato", padrao: "contato", rotulo: "Quem compra" },
-  { chave: "oportunidade", padrao: "oportunidade", rotulo: "Negócio em andamento" },
-  { chave: "oferta", padrao: "oferta", rotulo: "O que a empresa vende" },
-  { chave: "entrega", padrao: "entrega", rotulo: "Como entrega (turma, agenda…)" },
-  { chave: "prestador", padrao: "prestador", rotulo: "Quem executa o serviço" },
-] as const;
-export type ChaveTermo = (typeof TERMOS)[number]["chave"];
-
-const Termo = z.string().trim().min(2, { error: "Use pelo menos 2 letras." }).max(40).regex(/^[\p{L} -]+$/u, { error: "Use só letras." });
-/** Singular e, se o plural não for regular, o plural (chave_plural). */
+const Palavra = z.string().trim().min(2, { error: "Use pelo menos 2 letras." }).max(40, { error: "Use no máximo 40 letras." }).regex(/^[\p{L} -]+$/u, { error: "Use só letras." });
+const CHAVE_VOCABULARIO = new RegExp(`^(${CHAVES_TERMOS.join("|")})(_plural|_genero)?$`);
+/** Singular, plural (se não for o regular) e gênero ("o" ou "a") de cada termo. */
 export const VocabularioEntrada = z
-  .record(z.string().regex(/^(contato|oportunidade|oferta|entrega|prestador)(_plural)?$/), Termo)
-  .refine((v) => Object.keys(v).length <= 10);
+  .record(z.string().regex(CHAVE_VOCABULARIO, { error: "Termo desconhecido." }), z.string())
+  .superRefine((v, c) => {
+    for (const [k, valor] of Object.entries(v)) {
+      const r = k.endsWith("_genero") ? z.enum(["o", "a"], { error: "Escolha o ou a." }).safeParse(valor) : Palavra.safeParse(valor);
+      if (!r.success) c.addIssue({ code: "custom", path: [k], message: r.error.issues[0]?.message ?? "Valor inválido." });
+    }
+  })
+  .refine((v) => Object.keys(v).length <= CHAVES_TERMOS.length * 3, { error: "Termos demais." });
 
 // Pacotes por segmento ----------------------------------------------------------------------------------
 
@@ -36,9 +35,18 @@ export interface Segmento {
   id: string;
   nome: string;
   descricao: string;
-  vocabulario: Partial<Record<ChaveTermo | `${ChaveTermo}_plural`, string>>;
+  vocabulario: Partial<Record<ChaveTermo | `${ChaveTermo}_plural` | `${ChaveTermo}_genero`, string>>;
   funil: { nome: string; etapas: EtapaPacote[] };
   motivosPerda: string[];
+  /** Campos personalizados que quase toda empresa do segmento usa (criados se ainda não existem). */
+  campos: CampoPacote[];
+}
+export interface CampoPacote {
+  entidade: "contato" | "oportunidade";
+  chave: string;
+  rotulo: string;
+  tipo: "texto" | "numero" | "data" | "lista" | "sim_nao";
+  opcoes?: string[];
 }
 
 const fim = (ganha: string, perdida: string): EtapaPacote[] => [
@@ -51,7 +59,7 @@ export const SEGMENTOS: Segmento[] = [
     id: "escola",
     nome: "Escola e cursos",
     descricao: "Matrículas em cursos e turmas.",
-    vocabulario: { contato: "aluno", oportunidade: "matrícula", oferta: "curso", entrega: "turma", prestador: "professor" },
+    vocabulario: { contato: "aluno", oportunidade: "matrícula", oportunidade_genero: "a", oferta: "curso", oferta_genero: "o", entrega: "turma", prestador: "professor", colaborador: "consultor", unidade: "unidade" },
     funil: {
       nome: "Matrículas",
       etapas: [
@@ -62,12 +70,17 @@ export const SEGMENTOS: Segmento[] = [
       ],
     },
     motivosPerda: ["Preço", "Horário", "Escolheu outra escola", "Não respondeu"],
+    campos: [
+      { entidade: "contato", chave: "responsavel", rotulo: "Responsável financeiro", tipo: "texto" },
+      { entidade: "contato", chave: "serie", rotulo: "Série ou nível", tipo: "texto" },
+      { entidade: "oportunidade", chave: "turno", rotulo: "Turno", tipo: "lista", opcoes: ["Manhã", "Tarde", "Noite", "Sábado"] },
+    ],
   },
   {
     id: "clinica",
     nome: "Clínica e saúde",
     descricao: "Agendamento de consultas e procedimentos.",
-    vocabulario: { contato: "paciente", oportunidade: "atendimento", oferta: "procedimento", entrega: "consulta", prestador: "profissional" },
+    vocabulario: { contato: "paciente", contato_genero: "o", oportunidade: "atendimento", oferta: "procedimento", entrega: "consulta", prestador: "profissional", prestador_plural: "profissionais", colaborador: "atendente", colaborador_genero: "o", unidade: "clínica" },
     funil: {
       nome: "Atendimentos",
       etapas: [
@@ -78,12 +91,17 @@ export const SEGMENTOS: Segmento[] = [
       ],
     },
     motivosPerda: ["Preço", "Convênio", "Distância", "Não respondeu"],
+    campos: [
+      { entidade: "contato", chave: "convenio", rotulo: "Convênio", tipo: "texto" },
+      { entidade: "contato", chave: "nascimento", rotulo: "Data de nascimento", tipo: "data" },
+      { entidade: "oportunidade", chave: "particular", rotulo: "Particular (sem convênio)", tipo: "sim_nao" },
+    ],
   },
   {
     id: "consultoria",
     nome: "Consultoria e serviços",
     descricao: "Projetos e contratos de serviço.",
-    vocabulario: { contato: "cliente", oportunidade: "negócio", oferta: "projeto", entrega: "sessão", entrega_plural: "sessões", prestador: "consultor" },
+    vocabulario: { contato: "cliente", contato_genero: "o", oportunidade: "negócio", oferta: "projeto", entrega: "sessão", entrega_plural: "sessões", entrega_genero: "a", prestador: "consultor", colaborador: "executivo de contas", colaborador_plural: "executivos de contas", unidade: "escritório" },
     funil: {
       nome: "Negócios",
       etapas: [
@@ -95,12 +113,16 @@ export const SEGMENTOS: Segmento[] = [
       ],
     },
     motivosPerda: ["Preço", "Prazo", "Escolheu a concorrência", "Projeto adiado"],
+    campos: [
+      { entidade: "contato", chave: "porte", rotulo: "Porte da empresa", tipo: "lista", opcoes: ["Pequena", "Média", "Grande"] },
+      { entidade: "oportunidade", chave: "decisor", rotulo: "Quem decide", tipo: "texto" },
+    ],
   },
   {
     id: "imobiliaria",
     nome: "Imobiliária",
     descricao: "Visitas, propostas e fechamento de imóveis.",
-    vocabulario: { contato: "cliente", oportunidade: "negócio", oferta: "imóvel", entrega: "visita", prestador: "corretor" },
+    vocabulario: { contato: "cliente", contato_genero: "o", oportunidade: "negócio", oferta: "imóvel", oferta_plural: "imóveis", entrega: "visita", prestador: "corretor", colaborador: "corretor", unidade: "loja" },
     funil: {
       nome: "Negócios",
       etapas: [
@@ -112,12 +134,17 @@ export const SEGMENTOS: Segmento[] = [
       ],
     },
     motivosPerda: ["Financiamento negado", "Preço", "Localização", "Não respondeu"],
+    campos: [
+      { entidade: "oportunidade", chave: "finalidade", rotulo: "Finalidade", tipo: "lista", opcoes: ["Comprar", "Alugar"] },
+      { entidade: "oportunidade", chave: "faixa_valor", rotulo: "Faixa de valor", tipo: "texto" },
+      { entidade: "contato", chave: "financiamento", rotulo: "Vai financiar", tipo: "sim_nao" },
+    ],
   },
   {
     id: "varejo",
     nome: "Varejo e distribuição",
     descricao: "Venda consultiva de produtos.",
-    vocabulario: { contato: "comprador", oportunidade: "pedido", oferta: "produto", entrega: "pedido", prestador: "representante" },
+    vocabulario: { contato: "comprador", oportunidade: "pedido", oferta: "produto", entrega: "pedido", entrega_genero: "o", prestador: "representante", prestador_genero: "o", colaborador: "vendedor", unidade: "loja" },
     funil: {
       nome: "Pedidos",
       etapas: [
@@ -128,6 +155,10 @@ export const SEGMENTOS: Segmento[] = [
       ],
     },
     motivosPerda: ["Preço", "Prazo de entrega", "Sem estoque", "Não respondeu"],
+    campos: [
+      { entidade: "contato", chave: "cnpj", rotulo: "CNPJ", tipo: "texto" },
+      { entidade: "oportunidade", chave: "prazo_pagamento", rotulo: "Prazo de pagamento", tipo: "texto" },
+    ],
   },
   {
     id: "outro",
@@ -145,6 +176,7 @@ export const SEGMENTOS: Segmento[] = [
       ],
     },
     motivosPerda: ["Preço", "Sem interesse", "Escolheu a concorrência", "Não respondeu"],
+    campos: [],
   },
 ];
 export const IDS_SEGMENTOS = SEGMENTOS.map((s) => s.id) as [string, ...string[]];
@@ -196,6 +228,8 @@ export const ConfigMarcaDto = z.object({
   /** Endereço pelo subdomínio, quando DOMINIO_BASE está configurado. */
   subdominio: z.string().nullable(),
   vocabulario: z.record(z.string(), z.string()),
+  /** Segmento escolhido (pacote de termos e campos), ou null se ainda não escolheu. */
+  segmento: z.string().nullable(),
 });
 export type ConfigMarcaDto = z.infer<typeof ConfigMarcaDto>;
 
@@ -223,12 +257,12 @@ export const AvancarEntrada = z.object({ passo: z.number().int().min(1).max(6) }
 // Automações -------------------------------------------------------------------------------------------
 
 export const GATILHOS = [
-  { id: "contato.criado", nome: "Contato cadastrado", campos: [] },
-  { id: "oportunidade.etapa_alterada", nome: "Oportunidade mudou de etapa", campos: ["etapaNovaId"] },
-  { id: "oportunidade.ganha", nome: "Oportunidade ganha", campos: [] },
-  { id: "oportunidade.perdida", nome: "Oportunidade perdida", campos: ["motivo"] },
+  { id: "contato.criado", nome: "{Contato} cadastrad{o|a:contato}", campos: [] },
+  { id: "oportunidade.etapa_alterada", nome: "{Oportunidade} mudou de etapa", campos: ["etapaNovaId"] },
+  { id: "oportunidade.ganha", nome: "{Oportunidade} ganh{o|a:oportunidade}", campos: [] },
+  { id: "oportunidade.perdida", nome: "{Oportunidade} perdid{o|a:oportunidade}", campos: ["motivo"] },
   { id: "ligacao.encerrada", nome: "Ligação encerrada", campos: ["atendida"] },
-  { id: "mensagem.recebida", nome: "Cliente mandou mensagem", campos: [] },
+  { id: "mensagem.recebida", nome: "{Contato} mandou mensagem", campos: [] },
   { id: "venda.confirmada", nome: "Pagamento de venda confirmado", campos: [] },
 ] as const;
 export type GatilhoId = (typeof GATILHOS)[number]["id"];
@@ -238,8 +272,8 @@ export const CAMPOS_CONDICAO: Record<string, { nome: string; operadores: readonl
   etapaNovaId: { nome: "Etapa nova", operadores: ["igual", "diferente"] },
   motivo: { nome: "Motivo da perda", operadores: ["igual", "contem"] },
   atendida: { nome: "Foi atendida", operadores: ["igual"] },
-  "contato.etiqueta": { nome: "Etiqueta do contato", operadores: ["tem"] },
-  "contato.responsavel": { nome: "Responsável pelo contato", operadores: ["vazio", "preenchido"] },
+  "contato.etiqueta": { nome: "Etiqueta {do contato}", operadores: ["tem"] },
+  "contato.responsavel": { nome: "Responsável {pelo contato}", operadores: ["vazio", "preenchido"] },
 };
 export const NOMES_OPERADORES: Record<string, string> = {
   igual: "é",
@@ -258,7 +292,7 @@ export const CondicaoEntrada = z.object({
 export const ACOES_AUTOMACAO = ["criar_tarefa", "mover_etapa", "avisar", "enviar_mensagem"] as const;
 export const NOMES_ACOES_AUTOMACAO: Record<(typeof ACOES_AUTOMACAO)[number], string> = {
   criar_tarefa: "Criar tarefa para o responsável",
-  mover_etapa: "Mover a oportunidade para a etapa",
+  mover_etapa: "Mover {a oportunidade} para a etapa",
   avisar: "Avisar o responsável e o gestor",
   enviar_mensagem: "Enviar mensagem pelo WhatsApp",
 };

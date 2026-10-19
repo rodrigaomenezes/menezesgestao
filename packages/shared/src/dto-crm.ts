@@ -158,7 +158,7 @@ export const FiltroContatos = FiltroLista.extend({
 
 export const ACOES_EM_MASSA = ["transferir", "arquivar", "restaurar", "etiquetar", "desetiquetar"] as const;
 export const AcaoEmMassaEntrada = z.object({
-  ids: z.array(Id).min(1, { error: "Selecione ao menos um contato." }).max(200, { error: "Selecione no máximo 200 contatos por vez." }),
+  ids: z.array(Id).min(1, { error: "Selecione ao menos {um contato}." }).max(200, { error: "Selecione no máximo 200 {contatos} por vez." }),
   acao: z.enum(ACOES_EM_MASSA),
   responsavelId: IdOpcional,
   etiquetaId: IdOpcional,
@@ -250,7 +250,7 @@ export const TarefaEntrada = z
     responsavelId: IdOpcional,
     venceEm: opcional(z.iso.datetime({ error: "Data de vencimento inválida." })),
   })
-  .refine((t) => t.contatoId || t.oportunidadeId, { error: "A tarefa precisa estar ligada a um contato ou oportunidade." });
+  .refine((t) => t.contatoId || t.oportunidadeId, { error: "A tarefa precisa estar ligada a {um contato} ou {uma oportunidade}." });
 export const AtualizarTarefaEntrada = z.object({
   titulo: texto(160, "Tarefa").optional(),
   descricao: opcional(z.string().trim().max(2000)),

@@ -16,7 +16,7 @@ export const MODULOS = [
   { id: "scripts", nome: "Biblioteca de scripts", nucleo: false },
   { id: "qualidade", nome: "Monitoramento de qualidade", nucleo: false },
   { id: "vendas", nome: "Vendas e comissões", nucleo: false },
-  { id: "servicos", nome: "Serviços e entregas", nucleo: false },
+  { id: "servicos", nome: "Serviços e {entregas}", nucleo: false },
   { id: "pesquisa", nome: "Pesquisa de mercado", nucleo: false },
 ] as const;
 
@@ -41,7 +41,7 @@ export type Escopo = (typeof ESCOPOS)[number];
 export const NOMES_ESCOPOS: Record<Escopo, string> = {
   proprio: "Só o próprio",
   equipe: "Da equipe",
-  unidade: "Da unidade",
+  unidade: "{Da unidade}",
   empresa: "Toda a empresa",
 };
 
