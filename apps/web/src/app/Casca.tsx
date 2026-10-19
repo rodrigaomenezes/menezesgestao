@@ -8,49 +8,80 @@ import { conectarTempoReal, useTempoReal } from "./tempo-real";
 import { useVocabulario } from "./vocabulario";
 import { ProvedorTelefoneSistema } from "../features/telefonia/Telefone";
 import { Logo } from "../features/whitelabel/Logo";
+import { Icone, type NomeIcone } from "../ui/Icone";
 
 interface ItemMenu {
   para: string;
   /** Texto com marcadores do vocabulário da empresa (ex.: "{Contatos}" vira "Alunos"). */
   texto: string;
+  icone: NomeIcone;
   exige?: [Modulo, Acao];
 }
 
-const MENU: ItemMenu[] = [
-  { para: "/", texto: "Início" },
-  { para: "/conversas", texto: "Conversas", exige: ["conversas", "ver"] },
-  { para: "/contatos", texto: "{Contatos}", exige: ["crm", "ver"] },
-  { para: "/funil", texto: "Funil", exige: ["crm", "ver"] },
-  { para: "/filas", texto: "Fila de ligações", exige: ["fila", "ver"] },
-  { para: "/ligacoes", texto: "Ligações", exige: ["telefonia", "ver"] },
-  { para: "/tarefas", texto: "Tarefas", exige: ["crm", "ver"] },
-  { para: "/agenda", texto: "Agenda", exige: ["agenda", "ver"] },
-  { para: "/horas", texto: "Horas", exige: ["agenda", "ver"] },
-  { para: "/desempenho", texto: "Desempenho e metas", exige: ["desempenho", "ver"] },
-  { para: "/mapa", texto: "Mapa de atividades", exige: ["mapa", "ver"] },
-  { para: "/scripts", texto: "Scripts", exige: ["scripts", "ver"] },
-  { para: "/vendas", texto: "Vendas", exige: ["vendas", "ver"] },
-  { para: "/comissoes", texto: "Comissões", exige: ["vendas", "ver"] },
-  { para: "/catalogo", texto: "Catálogo", exige: ["servicos", "ver"] },
-  { para: "/qualidade", texto: "Qualidade", exige: ["qualidade", "ver"] },
-  { para: "/pesquisas", texto: "Pesquisas", exige: ["pesquisa", "ver"] },
-  { para: "/importar", texto: "Importar planilha", exige: ["crm", "criar"] },
-  { para: "/crm/configuracoes", texto: "Configurar CRM", exige: ["crm", "administrar"] },
-  { para: "/conversas/canais", texto: "Canais e automações", exige: ["conversas", "administrar"] },
-  { para: "/telefonia/configuracoes", texto: "Configurar telefonia", exige: ["telefonia", "administrar"] },
-  { para: "/rotina/configuracoes", texto: "Configurar rotina", exige: ["rotina", "administrar"] },
-  { para: "/automacoes", texto: "Automações", exige: ["configuracoes", "ver"] },
-  { para: "/usuarios", texto: "Usuários", exige: ["usuarios", "ver"] },
-  { para: "/equipes", texto: "Equipes", exige: ["usuarios", "ver"] },
-  { para: "/perfis", texto: "Perfis e permissões", exige: ["usuarios", "ver"] },
-  { para: "/unidades", texto: "{Unidades}", exige: ["configuracoes", "ver"] },
-  { para: "/empresa", texto: "Empresa e marca", exige: ["configuracoes", "ver"] },
-  { para: "/segmento-e-termos", texto: "Segmento e termos", exige: ["configuracoes", "ver"] },
-  { para: "/plano", texto: "Plano e cobrança", exige: ["configuracoes", "ver"] },
-  { para: "/auditoria", texto: "Auditoria", exige: ["auditoria", "ver"] },
-  { para: "/notificacoes", texto: "Notificações" },
-  { para: "/seguranca", texto: "Segurança da conta" },
-  { para: "/dispositivos", texto: "Meus dispositivos" },
+/** Menu em grupos: o dia a dia primeiro, depois resultados, configuração e a conta da pessoa. */
+const MENU: { grupo: string; itens: ItemMenu[] }[] = [
+  {
+    grupo: "Dia a dia",
+    itens: [
+      { para: "/", texto: "Início", icone: "inicio" },
+      { para: "/conversas", texto: "Conversas", icone: "conversas", exige: ["conversas", "ver"] },
+      { para: "/contatos", texto: "{Contatos}", icone: "contatos", exige: ["crm", "ver"] },
+      { para: "/funil", texto: "Funil", icone: "funil", exige: ["crm", "ver"] },
+      { para: "/filas", texto: "Fila de ligações", icone: "fila", exige: ["fila", "ver"] },
+      { para: "/ligacoes", texto: "Ligações", icone: "ligacoes", exige: ["telefonia", "ver"] },
+      { para: "/tarefas", texto: "Tarefas", icone: "tarefas", exige: ["crm", "ver"] },
+      { para: "/agenda", texto: "Agenda", icone: "agenda", exige: ["agenda", "ver"] },
+      { para: "/horas", texto: "Horas", icone: "horas", exige: ["agenda", "ver"] },
+      { para: "/scripts", texto: "Scripts", icone: "scripts", exige: ["scripts", "ver"] },
+    ],
+  },
+  {
+    grupo: "Resultados",
+    itens: [
+      { para: "/desempenho", texto: "Desempenho e metas", icone: "desempenho", exige: ["desempenho", "ver"] },
+      { para: "/mapa", texto: "Mapa de atividades", icone: "mapa", exige: ["mapa", "ver"] },
+      { para: "/vendas", texto: "Vendas", icone: "vendas", exige: ["vendas", "ver"] },
+      { para: "/comissoes", texto: "Comissões", icone: "comissoes", exige: ["vendas", "ver"] },
+      { para: "/catalogo", texto: "Catálogo", icone: "catalogo", exige: ["servicos", "ver"] },
+      { para: "/qualidade", texto: "Qualidade", icone: "qualidade", exige: ["qualidade", "ver"] },
+      { para: "/pesquisas", texto: "Pesquisas", icone: "pesquisas", exige: ["pesquisa", "ver"] },
+    ],
+  },
+  {
+    grupo: "Configurações",
+    itens: [
+      { para: "/importar", texto: "Importar planilha", icone: "importar", exige: ["crm", "criar"] },
+      { para: "/crm/configuracoes", texto: "Configurar CRM", icone: "configuracoes", exige: ["crm", "administrar"] },
+      { para: "/conversas/canais", texto: "Canais e automações", icone: "conversas", exige: ["conversas", "administrar"] },
+      { para: "/telefonia/configuracoes", texto: "Configurar telefonia", icone: "ligacoes", exige: ["telefonia", "administrar"] },
+      { para: "/rotina/configuracoes", texto: "Configurar rotina", icone: "tarefas", exige: ["rotina", "administrar"] },
+      { para: "/automacoes", texto: "Automações", icone: "configuracoes", exige: ["configuracoes", "ver"] },
+      { para: "/usuarios", texto: "Usuários", icone: "pessoas", exige: ["usuarios", "ver"] },
+      { para: "/equipes", texto: "Equipes", icone: "pessoas", exige: ["usuarios", "ver"] },
+      { para: "/perfis", texto: "Perfis e permissões", icone: "seguranca", exige: ["usuarios", "ver"] },
+      { para: "/unidades", texto: "{Unidades}", icone: "empresa", exige: ["configuracoes", "ver"] },
+      { para: "/empresa", texto: "Empresa e marca", icone: "empresa", exige: ["configuracoes", "ver"] },
+      { para: "/segmento-e-termos", texto: "Segmento e termos", icone: "catalogo", exige: ["configuracoes", "ver"] },
+      { para: "/plano", texto: "Plano e cobrança", icone: "vendas", exige: ["configuracoes", "ver"] },
+      { para: "/auditoria", texto: "Auditoria", icone: "seguranca", exige: ["auditoria", "ver"] },
+    ],
+  },
+  {
+    grupo: "Sua conta",
+    itens: [
+      { para: "/notificacoes", texto: "Notificações", icone: "avisos" },
+      { para: "/seguranca", texto: "Segurança da conta", icone: "seguranca" },
+      { para: "/dispositivos", texto: "Meus dispositivos", icone: "ligacoes" },
+    ],
+  },
+];
+
+/** Barra de baixo no celular: os quatro lugares mais usados e "Mais", que abre o menu completo. */
+const BARRA: ItemMenu[] = [
+  { para: "/", texto: "Início", icone: "inicio" },
+  { para: "/conversas", texto: "Conversas", icone: "conversas", exige: ["conversas", "ver"] },
+  { para: "/funil", texto: "Funil", icone: "funil", exige: ["crm", "ver"] },
+  { para: "/agenda", texto: "Agenda", icone: "agenda", exige: ["agenda", "ver"] },
 ];
 
 function Sino() {
@@ -103,7 +134,9 @@ export function Casca({ children }: { children: ReactNode }) {
   useEffect(() => (eu.empresa ? conectarTempoReal() : undefined), [eu.empresa]);
 
   // Duas etapas pendentes: só a segurança da conta até configurar.
-  const itens = eu.duasEtapas.pendente ? MENU.filter((i) => i.para === "/seguranca") : MENU.filter((i) => !i.exige || pode(...i.exige));
+  const visivel = (i: ItemMenu) => (eu.duasEtapas.pendente ? i.para === "/seguranca" : !i.exige || pode(...i.exige));
+  const grupos = MENU.map((g) => ({ ...g, itens: g.itens.filter(visivel) })).filter((g) => g.itens.length);
+  const barra = BARRA.filter(visivel);
 
   return (
     <ProvedorTelefoneSistema>
@@ -112,18 +145,6 @@ export function Casca({ children }: { children: ReactNode }) {
           Pular para o conteúdo
         </a>
         <header className="topo">
-          <button
-            type="button"
-            className="botao-menu"
-            aria-expanded={menuAberto}
-            aria-controls="menu-principal"
-            onClick={() => setMenuAberto((v) => !v)}
-          >
-            <span className="sr-only">Abrir menu</span>
-            <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
-              <path fill="currentColor" d="M3 6h18v2H3V6Zm0 5h18v2H3v-2Zm0 5h18v2H3v-2Z" />
-            </svg>
-          </button>
           <Link to="/" className="marca">
             {eu.marca.logoClaro || eu.marca.logoEscuro ? (
               <Logo claro={eu.marca.logoClaro} escuro={eu.marca.logoEscuro} nome={eu.marca.nomeProduto} classe="logo-topo" />
@@ -151,20 +172,39 @@ export function Casca({ children }: { children: ReactNode }) {
               </select>
             </div>
           )}
-          <ul>
-            {itens.map((i) => (
-              <li key={i.para}>
-                <NavLink to={i.para} end={i.para === "/"} onClick={() => setMenuAberto(false)}>
-                  {termos.t(i.texto)}
-                </NavLink>
-              </li>
-            ))}
-          </ul>
+          {grupos.map((g) => (
+            <div key={g.grupo} className="menu-grupo">
+              <h2 className="menu-grupo-titulo">{g.grupo}</h2>
+              <ul>
+                {g.itens.map((i) => (
+                  <li key={i.para}>
+                    <NavLink to={i.para} end={i.para === "/"} onClick={() => setMenuAberto(false)}>
+                      <Icone nome={i.icone} />
+                      <span>{termos.t(i.texto)}</span>
+                    </NavLink>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
           <button type="button" className="botao botao-secundario botao-largo" onClick={() => void sair()}>
             Sair
           </button>
         </nav>
         {menuAberto && <div className="menu-fundo" onClick={() => setMenuAberto(false)} aria-hidden="true" />}
+
+        <nav className="barra-inferior" aria-label="Atalhos do celular">
+          {barra.map((i) => (
+            <NavLink key={i.para} to={i.para} end={i.para === "/"}>
+              <Icone nome={i.icone} tamanho={22} />
+              <span>{termos.t(i.texto)}</span>
+            </NavLink>
+          ))}
+          <button type="button" aria-expanded={menuAberto} aria-controls="menu-principal" aria-label="Mais: abrir menu" onClick={() => setMenuAberto((v) => !v)}>
+            <Icone nome="mais" tamanho={22} />
+            <span aria-hidden="true">Mais</span>
+          </button>
+        </nav>
 
         <main className="conteudo" id="conteudo" tabIndex={-1}>
           {!conectado && (
