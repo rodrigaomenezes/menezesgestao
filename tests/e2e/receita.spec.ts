@@ -65,7 +65,7 @@ test("catálogo: entrega com vagas e participante incluído pela busca", async (
   await semRolagemLateral(page);
   await page.getByRole("link", { name: `Turma ${info.project.name}` }).click();
   await expect(page.getByRole("heading", { name: `Turma ${info.project.name}`, level: 1 })).toBeVisible();
-  await page.getByLabel("Incluir contato").fill(nomeContato);
+  await page.getByLabel("Incluir aluno").fill(nomeContato);
   await page.getByRole("button", { name: nomeContato }).click();
   await page.getByRole("button", { name: "Incluir", exact: true }).click();
   await expect(page.getByText("Incluído.")).toBeVisible();

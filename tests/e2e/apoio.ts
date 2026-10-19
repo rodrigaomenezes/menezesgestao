@@ -34,10 +34,15 @@ export async function abrirMenu(page: Page) {
   if (await botao.isVisible()) await botao.click();
 }
 
+/** A tela cabe na largura e nenhum marcador do vocabulário ficou sem montar (ex.: "{Novo contato}" cru). */
 export async function semRolagemLateral(page: Page) {
   const largura = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(largura, "a tela rola para o lado").toBeLessThanOrEqual(0);
+  const texto = await page.evaluate(() => document.body.innerText);
+  expect(texto, "marcador do vocabulário sem montar na tela").not.toMatch(MARCADOR_CRU);
 }
+
+const MARCADOR_CRU = /\{[^{}]*\b(contatos?|oportunidades?|ofertas?|entregas?|prestador(es)?|colaborador(es)?|unidades?)\}/i;
 
 /** Lê o e-mail do provedor de demonstração direto no banco de testes. */
 export async function linkDoEmail(para: string, depoisDe = new Date(0)): Promise<string> {
