@@ -20,9 +20,9 @@ import {
   lerDinheiro,
   linkWhatsApp,
   useConfigCrm,
-  useTermos,
   type ValoresCampos,
 } from "./comum";
+import { useVocabulario } from "../../app/vocabulario";
 
 type Config = ReturnType<typeof useConfigCrm>["config"];
 
@@ -75,7 +75,7 @@ function EditarContato({ c, config, aoSalvar }: { c: ContatoDto; config: Config;
 
 function Oportunidades({ contato, config }: { contato: ContatoDto; config: Config }) {
   const { pode } = useSessao();
-  const termos = useTermos();
+  const termos = useVocabulario();
   const lista = usePaginado<OportunidadeDto>(`/oportunidades${query({ contatoId: contato.id, limite: 20 })}`);
   useTempoReal(["oportunidade."], (a) => void (a.entidadeId && lista.itens.some((o) => o.id === a.entidadeId) ? lista.recarregar() : undefined));
   const [criando, setCriando] = useState(false);
@@ -307,13 +307,13 @@ const TEXTOS_EVENTO: Record<string, string> = {
   "contato.restaurado": "Restaurado da lixeira",
   "contato.responsavel_alterado": "Responsável alterado",
   "contato.etiquetas_alteradas": "Etiquetas alteradas",
-  "oportunidade.criada": "Oportunidade criada",
-  "oportunidade.atualizada": "Oportunidade alterada",
+  "oportunidade.criada": "{Oportunidade} criad{o|a:oportunidade}",
+  "oportunidade.atualizada": "{Oportunidade} alterad{o|a:oportunidade}",
   "oportunidade.etapa_alterada": "Mudou de etapa",
-  "oportunidade.ganha": "Oportunidade ganha",
-  "oportunidade.perdida": "Oportunidade perdida",
-  "oportunidade.arquivada": "Oportunidade arquivada",
-  "oportunidade.restaurada": "Oportunidade restaurada",
+  "oportunidade.ganha": "{Oportunidade} ganh{o|a:oportunidade}",
+  "oportunidade.perdida": "{Oportunidade} perdid{o|a:oportunidade}",
+  "oportunidade.arquivada": "{Oportunidade} arquivad{o|a:oportunidade}",
+  "oportunidade.restaurada": "{Oportunidade} restaurad{o|a:oportunidade}",
   "tarefa.criada": "Tarefa criada",
   "tarefa.atualizada": "Tarefa alterada",
   "tarefa.concluida": "Tarefa concluída",
@@ -362,6 +362,7 @@ function detalheEvento(h: HistoricoDto): string {
 }
 
 function Historico({ contatoId }: { contatoId: string }) {
+  const termos = useVocabulario();
   const dataHora = useDataHora();
   const lista = usePaginado<HistoricoDto>(`/contatos/${contatoId}/historico?limite=30`);
   useTempoReal(["contato.", "oportunidade.", "tarefa.", "nota.", "ligacao.", "fila.", "mensagem.", "conversa.", "venda.", "compromisso.", "entrega.", "avaliacao."], () => void lista.recarregar());
@@ -372,7 +373,7 @@ function Historico({ contatoId }: { contatoId: string }) {
       <ol className="linha-tempo">
         {lista.itens.map((h) => (
           <li key={h.id}>
-            <strong>{TEXTOS_EVENTO[h.tipo] ?? "Atividade registrada"}</strong>
+            <strong>{termos.t(TEXTOS_EVENTO[h.tipo] ?? "Atividade registrada")}</strong>
             {detalheEvento(h) && <span> — {detalheEvento(h)}</span>}
             <span className="item-detalhe">
               {dataHora(h.criadoEm)}
@@ -442,7 +443,7 @@ function ConversarNoCanal({ contatoId, telefone }: { contatoId: string; telefone
 export function Contato() {
   const { id = "" } = useParams();
   const { pode } = useSessao();
-  const termos = useTermos();
+  const termos = useVocabulario();
   const avisar = useAviso();
   const confirmar = useConfirmar();
   const { config } = useConfigCrm();
@@ -461,7 +462,7 @@ export function Contato() {
   const arquivar = useEnvio(async () => {
     if (!contato) return;
     const acao = contato.arquivadoEm ? "restaurar" : "arquivar";
-    if (acao === "arquivar" && !(await confirmar({ titulo: `Arquivar ${termos.contato}`, mensagem: `${contato.nome} vai para a lixeira. O histórico fica guardado e você pode restaurar quando quiser.`, acao: "Arquivar", perigosa: true }))) return;
+    if (acao === "arquivar" && !(await confirmar({ titulo: termos.t("Arquivar {contato}"), mensagem: `${contato.nome} vai para a lixeira. O histórico fica guardado e você pode restaurar quando quiser.`, acao: "Arquivar", perigosa: true }))) return;
     await post(`/contatos/${id}/${acao}`);
     avisar(acao === "arquivar" ? "Enviado para a lixeira." : "Restaurado.");
     carregar();

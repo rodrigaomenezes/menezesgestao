@@ -7,12 +7,13 @@ import { useSessao } from "../../app/sessao";
 import { useTempoReal } from "../../app/tempo-real";
 import { useAviso, useConfirmar } from "../../ui/sobreposicoes";
 import { BotaoAlternar, Campo, CarregarMais, Escolha, FiltroArquivados, ListaVazia, Mensagem, Titulo, useEnvio, usePaginado } from "../../ui/ui";
-import { CamposPersonalizados, EscolhaEtiquetas, Etiquetas, formatarTelefone, useConfigCrm, useTermos, type ValoresCampos } from "./comum";
+import { CamposPersonalizados, EscolhaEtiquetas, Etiquetas, formatarTelefone, useConfigCrm, type ValoresCampos } from "./comum";
+import { useVocabulario } from "../../app/vocabulario";
 
 type Config = ReturnType<typeof useConfigCrm>["config"];
 
 function NovoContato({ config, aoCriar }: { config: Config; aoCriar(id: string): void }) {
-  const termos = useTermos();
+  const termos = useVocabulario();
   const [nome, setNome] = useState("");
   const [telefone, setTelefone] = useState("");
   const [email, setEmail] = useState("");
@@ -33,7 +34,7 @@ function NovoContato({ config, aoCriar }: { config: Config; aoCriar(id: string):
   const definicoes = config.campos.filter((c) => c.entidade === "contato");
 
   return (
-    <form className="cartao" onSubmit={enviar} aria-label={`Novo ${termos.contato}`}>
+    <form className="cartao" onSubmit={enviar} aria-label={termos.t("{Novo contato}")}>
       <div className="grade-campos">
         <Campo rotulo="Nome" nome="contato-nome" valor={nome} aoMudar={setNome} obrigatorio />
         <Campo rotulo="Telefone (WhatsApp)" nome="contato-telefone" tipo="tel" valor={telefone} aoMudar={setTelefone} dica="Com DDD. Ex.: (11) 98888-7777" autoComplete="off" />
@@ -53,7 +54,7 @@ function NovoContato({ config, aoCriar }: { config: Config; aoCriar(id: string):
       <EscolhaEtiquetas etiquetas={config.etiquetas} marcadas={etiquetaIds} aoMudar={setEtiquetaIds} />
       <Mensagem tipo="erro">{erro}</Mensagem>
       <button type="submit" className="botao" disabled={enviando}>
-        {enviando ? "Salvando…" : `Cadastrar ${termos.contato}`}
+        {enviando ? "Salvando…" : termos.t("Cadastrar {contato}")}
       </button>
     </form>
   );
@@ -133,7 +134,7 @@ function AcoesEmMassa({ ids, config, arquivados, aoConcluir }: { ids: string[]; 
 
 export function Contatos() {
   const { pode } = useSessao();
-  const termos = useTermos();
+  const termos = useVocabulario();
   const navegar = useNavigate();
   const { config } = useConfigCrm();
   const [criando, setCriando] = useState(false);
@@ -161,7 +162,7 @@ export function Contatos() {
                 Importar planilha
               </Link>
             )}
-            {pode("crm", "criar") && <BotaoAlternar aberto={criando} aoMudar={setCriando} texto={`Novo ${termos.contato}`} />}
+            {pode("crm", "criar") && <BotaoAlternar aberto={criando} aoMudar={setCriando} texto={termos.t("{Novo contato}")} />}
           </div>
         }
       >
@@ -182,7 +183,7 @@ export function Contatos() {
         {marcados.length > 0 && <AcoesEmMassa ids={marcados} config={config} arquivados={arquivados} aoConcluir={() => (setMarcados([]), void lista.recarregar())} />}
         <Mensagem tipo="erro">{lista.erro}</Mensagem>
         {!lista.carregando && !lista.itens.length && (
-          <ListaVazia>{arquivados ? "A lixeira está vazia." : buscaAplicada ? "Ninguém encontrado com essa busca." : `Nenhum ${termos.contato} ainda. Cadastre ou importe uma planilha.`}</ListaVazia>
+          <ListaVazia>{arquivados ? "A lixeira está vazia." : buscaAplicada ? "Ninguém encontrado com essa busca." : termos.t("{Nenhum contato} ainda. Cadastre ou importe uma planilha.")}</ListaVazia>
         )}
         <ul className="lista">
           {lista.itens.map((c) => (

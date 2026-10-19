@@ -15,11 +15,12 @@ import { useDataHora, useSessao } from "../../app/sessao";
 import { useTempoReal } from "../../app/tempo-real";
 import { useAviso } from "../../ui/sobreposicoes";
 import { Mensagem as Aviso } from "../../ui/ui";
-import { formatarTelefone, useConfigCrm, useTermos } from "../crm/comum";
+import { formatarTelefone, useConfigCrm } from "../crm/comum";
 import { Audio, Gravador } from "./Gravador";
 import { BotaoLigar } from "../telefonia/Telefone";
 import { BotaoScripts } from "../operacao/Scripts";
 import { BotaoAvaliar } from "../qualidade/Qualidade";
+import { useVocabulario } from "../../app/vocabulario";
 
 const MARCAS: Record<MensagemDto["status"], { texto: string; rotulo: string }> = {
   pendente: { texto: "🕓", rotulo: "Enviando" },
@@ -92,6 +93,7 @@ function useRespostas() {
 }
 
 function Compositor({ conversa, aoEnviar }: { conversa: ConversaDetalheDto; aoEnviar(): void }) {
+  const termos = useVocabulario();
   const [texto, setTexto] = useState("");
   const [nota, setNota] = useState(false);
   const [enviando, setEnviando] = useState(false);
@@ -163,7 +165,7 @@ function Compositor({ conversa, aoEnviar }: { conversa: ConversaDetalheDto; aoEn
         rows={2}
         maxLength={4000}
         value={texto}
-        placeholder={nota ? "Nota interna (o cliente não vê)" : "Mensagem — digite / para respostas rápidas"}
+        placeholder={nota ? termos.t("Nota interna ({o contato} não vê)") : "Mensagem — digite / para respostas rápidas"}
         onChange={(e) => setTexto(e.target.value)}
         onKeyDown={teclas}
       />
@@ -205,7 +207,7 @@ function Compositor({ conversa, aoEnviar }: { conversa: ConversaDetalheDto; aoEn
 
 function Cabecalho({ c, aoMudar }: { c: ConversaDetalheDto; aoMudar(): void }) {
   const { pode, eu } = useSessao();
-  const termos = useTermos();
+  const termos = useVocabulario();
   const avisar = useAviso();
   const { config } = useConfigCrm();
   const agir = async (caminho: string, corpo: unknown, sucesso: string) => {
@@ -226,7 +228,7 @@ function Cabecalho({ c, aoMudar }: { c: ConversaDetalheDto; aoMudar(): void }) {
       <div className="chat-quem">
         <strong>{c.contatoId ? <Link to={`/contatos/${c.contatoId}`}>{c.contatoNome ?? "Sem nome"}</Link> : (c.contatoNome ?? "Sem nome")}</strong>
         <span className="item-detalhe">
-          {formatarTelefone(c.telefone)} · {c.canalNome} · {NOMES_STATUS_CONVERSA[c.status]}
+          {formatarTelefone(c.telefone)} · {c.canalNome} · {termos.t(NOMES_STATUS_CONVERSA[c.status])}
         </span>
       </div>
       {c.telefone && (
@@ -265,7 +267,7 @@ function Cabecalho({ c, aoMudar }: { c: ConversaDetalheDto; aoMudar(): void }) {
       )}
       {c.provedor === "cloud_api" && c.ultimaEntradaEm && Date.now() - new Date(c.ultimaEntradaEm).getTime() > 24 * 3600_000 && (
         <p className="mensagem mensagem-info chat-janela">
-          O {termos.contato} não escreve há mais de 24 h: pela API oficial, só ele pode reabrir a conversa (mensagens modelo chegam numa próxima versão).
+          {termos.t("{O contato} não escreve há mais de 24 h: pela API oficial, só {o contato} pode reabrir a conversa")} (mensagens modelo chegam numa próxima versão).
         </p>
       )}
     </header>
@@ -273,6 +275,7 @@ function Cabecalho({ c, aoMudar }: { c: ConversaDetalheDto; aoMudar(): void }) {
 }
 
 export function Chat({ id, aoMudarLista }: { id: string; aoMudarLista(): void }) {
+  const termos = useVocabulario();
   const [conversa, setConversa] = useState<ConversaDetalheDto | null>(null);
   const [mensagens, setMensagens] = useState<MensagemDto[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
@@ -347,7 +350,7 @@ export function Chat({ id, aoMudarLista }: { id: string; aoMudarLista(): void })
   if (!conversa) return <p className="carregando">Carregando…</p>;
 
   return (
-    <section className="chat" aria-label={`Conversa com ${conversa.contatoNome ?? "cliente"}`}>
+    <section className="chat" aria-label={`Conversa com ${conversa.contatoNome ?? termos.contato}`}>
       <Cabecalho c={conversa} aoMudar={() => (carregarConversa(), aoMudarLista())} />
       <ol
         className="mensagens"

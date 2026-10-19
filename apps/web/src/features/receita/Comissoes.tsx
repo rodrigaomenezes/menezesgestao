@@ -8,7 +8,8 @@ import { useAviso } from "../../ui/sobreposicoes";
 import { Campo, Escolha, ListaVazia, Mensagem, Titulo, useEnvio } from "../../ui/ui";
 import { formatarDinheiro } from "../crm/comum";
 import { mesAtual, nomeDoMes, somarMeses, useFuso } from "../operacao/comum";
-import { paraCentavos, useTermosReceita } from "./comum";
+import { paraCentavos } from "./comum";
+import { useVocabulario } from "../../app/vocabulario";
 
 const pct = (n: number) => `${n.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%`;
 
@@ -18,7 +19,7 @@ function descreverRegra(r: RegraComissaoDto): string {
 }
 
 function NovaRegra({ aoCriar }: { aoCriar(): void }) {
-  const termos = useTermosReceita();
+  const termos = useVocabulario();
   const avisar = useAviso();
   const [ofertas, setOfertas] = useState<OfertaDto[]>([]);
   const [nome, setNome] = useState("");

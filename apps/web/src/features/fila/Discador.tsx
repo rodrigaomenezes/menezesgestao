@@ -20,17 +20,19 @@ import { useAviso } from "../../ui/sobreposicoes";
 import { CarregarMais, Escolha, ListaVazia, Mensagem, Titulo, usePaginado } from "../../ui/ui";
 import { paraIso } from "../crm/Contato";
 import { BotaoLigar, EscolhaProvedor, useTelefone } from "../telefonia/Telefone";
+import { useVocabulario } from "../../app/vocabulario";
 
 const TEXTOS_HISTORICO: Record<string, string> = {
   "ligacao.encerrada": "Ligação",
   "fila.resultado_registrado": "Resultado na fila",
   "mensagem.recebida": "Mensagem recebida",
   "nota.criada": "Nota",
-  "oportunidade.criada": "Oportunidade criada",
+  "oportunidade.criada": "{Oportunidade} criad{o|a:oportunidade}",
   "contato.criado": "Cadastro criado",
 };
 
 function UltimosContatos({ contatoId }: { contatoId: string }) {
+  const termos = useVocabulario();
   const [itens, setItens] = useState<HistoricoDto[]>([]);
   const dataHora = useDataHora();
   useEffect(() => {
@@ -41,7 +43,7 @@ function UltimosContatos({ contatoId }: { contatoId: string }) {
     <ul className="lista-simples">
       {itens.map((h) => (
         <li key={h.id}>
-          <strong>{TEXTOS_HISTORICO[h.tipo] ?? "Atividade"}</strong>
+          <strong>{termos.t(TEXTOS_HISTORICO[h.tipo] ?? "Atividade")}</strong>
           {typeof h.dados.resultado === "string" && ` — ${h.dados.resultado}`} <span className="item-detalhe">{dataHora(h.criadoEm)}</span>
         </li>
       ))}
@@ -101,12 +103,13 @@ function Resultado({ item, ligacaoId, resultados, aoRegistrar }: { item: FilaIte
 }
 
 function ItensDaFila({ filaId }: { filaId: string }) {
+  const termos = useVocabulario();
   const [status, setStatus] = useState("");
   const lista = usePaginado<FilaItemDto>(`/filas/${filaId}/itens${query({ status, limite: 30 })}`);
   const dataHora = useDataHora();
   return (
     <section className="cartao" aria-labelledby="titulo-itens">
-      <h2 id="titulo-itens">Contatos da fila</h2>
+      <h2 id="titulo-itens">{termos.t("{Contatos} da fila")}</h2>
       <Escolha
         rotulo="Situação"
         nome="itens-status"
@@ -120,7 +123,7 @@ function ItensDaFila({ filaId }: { filaId: string }) {
         ]}
         vazio="Todos (menos descartados)"
       />
-      {!lista.carregando && !lista.itens.length && <ListaVazia>Nenhum contato aqui.</ListaVazia>}
+      {!lista.carregando && !lista.itens.length && <ListaVazia>{termos.t("{Nenhum contato} aqui.")}</ListaVazia>}
       <ul className="lista">
         {lista.itens.map((i) => (
           <li key={i.id} className="item">
@@ -170,6 +173,7 @@ function Lotes({ filaId }: { filaId: string }) {
 }
 
 export function Discador() {
+  const termos = useVocabulario();
   const { id = "" } = useParams();
   const { pode } = useSessao();
   const avisar = useAviso();
@@ -218,7 +222,7 @@ export function Discador() {
   };
 
   const aoRegistrar = (r: RegistrarResultadoDto) => {
-    avisar(r.oportunidadeId ? "Convertido! Oportunidade criada no funil." : "Resultado registrado.");
+    avisar(r.oportunidadeId ? termos.t("Convertido! {Oportunidade} criad{o|a:oportunidade} no funil.") : "Resultado registrado.");
     setItem(null);
     setLigacaoId(null);
     carregarFila();

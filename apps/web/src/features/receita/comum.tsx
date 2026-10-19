@@ -1,9 +1,8 @@
-// Peças da receita: valor em reais ↔ centavos, escolha de contato por busca e o vocabulário de oferta/entrega.
+// Peças da receita: valor em reais ↔ centavos, escolha de contato por busca.
 import { useEffect, useState } from "react";
 import type { ContatoDto, Pagina } from "@mg/shared";
 import { get, query } from "../../app/api";
-import { useEu } from "../../app/sessao";
-import { plural } from "../crm/comum";
+import { useVocabulario } from "../../app/vocabulario";
 
 /** "1.234,56" ou "1234.56" → 123456 centavos (null se inválido). */
 export function paraCentavos(texto: string): number | null {
@@ -16,28 +15,9 @@ export function paraCentavos(texto: string): number | null {
 
 export const paraReais = (centavos: number | null | undefined) => (centavos == null ? "" : (centavos / 100).toFixed(2).replace(".", ","));
 
-const maiuscula = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
-
-/** Termos da empresa para oferta, entrega e prestador (ex.: curso, turma, professor). */
-export function useTermosReceita() {
-  const v = useEu().empresa?.vocabulario ?? {};
-  const oferta = (v.oferta ?? "oferta").toLowerCase();
-  const entrega = (v.entrega ?? "entrega").toLowerCase();
-  const prestador = (v.prestador ?? "prestador").toLowerCase();
-  return {
-    oferta,
-    Oferta: maiuscula(oferta),
-    Ofertas: maiuscula(v.oferta_plural?.toLowerCase() ?? plural(oferta)),
-    entrega,
-    Entrega: maiuscula(entrega),
-    Entregas: maiuscula(v.entrega_plural?.toLowerCase() ?? plural(entrega)),
-    prestador,
-    Prestador: maiuscula(prestador),
-  };
-}
-
 /** Busca de contato por nome ou telefone (para vender, incluir numa entrega…). */
 export function EscolherContato({ rotulo, nome, aoEscolher }: { rotulo: string; nome: string; aoEscolher(c: { id: string; nome: string } | null): void }) {
+  const termos = useVocabulario();
   const [busca, setBusca] = useState("");
   const [achados, setAchados] = useState<ContatoDto[]>([]);
   const [escolhido, setEscolhido] = useState<{ id: string; nome: string } | null>(null);
@@ -65,7 +45,7 @@ export function EscolherContato({ rotulo, nome, aoEscolher }: { rotulo: string; 
       <label htmlFor={`campo-${nome}`}>{rotulo}</label>
       <input id={`campo-${nome}`} type="search" value={busca} placeholder="Nome ou telefone" onChange={(e) => setBusca(e.target.value)} autoComplete="off" />
       {achados.length > 0 && (
-        <ul className="sugestoes-contato" aria-label="Contatos encontrados">
+        <ul className="sugestoes-contato" aria-label={termos.t("{Contatos} encontrad{os|as:contatos}")}>
           {achados.map((c) => (
             <li key={c.id}>
               <button type="button" onClick={() => (setEscolhido({ id: c.id, nome: c.nome }), aoEscolher({ id: c.id, nome: c.nome }))}>

@@ -13,10 +13,11 @@ import { useDataHora, useSessao } from "../../app/sessao";
 import { useAviso } from "../../ui/sobreposicoes";
 import { BotaoAlternar, Campo, Escolha, ListaVazia, Mensagem, Titulo, useEnvio } from "../../ui/ui";
 import { useConfigCrm } from "../crm/comum";
+import { useVocabulario } from "../../app/vocabulario";
 
-const nomeGatilho = (id: string) => GATILHOS.find((g) => g.id === id)?.nome ?? id;
 
 function NovaRegra({ aoCriar }: { aoCriar(): void }) {
+  const termos = useVocabulario();
   const { config } = useConfigCrm();
   const avisar = useAviso();
   const [canais, setCanais] = useState<{ id: string; nome: string }[]>([]);
@@ -73,7 +74,7 @@ function NovaRegra({ aoCriar }: { aoCriar(): void }) {
       <Campo rotulo="Nome" nome="auto-nome" valor={nome} aoMudar={setNome} obrigatorio />
       <fieldset>
         <legend>Quando</legend>
-        <Escolha rotulo="Acontecer" nome="auto-gatilho" valor={gatilho} aoMudar={(v) => (setGatilho(v), setCampo(""), setOperador(""))} opcoes={GATILHOS.map((g) => ({ valor: g.id, texto: g.nome }))} />
+        <Escolha rotulo="Acontecer" nome="auto-gatilho" valor={gatilho} aoMudar={(v) => (setGatilho(v), setCampo(""), setOperador(""))} opcoes={GATILHOS.map((g) => ({ valor: g.id, texto: termos.t(g.nome) }))} />
       </fieldset>
       <fieldset>
         <legend>Se (opcional)</legend>
@@ -84,7 +85,7 @@ function NovaRegra({ aoCriar }: { aoCriar(): void }) {
             valor={campo}
             aoMudar={(v) => (setCampo(v), setOperador(v ? CAMPOS_CONDICAO[v].operadores[0] : ""), setValor(""))}
             vazio="Sempre"
-            opcoes={camposDoGatilho.map((c) => ({ valor: c, texto: CAMPOS_CONDICAO[c].nome }))}
+            opcoes={camposDoGatilho.map((c) => ({ valor: c, texto: termos.t(CAMPOS_CONDICAO[c].nome) }))}
           />
           {campo && <Escolha rotulo="Como" nome="auto-operador" valor={operador} aoMudar={setOperador} opcoes={operadores.map((o) => ({ valor: o, texto: NOMES_OPERADORES[o] }))} />}
           {precisaValor &&
@@ -97,10 +98,10 @@ function NovaRegra({ aoCriar }: { aoCriar(): void }) {
       </fieldset>
       <fieldset>
         <legend>Então</legend>
-        <Escolha rotulo="Ação" nome="auto-acao" valor={acao} aoMudar={setAcao} opcoes={ACOES_AUTOMACAO.map((a) => ({ valor: a, texto: NOMES_ACOES_AUTOMACAO[a] }))} />
+        <Escolha rotulo="Ação" nome="auto-acao" valor={acao} aoMudar={setAcao} opcoes={ACOES_AUTOMACAO.map((a) => ({ valor: a, texto: termos.t(NOMES_ACOES_AUTOMACAO[a]) }))} />
         {acao === "criar_tarefa" && (
           <div className="grade-campos">
-            <Campo rotulo="Título da tarefa" nome="auto-titulo" valor={titulo} aoMudar={setTitulo} obrigatorio dica="Use {nome} para o primeiro nome do contato." />
+            <Campo rotulo="Título da tarefa" nome="auto-titulo" valor={titulo} aoMudar={setTitulo} obrigatorio dica={termos.t("Use {nome} para o primeiro nome {do contato}.")} />
             <Campo rotulo="Prazo (horas)" nome="auto-horas" tipo="number" valor={horas} aoMudar={setHoras} />
           </div>
         )}
@@ -125,6 +126,7 @@ function NovaRegra({ aoCriar }: { aoCriar(): void }) {
 }
 
 export function Automacoes() {
+  const termos = useVocabulario();
   const { pode } = useSessao();
   const dataHora = useDataHora();
   const avisar = useAviso();
@@ -161,8 +163,8 @@ export function Automacoes() {
                   {r.nome} {!r.ativa && <span className="selo">desligada</span>}
                 </strong>
                 <span className="item-detalhe">
-                  Quando: {nomeGatilho(r.gatilho)}
-                  {r.condicoes.length > 0 && ` · se ${r.condicoes.map((c) => `${CAMPOS_CONDICAO[c.campo]?.nome ?? c.campo} ${NOMES_OPERADORES[c.operador] ?? c.operador}`).join(" e ")}`} · então: {NOMES_ACOES_AUTOMACAO[r.acao]}
+                  Quando: {termos.t(GATILHOS.find((g) => g.id === r.gatilho)?.nome ?? r.gatilho)}
+                  {r.condicoes.length > 0 && ` · se ${r.condicoes.map((c) => `${termos.t(CAMPOS_CONDICAO[c.campo]?.nome ?? c.campo)} ${NOMES_OPERADORES[c.operador] ?? c.operador}`).join(" e ")}`} · então: {NOMES_ACOES_AUTOMACAO[r.acao]}
                 </span>
                 <span className="item-detalhe">
                   {r.execucoes} execução(ões){r.ultimaExecucao && ` · última em ${dataHora(r.ultimaExecucao)}`}

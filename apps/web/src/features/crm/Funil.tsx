@@ -9,7 +9,8 @@ import { useTempoReal } from "../../app/tempo-real";
 import { Modal, useAviso } from "../../ui/sobreposicoes";
 import { Campo, Escolha, ListaVazia, Mensagem, Titulo, useEnvio } from "../../ui/ui";
 import { BotaoLigar } from "../telefonia/Telefone";
-import { CamposPersonalizados, centavosParaTexto, formatarDinheiro, lerDinheiro, useConfigCrm, useTermos, type ValoresCampos } from "./comum";
+import { CamposPersonalizados, centavosParaTexto, formatarDinheiro, lerDinheiro, useConfigCrm, type ValoresCampos } from "./comum";
+import { useVocabulario } from "../../app/vocabulario";
 
 type Config = ReturnType<typeof useConfigCrm>["config"];
 
@@ -20,6 +21,7 @@ interface PedidoMover {
 
 /** Pede o que a etapa de destino exige (motivo de perda, valor, oferta, campos) e move. */
 function ModalMover({ pedido, config, aoFechar, aoMover }: { pedido: PedidoMover; config: Config; aoFechar(): void; aoMover(): void }) {
+  const termos = useVocabulario();
   const { o, destino } = pedido;
   const exigidos = destino.camposObrigatorios;
   const [motivoPerdaId, setMotivoPerdaId] = useState("");
@@ -49,7 +51,7 @@ function ModalMover({ pedido, config, aoFechar, aoMover }: { pedido: PedidoMover
           <Escolha rotulo="Motivo da perda" nome="mover-motivo" valor={motivoPerdaId} aoMudar={setMotivoPerdaId} opcoes={config.motivosPerda.map((m) => ({ valor: m.id, texto: m.nome }))} vazio="Escolha…" obrigatorio />
         )}
         {exigidos.includes("valor") && <Campo rotulo="Valor (R$) *" nome="mover-valor" valor={valor} aoMudar={setValor} obrigatorio />}
-        {exigidos.includes("oferta") && <Campo rotulo="Oferta *" nome="mover-oferta" valor={oferta} aoMudar={setOferta} obrigatorio />}
+        {exigidos.includes("oferta") && <Campo rotulo={termos.t("{Oferta} *")} nome="mover-oferta" valor={oferta} aoMudar={setOferta} obrigatorio />}
         <CamposPersonalizados definicoes={definicoes.map((d) => ({ ...d, obrigatorio: true }))} valores={campos} aoMudar={setCampos} prefixo="mover" />
         <Mensagem tipo="erro">{erro}</Mensagem>
         <div className="modal-acoes">
@@ -106,7 +108,7 @@ function Cartao({ o, etapas, podeMover, aoPedirMover }: { o: OportunidadeDto; et
 
 export function Funil() {
   const { pode } = useSessao();
-  const termos = useTermos();
+  const termos = useVocabulario();
   const avisar = useAviso();
   const { config, carregada } = useConfigCrm();
   const [parametros, setParametros] = useSearchParams();
@@ -173,10 +175,10 @@ export function Funil() {
         {config.responsaveis.length > 1 && (
           <Escolha rotulo="Responsável" nome="kanban-responsavel" valor={responsavelId} aoMudar={setResponsavelId} opcoes={config.responsaveis.map((r) => ({ valor: r.id, texto: r.nome }))} vazio="Todos" />
         )}
-        <Campo rotulo={`Buscar ${termos.contato} ou título`} nome="kanban-busca" tipo="search" valor={busca} aoMudar={setBusca} />
+        <Campo rotulo={termos.t("Buscar {contato} ou título")} nome="kanban-busca" tipo="search" valor={busca} aoMudar={setBusca} />
       </form>
       <Mensagem tipo="erro">{erro}</Mensagem>
-      {quadro && !todas.length && <ListaVazia>Nenhuma oportunidade aqui. Crie uma pela ficha do {termos.contato}.</ListaVazia>}
+      {quadro && !todas.length && <ListaVazia>{termos.t("{Nenhuma oportunidade} aqui. Crie {uma oportunidade} pela ficha {do contato}.")}</ListaVazia>}
       <div className="kanban" aria-label="Etapas do funil">
         {quadro?.colunas.map((col) => {
           const et = etapas.find((x) => x.id === col.etapaId);

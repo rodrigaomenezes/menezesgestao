@@ -48,6 +48,7 @@ import { PrimeirosPassos } from "./features/whitelabel/PrimeirosPassos";
 import { Plano } from "./features/whitelabel/Plano";
 import { Automacoes } from "./features/whitelabel/Automacoes";
 import "./app/estilos.css";
+import { SegmentoTermos } from "./features/whitelabel/SegmentoTermos";
 
 function App() {
   const { eu, carregando } = useSessao();
@@ -133,6 +134,7 @@ function App() {
               <Route path="/perfis" element={<Perfis />} />
               <Route path="/unidades" element={<Unidades />} />
               <Route path="/empresa" element={<Empresa />} />
+              <Route path="/segmento-e-termos" element={<SegmentoTermos />} />
               <Route path="/auditoria" element={<Auditoria />} />
               <Route path="/notificacoes" element={<Notificacoes />} />
               <Route path="/dispositivos" element={<Dispositivos />} />

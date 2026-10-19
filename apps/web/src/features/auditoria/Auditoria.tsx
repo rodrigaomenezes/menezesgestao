@@ -2,6 +2,7 @@ import { useState } from "react";
 import { query } from "../../app/api";
 import { Campo, CarregarMais, Escolha, ListaVazia, Mensagem, Titulo, usePaginado } from "../../ui/ui";
 import { useDataHora } from "../../app/sessao";
+import { useVocabulario } from "../../app/vocabulario";
 
 interface Registro {
   id: string;
@@ -30,10 +31,10 @@ const ACOES: Record<string, string> = {
   "usuario.atualizado": "Alterou perfil ou lotação de uma pessoa",
   "usuario.arquivado": "Arquivou uma pessoa",
   "usuario.restaurado": "Restaurou uma pessoa",
-  "unidade.criada": "Criou uma unidade",
-  "unidade.atualizada": "Alterou uma unidade",
-  "unidade.arquivada": "Arquivou uma unidade",
-  "unidade.restaurada": "Restaurou uma unidade",
+  "unidade.criada": "Criou {uma unidade}",
+  "unidade.atualizada": "Alterou {uma unidade}",
+  "unidade.arquivada": "Arquivou {uma unidade}",
+  "unidade.restaurada": "Restaurou {uma unidade}",
   "equipe.criada": "Criou uma equipe",
   "equipe.atualizada": "Alterou uma equipe",
   "equipe.arquivada": "Arquivou uma equipe",
@@ -48,12 +49,13 @@ const ENTIDADES = [
   { valor: "usuario", texto: "Pessoas e acessos" },
   { valor: "perfil", texto: "Perfis" },
   { valor: "equipe", texto: "Equipes" },
-  { valor: "unidade", texto: "Unidades" },
+  { valor: "unidade", texto: "{Unidades}" },
   { valor: "empresa", texto: "Empresa" },
   { valor: "sessao", texto: "Dispositivos" },
 ];
 
 export function Auditoria() {
+  const termos = useVocabulario();
   const formatarDataHora = useDataHora();
   const [entidade, setEntidade] = useState("");
   const [de, setDe] = useState("");
@@ -69,7 +71,7 @@ export function Auditoria() {
       <Titulo>Auditoria</Titulo>
       <section className="cartao">
         <div className="grade-campos">
-          <Escolha rotulo="Assunto" nome="auditoria-entidade" valor={entidade} aoMudar={setEntidade} opcoes={ENTIDADES} vazio="Todos" />
+          <Escolha rotulo="Assunto" nome="auditoria-entidade" valor={entidade} aoMudar={setEntidade} opcoes={ENTIDADES.map((e) => ({ ...e, texto: termos.t(e.texto) }))} vazio="Todos" />
           <Campo rotulo="De" nome="auditoria-de" tipo="date" valor={de} aoMudar={setDe} />
           <Campo rotulo="Até" nome="auditoria-ate" tipo="date" valor={ate} aoMudar={setAte} />
         </div>
@@ -79,7 +81,7 @@ export function Auditoria() {
           {lista.itens.map((r) => (
             <li key={r.id} className="item">
               <div className="item-principal">
-                <strong>{ACOES[r.acao] ?? r.acao}</strong>
+                <strong>{termos.t(ACOES[r.acao] ?? r.acao)}</strong>
                 <span className="item-detalhe">
                   {formatarDataHora(r.criadoEm)} · {r.atorNome ?? "Sistema"}
                 </span>

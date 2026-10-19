@@ -15,6 +15,7 @@ import { BotaoAlternar, Campo, CarregarMais, Escolha, FiltroArquivados, ListaVaz
 import { useAviso, useConfirmar } from "../../ui/sobreposicoes";
 import { useSessao } from "../../app/sessao";
 import { useTempoReal } from "../../app/tempo-real";
+import { useVocabulario } from "../../app/vocabulario";
 
 interface Perfil {
   id: string;
@@ -28,15 +29,16 @@ interface Perfil {
 const OPCOES_ESCOPO = ESCOPOS.map((e) => ({ valor: e, texto: NOMES_ESCOPOS[e] }));
 
 /** Ex.: "Ver, Criar (da equipe)" ou "Sem acesso". */
-function resumir(acoes: Partial<Record<Acao, Escopo>> | undefined): string {
+function resumir(acoes: Partial<Record<Acao, Escopo>> | undefined, t: (modelo: string) => string): string {
   const lista = ACOES.filter((a) => acoes?.[a]);
   if (!lista.length) return "Sem acesso";
   const escopos = [...new Set(lista.map((a) => acoes![a]!))];
   const nomes = lista.map((a) => NOMES_ACOES[a]).join(", ");
-  return escopos.length === 1 ? `${nomes} (${NOMES_ESCOPOS[escopos[0]].toLowerCase()})` : nomes;
+  return escopos.length === 1 ? `${nomes} (${t(NOMES_ESCOPOS[escopos[0]]).toLowerCase()})` : nomes;
 }
 
 function EditorPermissoes({ perfil, podeEditar, aoSalvar }: { perfil: Perfil; podeEditar: boolean; aoSalvar(): void }) {
+  const termos = useVocabulario();
   const [permissoes, setPermissoes] = useState<Permissoes>(perfil.permissoes);
   const [ok, setOk] = useState("");
   const somenteLeitura = perfil.protegido || !podeEditar;
@@ -65,8 +67,8 @@ function EditorPermissoes({ perfil, podeEditar, aoSalvar }: { perfil: Perfil; po
         {MODULOS.map((m) => (
           <details key={m.id} className="matriz-modulo">
             <summary>
-              <strong>{m.nome}</strong>
-              <span className="item-detalhe">{resumir(permissoes[m.id])}</span>
+              <strong>{termos.t(m.nome)}</strong>
+              <span className="item-detalhe">{resumir(permissoes[m.id], termos.t)}</span>
             </summary>
             <div className="matriz-acoes">
               {ACOES.map((a) => (
@@ -81,7 +83,7 @@ function EditorPermissoes({ perfil, podeEditar, aoSalvar }: { perfil: Perfil; po
                     <option value="">Sem acesso</option>
                     {OPCOES_ESCOPO.map((o) => (
                       <option key={o.valor} value={o.valor}>
-                        {o.texto}
+                        {termos.t(o.texto)}
                       </option>
                     ))}
                   </select>

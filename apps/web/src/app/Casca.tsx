@@ -5,23 +5,21 @@ import type { Acao, Modulo } from "@mg/shared";
 import { get } from "./api";
 import { useEu, useSessao } from "./sessao";
 import { conectarTempoReal, useTempoReal } from "./tempo-real";
+import { useVocabulario } from "./vocabulario";
 import { ProvedorTelefoneSistema } from "../features/telefonia/Telefone";
 import { Logo } from "../features/whitelabel/Logo";
 
 interface ItemMenu {
   para: string;
-  /** Texto fixo ou montado com o vocabulário da empresa (ex.: "Alunos" em vez de "Contatos"). */
-  texto: string | ((termos: Record<string, string>) => string);
+  /** Texto com marcadores do vocabulário da empresa (ex.: "{Contatos}" vira "Alunos"). */
+  texto: string;
   exige?: [Modulo, Acao];
 }
-
-const plural = (s: string) => (/ão$/.test(s) ? s.replace(/ão$/, "ões") : /[aeiou]$/.test(s) ? `${s}s` : /[rsz]$/.test(s) ? `${s}es` : `${s}s`);
-const maiuscula = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 const MENU: ItemMenu[] = [
   { para: "/", texto: "Início" },
   { para: "/conversas", texto: "Conversas", exige: ["conversas", "ver"] },
-  { para: "/contatos", texto: (t) => maiuscula(t.contato_plural ?? plural(t.contato ?? "contato")), exige: ["crm", "ver"] },
+  { para: "/contatos", texto: "{Contatos}", exige: ["crm", "ver"] },
   { para: "/funil", texto: "Funil", exige: ["crm", "ver"] },
   { para: "/filas", texto: "Fila de ligações", exige: ["fila", "ver"] },
   { para: "/ligacoes", texto: "Ligações", exige: ["telefonia", "ver"] },
@@ -45,8 +43,9 @@ const MENU: ItemMenu[] = [
   { para: "/usuarios", texto: "Usuários", exige: ["usuarios", "ver"] },
   { para: "/equipes", texto: "Equipes", exige: ["usuarios", "ver"] },
   { para: "/perfis", texto: "Perfis e permissões", exige: ["usuarios", "ver"] },
-  { para: "/unidades", texto: "Unidades", exige: ["configuracoes", "ver"] },
+  { para: "/unidades", texto: "{Unidades}", exige: ["configuracoes", "ver"] },
   { para: "/empresa", texto: "Empresa e marca", exige: ["configuracoes", "ver"] },
+  { para: "/segmento-e-termos", texto: "Segmento e termos", exige: ["configuracoes", "ver"] },
   { para: "/plano", texto: "Plano e cobrança", exige: ["configuracoes", "ver"] },
   { para: "/auditoria", texto: "Auditoria", exige: ["auditoria", "ver"] },
   { para: "/notificacoes", texto: "Notificações" },
@@ -95,6 +94,7 @@ function useConectado(): boolean {
 export function Casca({ children }: { children: ReactNode }) {
   const conectado = useConectado();
   const eu = useEu();
+  const termos = useVocabulario();
   const { pode, sair, trocarEmpresa } = useSessao();
   const [menuAberto, setMenuAberto] = useState(false);
   const local = useLocation();
@@ -155,7 +155,7 @@ export function Casca({ children }: { children: ReactNode }) {
             {itens.map((i) => (
               <li key={i.para}>
                 <NavLink to={i.para} end={i.para === "/"} onClick={() => setMenuAberto(false)}>
-                  {typeof i.texto === "string" ? i.texto : i.texto(eu.empresa?.vocabulario ?? {})}
+                  {termos.t(i.texto)}
                 </NavLink>
               </li>
             ))}

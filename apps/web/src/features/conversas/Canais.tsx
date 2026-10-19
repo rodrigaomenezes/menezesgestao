@@ -14,7 +14,7 @@ import { ErroApi, get, patch, post, put } from "../../app/api";
 import { useTempoReal } from "../../app/tempo-real";
 import { useAviso, useConfirmar } from "../../ui/sobreposicoes";
 import { Campo, Escolha, ListaVazia, Mensagem, Titulo, useEnvio } from "../../ui/ui";
-import { useTermos } from "../crm/comum";
+import { useVocabulario } from "../../app/vocabulario";
 
 const DIAS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
 
@@ -94,7 +94,7 @@ function Horario({ c, aoSalvar }: { c: CanalDto; aoSalvar(): void }) {
 }
 
 function Simulador({ c }: { c: CanalDto }) {
-  const termos = useTermos();
+  const termos = useVocabulario();
   const [telefone, setTelefone] = useState("");
   const [nome, setNome] = useState("");
   const [texto, setTexto] = useState("");
@@ -106,9 +106,9 @@ function Simulador({ c }: { c: CanalDto }) {
   });
   return (
     <form className="item-edicao" onSubmit={enviar}>
-      <p className="dica">Modo demonstração: simule o celular de um {termos.contato} mandando mensagem para o canal.</p>
+      <p className="dica">{termos.t("Modo demonstração: simule o celular de {um contato} mandando mensagem para o canal.")}</p>
       <div className="grade-campos">
-        <Campo rotulo="Telefone do cliente" nome={`sim-tel-${c.id}`} tipo="tel" valor={telefone} aoMudar={setTelefone} obrigatorio dica="Ex.: (11) 98888-7777" />
+        <Campo rotulo={termos.t("Telefone {do contato}")} nome={`sim-tel-${c.id}`} tipo="tel" valor={telefone} aoMudar={setTelefone} obrigatorio dica="Ex.: (11) 98888-7777" />
         <Campo rotulo="Nome (opcional)" nome={`sim-nome-${c.id}`} valor={nome} aoMudar={setNome} />
         <Campo rotulo="Mensagem" nome={`sim-texto-${c.id}`} valor={texto} aoMudar={setTexto} obrigatorio />
       </div>
@@ -278,6 +278,7 @@ function Automacoes() {
 }
 
 function AutomacaoItem({ a, aoSalvar }: { a: AutomacaoDto; aoSalvar(a: AutomacaoDto): void }) {
+  const termos = useVocabulario();
   const [texto, setTexto] = useState(a.texto);
   const [ativa, setAtiva] = useState(a.ativa);
   const [horas, setHoras] = useState(String(a.horas ?? 24));
@@ -288,8 +289,8 @@ function AutomacaoItem({ a, aoSalvar }: { a: AutomacaoDto; aoSalvar(a: Automacao
   return (
     <li className="item">
       <form className="item-principal" onSubmit={enviar}>
-        <strong>{info.nome}</strong>
-        <span className="item-detalhe">{info.dica}</span>
+        <strong>{termos.t(info.nome)}</strong>
+        <span className="item-detalhe">{termos.t(info.dica)}</span>
         <label className="sr-only" htmlFor={`auto-${a.tipo}`}>
           Texto da mensagem {info.nome}
         </label>
@@ -361,6 +362,7 @@ function Respostas() {
 }
 
 export function Canais() {
+  const termos = useVocabulario();
   const [canais, setCanais] = useState<CanalDto[]>([]);
   const [erro, setErro] = useState("");
   const avisar = useAviso();
@@ -406,7 +408,7 @@ export function Canais() {
       <Respostas />
       <section className="cartao">
         <h2>Conversas duplicadas</h2>
-        <p className="dica">Junta conversas antigas do mesmo cliente (por exemplo, com e sem o nono dígito). Roda sozinho toda madrugada; nada é apagado.</p>
+        <p className="dica">{termos.t("Junta conversas antigas {do mesmo contato}")} (por exemplo, com e sem o nono dígito). Roda sozinho toda madrugada; nada é apagado.</p>
         <button type="button" className="botao botao-secundario" onClick={() => void juntar()}>
           Juntar agora
         </button>

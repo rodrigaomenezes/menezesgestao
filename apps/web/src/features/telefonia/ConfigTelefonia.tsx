@@ -12,8 +12,10 @@ import {
 import { ErroApi, get, patch, post, put } from "../../app/api";
 import { useAviso } from "../../ui/sobreposicoes";
 import { Campo, Escolha, ListaVazia, Mensagem, Titulo, useEnvio } from "../../ui/ui";
+import { useVocabulario } from "../../app/vocabulario";
 
 function Configuracao() {
+  const termos = useVocabulario();
   const avisar = useAviso();
   const [c, setC] = useState<TelefoniaConfigDto | null>(null);
   useEffect(() => {
@@ -42,7 +44,7 @@ function Configuracao() {
         Permitir gravar ligações (só pelo navegador, depois do aviso ao cliente)
       </label>
       <div className="campo">
-        <label htmlFor="aviso-gravacao">Aviso que a pessoa lê ao cliente antes de gravar</label>
+        <label htmlFor="aviso-gravacao">{termos.t("Aviso que a pessoa lê {ao contato} antes de gravar")}</label>
         <textarea id="aviso-gravacao" rows={2} maxLength={300} value={c.avisoGravacao} onChange={(e) => mudar("avisoGravacao", e.target.value)} />
       </div>
       <Mensagem tipo="erro">{erro}</Mensagem>

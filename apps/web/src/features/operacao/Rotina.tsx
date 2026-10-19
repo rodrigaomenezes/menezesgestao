@@ -17,10 +17,12 @@ import { useTempoReal } from "../../app/tempo-real";
 import { useAviso } from "../../ui/sobreposicoes";
 import { ListaVazia, Mensagem } from "../../ui/ui";
 import { horaNoFuso, useFuso } from "./comum";
+import { useVocabulario } from "../../app/vocabulario";
 
 /** Barra de progresso de uma meta (realizado / meta). */
 export function ProgressoMeta({ m }: { m: MetaDto }) {
-  const rotulo = `${NOMES_INDICADORES[m.indicador]} — ${m.alvoNome}`;
+  const termos = useVocabulario();
+  const rotulo = `${termos.t(NOMES_INDICADORES[m.indicador])} — ${m.alvoNome}`;
   return (
     <div className="meta">
       <div className="meta-topo">

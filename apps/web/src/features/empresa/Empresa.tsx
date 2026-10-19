@@ -5,7 +5,7 @@ import { useSessao } from "../../app/sessao";
 import { Link } from "react-router-dom";
 import { SegurancaEmpresa } from "./SegurancaEmpresa";
 import { PrivacidadeEmpresa } from "./PrivacidadeEmpresa";
-import { EnviarLogo, FormCores, FormDominio, FormVocabulario, useConfigMarca } from "../whitelabel/Marca";
+import { EnviarLogo, FormCores, FormDominio, useConfigMarca } from "../whitelabel/Marca";
 
 interface DadosEmpresa {
   nome: string;
@@ -91,8 +91,10 @@ export function Empresa() {
             </div>
           </section>
           <section className="cartao" aria-labelledby="titulo-vocabulario">
-            <h2 id="titulo-vocabulario">Vocabulário</h2>
-            <FormVocabulario config={marca.config} aoSalvar={marca.setConfig} />
+            <h2 id="titulo-vocabulario">Segmento e termos</h2>
+            <p>
+              Como a empresa chama cliente, oportunidade, entrega e equipe. <Link to="/segmento-e-termos">Ajustar segmento e termos</Link>
+            </p>
           </section>
           {pode("configuracoes", "administrar") && (
             <section className="cartao" aria-labelledby="titulo-endereco">
