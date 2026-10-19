@@ -55,7 +55,8 @@ apps/api/src
     qualidade/     critérios e avaliações (nota ponderada, feedback no sino)
     pesquisa/      pesquisas, link público (rotas /api/publico/…) e resultados agregados
     marca/         dominio.ts (host → empresa, cache de 60 s), marca pública, cores (contraste), logos, ícone,
-                   domínio próprio, vocabulário; whitelabel.rotas.ts reúne as rotas da fase 6
+                   domínio próprio, vocabulário (vocabulario.ts lê os termos para textos gravados fora de uma
+                   requisição); whitelabel.rotas.ts reúne as rotas da fase 6 e a troca de segmento
     onboarding/    cadastro aberto, assistente de 5 passos, segmentos, dados de exemplo
     cobranca/      interface ProvedorCobranca (provedor de demonstração), assinatura, faturas, ciclo diário (job)
     automacoes/    regras quando/se/então; varredura dos eventos por job (uma execução por regra × evento)
@@ -66,7 +67,8 @@ apps/api/src
   cli/                               criar-empresa, dados-exemplo, caixa-de-saida, migrar, desligar-duas-etapas,
                                      conferir-backup, chaves-push
 apps/web/src
-  app/        api (cliente), sessão, tema, tempo real, casca (menu, sino, aviso de sem conexão),
+  app/        api (cliente), sessão, tema, tempo real, vocabulario.ts (useVocabulario: termos e t() das telas),
+              casca (menu, sino, aviso de sem conexão),
               offline.ts (cache dos dados limpo no login/logout, inscrição de push); public/sw-push.js
   ui/         campos, listas paginadas, modal, confirmação, avisos (toast)
   features/   acesso, inicio, usuarios, permissoes, empresa, auditoria, notificacoes, conta,
@@ -74,8 +76,9 @@ apps/web/src
               telefonia (ProvedorTelefone: treino, celular, SIP/JsSIP; painel da ligação), fila (discador),
               operacao (rotina no Início, agenda, horas, desempenho, mapa, scripts),
               receita (vendas, comissões, catálogo), qualidade, pesquisa (inclusive a página pública /p/:token),
-              whitelabel (cadastro, primeiros passos, marca, plano, automações)
-packages/shared/src                 @mg/shared: catálogo, marca, erros, DTOs (Zod, inclusive dto-crm), slug, datas, telefone
+              whitelabel (cadastro, primeiros passos, marca, segmento e termos, plano, automações)
+packages/shared/src                 @mg/shared: catálogo, marca, erros, DTOs (Zod, inclusive dto-crm), slug, datas, telefone,
+                                    vocabulario.ts (termos com gênero e frases com marcadores, ADR-030)
 database/   migrations/ (SQL), seeds/ (JSON fictício), docker/
 tests/      integration/ (Vitest + PostgreSQL real), e2e/ (Playwright, 5 larguras), apoio/
 ```
@@ -89,7 +92,9 @@ tests/      integration/ (Vitest + PostgreSQL real), e2e/ (Playwright, 5 largura
 4. Rota chama o serviço com o contexto (`ContextoEmpresa`), o escopo e a origem (ator, IP, dispositivo).
 5. Serviço abre `comEmpresa()` (papel `mg_app`, RLS), aplica as regras, chama o repositório e `registrar()`
    (auditoria + evento) na mesma transação.
-6. Resposta recortada pelo DTO; erro sempre `{ error: { code, message, details } }`.
+6. Resposta recortada pelo DTO; erro sempre `{ error: { code, message, details } }`, com `message` e `details`
+   montados no vocabulário da empresa de quem pediu (`{Contato} não encontrad{o|a:contato}` → "Paciente não
+   encontrado").
 7. Depois do COMMIT, o PostgreSQL entrega o `pg_notify`; cada instância repassa por SSE a quem pode ver.
 
 ## Dados

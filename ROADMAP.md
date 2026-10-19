@@ -34,6 +34,12 @@ Detalhes e critérios de pronto de cada fase: `ESPECIFICACAO.md` ("Roteiro de co
       backup com restauração testada no CI e roteiro; logs estruturados sem dados pessoais e alerta de canal
       desconectado por sino, e-mail e push; avisos no celular para quem está fora, ligação só no celular; leitura
       offline com cache limpo no login/logout; modo escuro e teclado conferidos nas telas principais)
+- [x] Fase 7.5 — Vocabulário por segmento (7 termos — cliente, oportunidade, oferta, entrega, prestador,
+      colaborador e unidade — com singular, plural e gênero em todo o sistema: telas, menus, erros do servidor,
+      avisos, automações e importação; pacote de segmento com campos típicos; tela Segmento e termos com prévia;
+      trocar de segmento só renomeia; teste que barra termo fixo nas telas)
+- [ ] Fase 7.6 — Interface nova (visual "limpo e arejado" e Início que cada pessoa monta com blocos, igual no
+      celular e no computador; protótipo aprovado no canvas "Menezes Gestão — Interface"). Plano a apresentar.
 
 ## Próximas fases (planejadas, não iniciadas)
 

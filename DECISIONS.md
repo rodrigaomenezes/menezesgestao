@@ -441,3 +441,23 @@ inscrição. Offline: Workbox `NetworkFirst` nas consultas GET da API (fora míd
 real e push), cache `mg-dados` apagado quando a pessoa logada muda (login, logout). Somente leitura: escrever
 offline mostra "sem conexão".
 
+# ADR-030 — Vocabulário com gênero e frases com marcadores
+
+## Decisão
+Os nomes que mudam por segmento são 7 termos (contato, oportunidade, oferta, entrega, prestador, colaborador,
+unidade), cada um com singular, plural e gênero, guardados no JSON `empresa.vocabulario` (chaves `x`, `x_plural`,
+`x_genero`; aditivo, sem migração). Um só lugar monta os textos: `texto()` em `@mg/shared`, com marcadores —
+`{Contato}`/`{contatos}` (termo com a inicial como escrita), `{Nova oportunidade}`/`{do contato}` (as palavras antes
+do termo concordam com o gênero dele, partindo da forma masculina ou feminina) e `{o|a:contato}` (escolha por
+gênero). `{{variavel}}` de mensagens e chaves desconhecidas não são tocados. Uso: o tratador de erros aplica o
+vocabulário de quem pediu em `message` e `details`; textos gravados fora de uma requisição (avisos, execuções de
+automação, relatório de importação) são montados ao gravar; nas telas, `useVocabulario().t()`. Catálogos do
+contrato (gatilhos, indicadores, escopos, status) também usam marcadores e passam por `t()` ao exibir. Um teste de
+unidade varre `apps/web/src` e falha com termo fixo. Trocar de segmento renomeia (termos voltam ao padrão do
+pacote) e cria campos típicos com `ON CONFLICT DO NOTHING`; nunca mexe em funis nem dados.
+
+## Por quê
+Uma frase como "Novo {termo}" quebra no feminino ("Novo matrícula") e mensagens do servidor ficavam com "contato"
+fixo. Gênero explícito evita adivinhar pela terminação; marcadores mantêm o texto legível no código e o mesmo
+mecanismo serve ao servidor e ao front. Alternativa descartada: i18n completo com chaves por frase — pesado demais
+para trocar 7 palavras, e não resolve a concordância sozinho.
