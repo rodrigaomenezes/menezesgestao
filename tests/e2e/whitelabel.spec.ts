@@ -44,7 +44,7 @@ test("empresa nova: cadastro, assistente de 5 passos, vocabulário do segmento e
   await page.getByRole("button", { name: "Usar dados de exemplo" }).click();
   await expect(page.getByText(/Exemplos criados/)).toBeVisible();
   await page.getByRole("button", { name: "Concluir" }).click();
-  await expect(page.getByRole("heading", { name: /^Olá, Fernanda/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /^(Bom dia|Boa tarde|Boa noite), Fernanda/ })).toBeVisible();
   // Menos de 15 minutos (aqui, segundos) do cadastro ao sistema pronto.
   expect(Date.now() - inicio).toBeLessThan(15 * 60_000);
 
