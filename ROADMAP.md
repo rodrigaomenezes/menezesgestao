@@ -65,6 +65,9 @@ Detalhes e critérios de pronto de cada fase: `ESPECIFICACAO.md` ("Roteiro de co
 - [x] Pendências do motor BRE (ADR-037): catálogo com categoria, estoque e lançamento; automações de lançamento
       compatível e alerta de estoque; mensagem modelo da API oficial nas automações; BPI marcado para recalcular na
       venda e na troca de etapa.
+- [x] Fase 8.6 — Cobrança dos clientes pelo provedor da empresa (ADR-038): conta de cobrança por empresa (chave
+      cifrada, testada, nunca devolvida), Pix/boleto/link a partir da venda, aviso do provedor com token e
+      idempotência confirmando a venda sozinho; demonstração sem conta e conector Asaas (testado contra servidor falso).
 
 ## Próximas fases (planejadas, não iniciadas)
 

@@ -200,6 +200,11 @@ servidor e a pessoa registra.
   Meta (nome, idioma e a ordem das variáveis), o que alcança quem está fora da janela de 24 h da API oficial; pelo QR
   e na demonstração vai o texto. Só liga com o painel IA × equipe liberado; pula "não contatar", escalonamento aberto
   e quem está nos limites; nunca repete. Roda às 09:17 e tem "Rodar agora".
+- **Cobrança dos clientes** (Vendas): o administrador conecta o provedor de cobrança **da empresa** (Asaas, ou
+  demonstração sem conta); a chave é testada, guardada cifrada e nunca volta para a tela. Em cada venda aguardando
+  pagamento, quem confere pagamento gera Pix, boleto ou link; o dinheiro cai na conta da empresa. O aviso do provedor
+  (webhook com token, endereço mostrado na tela) dá baixa sozinho: a venda é confirmada, o estoque baixa e o BPI
+  recalcula. Aviso repetido não muda nada. Na demonstração, "Simular pagamento" passa pelo mesmo caminho.
 - **Catálogo**: cada item pode ter categoria, estoque (a venda confirmada baixa uma unidade; o cancelamento devolve)
   e data de lançamento.
 - **Motivos de Break** (administrador, em "Motor BRE") e **Encerrar (BRE)** na ficha do cliente, em cada

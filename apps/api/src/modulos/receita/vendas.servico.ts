@@ -42,7 +42,7 @@ type DadosVenda = {
 };
 
 /** Venda confirmada baixa uma unidade da oferta que controla estoque; cancelar a confirmada devolve. Nunca fica negativo. */
-async function moverEstoque(tx: Tx, ofertaId: string, delta: number): Promise<void> {
+export async function moverEstoque(tx: Tx, ofertaId: string, delta: number): Promise<void> {
   await tx.cliente.query("UPDATE oferta SET estoque = greatest(estoque + $3, 0), atualizado_em = now() WHERE id = $1 AND empresa_id = $2 AND estoque IS NOT NULL", [
     ofertaId,
     tx.empresaId,
@@ -442,5 +442,10 @@ export function criarServicoVendas(s: Servicos) {
     });
   }
 
-  return { listar, criar, atualizar, regras, criarRegra, atualizarRegra, doMes, fechar, reabrir };
+  /** Uma venda que a pessoa enxerga (usado pela cobrança). */
+  async function obter(ctx: ContextoEmpresa, escopo: Escopo, id: string) {
+    return comEmpresa(banco, ctx.empresaId, (tx) => carregar(tx, ctx, escopo, id));
+  }
+
+  return { listar, obter, criar, atualizar, regras, criarRegra, atualizarRegra, doMes, fechar, reabrir };
 }

@@ -151,6 +151,10 @@ tests/      integration/ (Vitest + PostgreSQL real), e2e/ (Playwright, 5 largura
   `limite_estoque` e `modelo_*`; `mensagem.modelo` (nome, idioma, parâmetros já preenchidos) vira o conteúdo
   `modelo` do provedor — template na API oficial, texto no QR e na demonstração (ADR-037). Venda e troca de etapa
   também marcam o BPI guardado para recalcular.
+  Na 8.6 (`modulos/recebimentos`, migração 0018): `conta_cobranca` (uma por empresa; credenciais e token do webhook
+  cifrados com `CRM_CHAVE`), `cobranca` (uma em aberto por venda) e `cobranca_aviso` (cada aviso do provedor uma vez
+  só). Provedores atrás de `ProvedorRecebimento` (demonstração, Asaas). Webhook `POST /api/webhooks/cobranca/:empresaId`
+  com token no cabeçalho. Diferente de `modulos/cobranca`, que é a assinatura da empresa na plataforma (ADR-038).
 - Campos personalizados: definição em `campo_personalizado`, valores em `campos jsonb` validados pelo serviço.
 - Sessões e tokens guardam só o HMAC (`SESSION_SECRET`); conteúdo sensível de jobs vai cifrado (`CRM_CHAVE`).
 

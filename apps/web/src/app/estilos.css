@@ -2424,3 +2424,13 @@ fieldset legend {
   gap: 0.25rem;
   flex: none;
 }
+
+/* Cobrança da venda: ocupa a linha inteira do item; endereço e token do webhook quebram no celular. */
+.cobrancas {
+  flex: 1 1 100%;
+  display: grid;
+  gap: 0.5rem;
+}
+.quebra {
+  overflow-wrap: anywhere;
+}

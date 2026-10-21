@@ -19,6 +19,7 @@ import { formatarDinheiro } from "../crm/comum";
 import { mesAtual, nomeDoMes, somarMeses, useFuso } from "../operacao/comum";
 import { EscolherContato, paraCentavos, paraReais } from "./comum";
 import { useVocabulario } from "../../app/vocabulario";
+import { CobrancasDaVenda, ContaCobranca } from "./Cobranca";
 
 const SELO: Record<string, string> = { confirmada: "selo-ganha", cancelada: "selo-perdida" };
 
@@ -150,6 +151,7 @@ function AcoesVenda({ v, aoMudar }: { v: VendaDto; aoMudar(): void }) {
 }
 
 export function LinhaVenda({ v, mostrarContato = true, aoMudar }: { v: VendaDto; mostrarContato?: boolean; aoMudar(): void }) {
+  const confere = useConfereVendas();
   return (
     <li className="item">
       <div className="item-principal">
@@ -172,6 +174,7 @@ export function LinhaVenda({ v, mostrarContato = true, aoMudar }: { v: VendaDto;
           {v.motivoCancelamento && ` Motivo: ${v.motivoCancelamento}`}
         </span>
       </div>
+      <CobrancasDaVenda v={v} confere={confere} aoMudar={aoMudar} />
       <AcoesVenda v={v} aoMudar={aoMudar} />
     </li>
   );
@@ -274,6 +277,7 @@ export function Vendas() {
         </ul>
         <CarregarMais visivel={lista.temMais} carregando={lista.carregando} aoClicar={() => void lista.carregarMais()} />
       </section>
+      {pode("vendas", "administrar") && <ContaCobranca />}
     </>
   );
 }

@@ -574,3 +574,20 @@ texto. Venda e troca de etapa marcam o BPI guardado para recalcular.
 Categoria é configuração da empresa (sem regra de cliente no código) e basta para o "compatível" do livro sem criar
 cadastro de preferências agora. Mensagem modelo é o único caminho da API oficial fora da janela de 24 h; guardar a
 prévia mantém a conversa legível em qualquer provedor.
+
+# ADR-038 — Cobrança dos clientes pelo provedor da própria empresa
+
+## Decisão
+Cada empresa conecta o provedor de cobrança dela (`conta_cobranca`, uma por empresa): a chave é testada no provedor,
+guardada cifrada (AES-256-GCM, `CRM_CHAVE`) e só os 4 últimos caracteres voltam para a tela. A cobrança nasce da
+venda aguardando pagamento (Pix, boleto ou link; uma em aberto por venda), é criada no provedor fora da transação e o
+dinheiro cai na conta da empresa. O aviso do provedor chega em `/api/webhooks/cobranca/:empresaId` com o token da
+conta no cabeçalho (comparação em tempo constante); cada aviso é gravado em `cobranca_aviso` e processado uma vez só.
+Pagamento confirmado **confirma a venda sozinho** (estoque, evento `venda.confirmada`, BPI), como a confirmação manual.
+Primeiro provedor real: Asaas (sandbox e produção); a demonstração simula o pagamento pelo mesmo caminho do aviso.
+Fica num módulo próprio (`recebimentos`), separado da assinatura da empresa na plataforma (`modulos/cobranca`).
+
+## Por quê
+O dinheiro é do cliente da plataforma, não nosso: cada empresa usa o próprio agente financeiro. Interface por
+provedor deixa somar Mercado Pago, Pagar.me ou Stripe sem mexer em vendas. Idempotência por evento porque provedores
+reenviam avisos.
