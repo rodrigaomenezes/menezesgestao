@@ -17,6 +17,7 @@ import {
 import { ErroApi, get, patch, post, put } from "../../app/api";
 import { useSessao } from "../../app/sessao";
 import { useTempoReal } from "../../app/tempo-real";
+import { useVocabulario } from "../../app/vocabulario";
 import { Modal, useAviso } from "../../ui/sobreposicoes";
 import { CarregarMais, Campo, Escolha, ListaVazia, Mensagem, Titulo, useEnvio, usePaginado } from "../../ui/ui";
 
@@ -26,6 +27,7 @@ const daquiA = (dias: number) => new Date(Date.now() + dias * 864e5).toLocaleDat
 /** Registro pós-conversa (BRE-FR-012): os campos obrigatórios em uma tela, pensado para 30 segundos. */
 export function BotaoRegistrarBre({ contatoId, conversaId, aoRegistrar }: { contatoId: string; conversaId?: string; aoRegistrar?(): void }) {
   const { pode } = useSessao();
+  const termos = useVocabulario();
   const avisar = useAviso();
   const [aberto, setAberto] = useState(false);
   const [inicio, setInicio] = useState(0);
@@ -108,7 +110,7 @@ export function BotaoRegistrarBre({ contatoId, conversaId, aoRegistrar }: { cont
               {!semRetorno && <Campo rotulo="Data do retorno" nome="bre-retorno" tipo="date" valor={retornoEm} aoMudar={setRetornoEm} obrigatorio />}
             </div>
             <fieldset className="campo grupo-marcar">
-              <legend>Os três “sim” que o cliente deu</legend>
+              <legend>{termos.t("Os três “sim” que {o|a:contato} {contato} deu")}</legend>
               {SINS.map((s) => (
                 <label key={s.codigo}>
                   <input type="checkbox" checked={sins.includes(s.codigo)} onChange={(e) => setSins(e.target.checked ? [...sins, s.codigo] : sins.filter((x) => x !== s.codigo))} /> {s.nome}
@@ -125,7 +127,7 @@ export function BotaoRegistrarBre({ contatoId, conversaId, aoRegistrar }: { cont
                 <Escolha rotulo="Categoria" nome="bre-categoria" valor={categoria} aoMudar={(v) => (setCategoria(v), setMotivoId(""))} opcoes={opcoes(CATEGORIAS_BREAK)} />
                 <Escolha rotulo="Motivo" nome="bre-motivo" valor={motivoId || daCategoria[0]?.id || ""} aoMudar={setMotivoId} opcoes={daCategoria.map((m) => ({ valor: m.id, texto: m.nome }))} />
                 <div className="campo">
-                  <label htmlFor="bre-comentario">O que o cliente disse</label>
+                  <label htmlFor="bre-comentario">{termos.t("O que {o|a:contato} {contato} disse")}</label>
                   <textarea id="bre-comentario" rows={2} maxLength={1000} required value={comentario} onChange={(e) => setComentario(e.target.value)} />
                 </div>
               </div>
