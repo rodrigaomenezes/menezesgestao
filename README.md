@@ -157,6 +157,20 @@ Menus **Empresa e marca**, **Plano e cobrança** e **Automações**; tela aberta
   adiciona; a escolha vale no celular e no computador. Sem escolha, o perfil traz um padrão (atendimento, gestão
   ou financeiro). Só aparecem blocos de módulos que o perfil pode ver.
 
+### Motor BRE (fase 8.1)
+
+Módulo `bre` (plano Completo) que aplica a doutrina BRE (ETR BRE-ETR-001 v0.2). Ainda sem IA: as regras rodam no
+servidor e a pessoa registra.
+- **Marco BRE na etapa** ("Configurar CRM"): com marcos, o funil só aceita as transições da doutrina.
+- **Estado do cliente** (Recente, Ativo, Prestes a dormir, Inativo), recalculado todo dia pelas vendas confirmadas.
+- **Fila do dia** em "Motor BRE": só quem pode ser contatado hoje (48 h depois da entrega para o recente, 48 h
+  entre tentativas, 3 tentativas por ciclo, 7 dias de silêncio encerram o ciclo, 15 dias entre ciclos sem
+  resposta, "não contatar"). Data combinada com o cliente vale mais que o intervalo.
+- **Registrar conversa** (na fila e na conversa): resultado, temperatura, estado emocional, os três "sim",
+  próxima ação e data do retorno; com Break, categoria, motivo e o que o cliente disse. Gera o retorno, a
+  reentrada da categoria e, na venda, o pós-venda D+2, 5, 10, 20 e 30.
+- **Limites da empresa** em "Motor BRE" (administrador); motivos de Break pela API (`/api/bre/motivos`).
+
 ## Testes
 
 ```bash

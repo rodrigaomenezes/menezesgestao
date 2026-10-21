@@ -133,6 +133,11 @@ tests/      integration/ (Vitest + PostgreSQL real), e2e/ (Playwright, 5 largura
   (`dados`/`antes`/`depois`) com `app.lgpd_redacao` ligado na transação do sistema (ADR-027).
 - Push: `notificacao.entregue_em` (chegou a uma tela aberta pelo tempo real) e `push_em` (já processada);
   `so_celular` para avisos de ligação.
+- Motor BRE (ADR-032): `etapa.marco_bre` liga o funil configurável aos estágios da doutrina; `contato.estado_bre`
+  é recalculado todo dia por job a partir das vendas confirmadas; `ciclo_contato` tem no máximo um aberto por
+  cliente (índice único parcial); `registro_bre`, `break_bre` e `reentrada` guardam o registro de 30 s, a Regra de
+  Ouro e o retorno combinado. Os limites de cada empresa ficam em `bre_config` (versão + auditoria). Os bloqueios
+  da fila do dia e do registro são as mesmas regras, em SQL para a lista e em código para o registro.
 - Campos personalizados: definição em `campo_personalizado`, valores em `campos jsonb` validados pelo serviço.
 - Sessões e tokens guardam só o HMAC (`SESSION_SECRET`); conteúdo sensível de jobs vai cifrado (`CRM_CHAVE`).
 

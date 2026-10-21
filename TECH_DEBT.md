@@ -45,3 +45,8 @@ histórico do git.
 | 45 | Início padrão só automático: o administrador não monta o padrão de um perfil | BAIXA | `modulos/inicio` | Coluna aditiva no perfil com a ordem padrão, se pedirem |
 | 46 | Blocos de funil, ranking e comissão fazem uma consulta cada ao abrir o Início | BAIXA | `apps/web/src/features/inicio` | Rota de resumo única para o Início, se pesar |
 | 47 | Personalizar usa setas (subir/descer), sem arrastar | BAIXA | `apps/web/src/features/inicio` | Arrastar com teclado acessível, mantendo as setas |
+| 48 | Conversa vai inteira para o provedor de IA (DEC-009): antes de cliente real faltam base legal, aviso ao titular, contrato sem uso para treino e prazo de retenção | ALTA | `modulos/bre` (fase 8.2) | Resolver antes de ligar a IA para qualquer empresa real |
+| 49 | Estado do cliente usa a data da venda confirmada como data da entrega | BAIXA | `modulos/bre/bre.servico.ts` | Usar a data de entrega real quando a venda tiver entrega/expedição |
+| 50 | Escalonamento (4 situações) ficou para a 8.2, junto com a detecção pela IA | MÉDIA | `modulos/bre` | Tabela `escalonamento` + aviso ao responsável na 8.2 |
+| 51 | Fila do dia ordena por cadastro do cliente, não por prioridade (reentrada vencida, estado) | BAIXA | `modulos/bre/bre.servico.ts` | Cursor por prioridade quando houver volume |
+| 52 | Encerramento guiado só pela API: a tela de encerramento no funil fica para a 8.2 | BAIXA | `apps/web/src/features/crm` | Modal "Encerrar pelo método BRE" no card da oportunidade |

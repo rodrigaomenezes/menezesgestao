@@ -476,3 +476,20 @@ consulta só. Fonte servida pelo app (`@fontsource-variable`, só latim), no pre
 Padrão automático foi a escolha do analista: nenhuma tela nova para o administrador e o Início certo desde o
 primeiro acesso. Guardar só a ordem deixa o catálogo evoluir sem migração.
 
+# ADR-032 — Motor BRE dentro do menezesgestao, como módulo por plano
+
+## Decisão
+O motor BRE (ETR BRE-ETR-001 v0.2) roda só no menezesgestao; o sistema do Robson recebe apenas documentação de telas.
+Entra como módulo `bre` do catálogo (plano Completo), com permissões próprias. As listas fechadas da doutrina
+(estágios, estados do cliente, categorias de Break, temperatura, resultado, reentrada, encerramento) vivem no
+contrato (`@mg/shared/dto-bre.ts`) e em CHECK no banco; os números (dias, tentativas, horas, pós-venda) ficam em
+`bre_config` por empresa, com versão. O funil continua configurável: a etapa ganha `marco_bre` e o motor lê o marco,
+nunca o nome (DEC-012). Break tem registro próprio, com motivo configurável dentro da categoria fixa (DEC-013). O
+SQ-BRE vai reaproveitar a Qualidade (DEC-014). A IA chega na 8.2, atrás de interface, com Claude como provedor real.
+As regras ficam no servidor (serviço `modulos/bre`), nunca só no prompt.
+
+## Por quê
+O menezesgestao já tem multiempresa, WhatsApp, fila, tarefas, vendas e eventos: o motor só acrescenta regras. Marco
+na etapa preserva o princípio de "tudo é configuração" sem perder a doutrina; e a 8.1 sem IA deixa o processo ser
+validado antes da automação, como o próprio livro pede.
+
