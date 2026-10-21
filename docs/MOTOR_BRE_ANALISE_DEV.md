@@ -14,6 +14,8 @@ Um conjunto de regras comerciais que acompanha cada cliente e cada conversa:
 4. Programa reentradas, retornos e pós-venda sozinho.
 5. Controla o funil pelas transições da doutrina.
 6. Com IA: lê a conversa e pré-preenche o registro; o motor filtra o que as regras proíbem; a pessoa confirma.
+7. Chama uma pessoa quando a conversa pede (escalonamento) e para as automações daquele cliente.
+8. Mede a qualidade de cada atendimento (SQ-BRE) e o desempenho de cada pessoa no mês (BPI), com alerta de coaching.
 
 Princípio central: **a IA sugere, o motor decide, a pessoa confirma.** Nenhuma regra vive só no prompt.
 
@@ -29,13 +31,14 @@ Tela (React)  ──►  API /api/bre/*  ──►  Serviço do motor (regras)  
 | Peça | Arquivo | Papel |
 | --- | --- | --- |
 | Contrato | `packages/shared/src/dto-bre.ts` | Listas fechadas, limites padrão, regras puras, DTOs e validação (Zod) |
-| Migrações | `database/migrations/0011_bre.sql`, `0012_bre_ia.sql` | Tabelas, CHECK das listas, RLS |
-| Serviço | `apps/api/src/modulos/bre/bre.servico.ts` | Todas as regras do motor |
+| Migrações | `database/migrations/0011_bre.sql`, `0012_bre_ia.sql`, `0013_bre_desempenho.sql` | Tabelas, CHECK das listas, RLS |
+| Serviço | `apps/api/src/modulos/bre/bre.servico.ts` | Regras do motor, IA e escalonamento |
+| Desempenho | `apps/api/src/modulos/bre/desempenho.servico.ts` | SQ-BRE, BPI, ranking e coaching |
 | Rotas | `apps/api/src/modulos/bre/bre.rotas.ts` | API com permissão por rota |
 | IA | `apps/api/src/modulos/bre/ia.ts` | Interface + Claude + demonstração |
 | Funil | `apps/api/src/modulos/crm/oportunidades.servico.ts` | Bloqueio de transição pelo marco |
-| Tela | `apps/web/src/features/bre/Bre.tsx` | Fila do dia, registro, reentradas, limites |
-| Testes | `tests/integration/bre.test.ts`, `tests/e2e/bre.spec.ts` | Critérios de aceite |
+| Telas | `apps/web/src/features/bre/Bre.tsx`, `features/qualidade/SqBre.tsx` | Fila do dia, registro, escalonamentos, reentradas, BPI, limites; SQ-BRE |
+| Testes | `packages/shared/src/dto-bre.test.ts`, `tests/integration/bre*.test.ts`, `tests/e2e/bre.spec.ts` | Critérios de aceite |
 
 Requisitos de plataforma: multiempresa (toda tabela com `empresa_id` + RLS), fila de jobs (nada de `setInterval`),
 auditoria + evento em toda ação, listas paginadas, segredos só em variável de ambiente.
@@ -88,7 +91,8 @@ Cada mudança de estado gera o evento `bre.estado_cliente_alterado`.
 
 ### 4.2 Bloqueios de tentativa (registro com resultado `NO_REPLY` e fila do dia)
 Na ordem, o primeiro que valer recusa a tentativa com a mensagem indicada:
-1. `nao_contatar` ligado → "O cliente pediu para não ser contatado…" (fixo, não configurável).
+1. `nao_contatar` ligado → "{O contato} pediu para não ser contatado…" (fixo, não configurável). As mensagens usam o
+   vocabulário da empresa: numa escola, "O aluno pediu…".
 2. Cliente `RECENT` e entrega há menos de `horasAntesDoPrimeiroContato` [48 h].
 3. Ciclo aberto com última tentativa há menos de `horasEntreTentativas` [48 h].
 4. Último ciclo encerrado **sem resposta** há menos de `diasEntreCiclos` [15 dias] — **exceto** se houver data
@@ -146,8 +150,45 @@ falta. Pode programar reentrada no mesmo passo. `CUSTOMER_REQUESTED` e `CONTACT_
    - oferta com menos de 3 "sim" → descartada.
 5. Grava em `analise_bre` (provedor, versão da doutrina, saída, bloqueios). A pessoa confere e salva o registro.
 
+Se a IA apontar uma das 4 situações de escalonamento, o motor abre o escalonamento (seção 4.8).
+
 Provedor: Claude via SDK oficial (`@anthropic-ai/sdk`), saída estruturada pelo mesmo esquema Zod, fallback de recusa
 no servidor; sem chave, demonstração por palavras-chave (funciona sem conta).
+
+### 4.8 Escalonamento (BR-017)
+- Origem: a IA (campo `escalonamento` da análise) ou a pessoa (campo "Precisa de uma pessoa?" no registro).
+- Um aberto por cliente × situação (índice único parcial); pedir de novo não duplica.
+- Avisa o responsável pelo cliente e o gestor da equipe dele (notificação + push).
+- Enquanto aberto, a automação "enviar mensagem" ignora o cliente ("está com uma pessoa").
+- Fecha com "Resolvido" (quem vê o cliente pelo escopo).
+
+### 4.9 SQ-BRE (D-05, D-06)
+- Fica no módulo Qualidade e exige também o módulo BRE. Quem só vê o próprio (vendedor) não avalia; ninguém avalia
+  o próprio atendimento; o avaliado é quem está atribuído à conversa.
+- "SQ-BRE" na conversa: a IA dá a prévia (0 a 20 em Humanização, Diagnóstico, Inteligência, Valor e Próximo passo).
+  Uma prévia aberta por conversa: pedir de novo devolve a mesma. "Não contatar" e anonimizado não vão para a IA.
+- O supervisor confirma (pode ajustar cada pilar) com feedback; a prévia e a confirmada ficam lado a lado e a
+  auditoria guarda as duas notas. A pessoa avaliada recebe aviso. Uma confirmação só.
+- Faixas: 95+ Excelência · 85–94 Muito bom · 70–84 Bom · 50–69 Regular · < 50 Requer reciclagem.
+
+### 4.10 BPI, ranking e coaching (D-13, D-14, D-15)
+Calculado na consulta, por pessoa, no mês (fuso da empresa). Cada pilar vai de 0 a 100:
+
+| Pilar (peso) | Fonte e fórmula |
+| --- | --- |
+| Receita (30) | Vendas confirmadas da pessoa ÷ meta mensal × 100, teto 100. Sem meta configurada → fora do BPI |
+| Pipeline (20) | Oportunidades abertas no início do período que avançaram ≥ 1 etapa (evento de etapa para ordem maior) ÷ abertas no início × 100 |
+| Inteligência (20) | Média de (completude ÷ 80%) e (enriquecimento ÷ 70%), teto 100 cada. Completude = campos opcionais do registro preenchidos ÷ 4; enriquecimento = registros com dado novo ÷ registros |
+| Qualidade (20) | Média do SQ-BRE confirmado no período |
+| Relacionamento (10) | Tarefas do motor (retorno e pós-venda) vencidas no período feitas até o dia do vencimento ÷ vencidas × 100 |
+
+- Pilar sem dados no período fica fora e os pesos dos demais são redistribuídos (nunca vira zero por falta de dado).
+- Receita zero só conta para quem atendeu no período; quem não atende (dono, financeiro) fica fora do BPI.
+- A meta é mensal; em período menor (semana do coaching) vale a fração dos dias.
+- Faixas: 95+ Elite · 90–94 Excelente · 80–89 Muito bom · 70–79 Adequado · < 70 Plano de desenvolvimento.
+- Ranking: maior BPI primeiro; escopo "próprio" vê só a própria linha.
+- Coaching (job toda segunda, 07:13): pilar abaixo de 70 nas duas últimas semanas completas (segunda a domingo)
+  gera um alerta por pessoa × pilar × semana e avisa o gestor da equipe. Rodar de novo não duplica.
 
 ## 5. Banco de dados
 
@@ -166,6 +207,10 @@ Todas com `empresa_id`, RLS (`empresa_id = app_empresa_id()`) e só INSERT/SELEC
 | `break_bre` | `categoria`, `motivo_id`, `comentario`, `marco`, `acao_padrao` | Regra de Ouro |
 | `reentrada` | `tipo`, `prevista_para` ou `condicao`, `motivo`, `break_id`, `status` | CHECK: data ou condição |
 | `analise_bre` | `provedor`, `doutrina`, `saida` jsonb, `bloqueios` jsonb | Somente inserção |
+| `sq_bre` | `previa` jsonb, `nota_previa`, `confirmada` jsonb, `nota`, `feedback`, `confirmada_por/em` | Uma prévia aberta por conversa; CHECK confirmada/nota/data juntas |
+| `escalonamento` | `situacao`, `origem` (ia/manual), `observacao`, `status`, `resolvido_por/em` | Um aberto por cliente × situação |
+| `coaching_alerta` | `usuario_id`, `pilar`, `semana`, `notas` | Único por pessoa × pilar × semana |
+| `tarefa.origem_bre` | `retorno` ou `pos_venda` | Pilar Relacionamento |
 
 A permissão `permissao.modulo` passa a aceitar `bre`.
 
@@ -181,6 +226,7 @@ A permissão `permissao.modulo` passa a aceitar `bre`.
 | `diasEntreCiclos` | 15 | Intervalo após ciclo sem resposta |
 | `diasPosVenda` | [2, 5, 10, 20, 30] | Agenda de pós-venda |
 | `concordanciaParaAutomacao` / `amostraParaAutomacao` | 85% / 200 | Liberação da automação (ainda não usado) |
+| `metaReceitaCentavos` | sem meta | Pilar Receita do BPI (por pessoa, no mês) |
 
 ## 7. API
 
@@ -198,15 +244,23 @@ Todas exigem sessão, empresa e o módulo `bre`; erro sempre `{ error: { code, m
 | `GET /api/bre/fila-do-dia` | bre:ver | Quem pode ser contatado hoje, paginado |
 | `GET /api/bre/reentradas?status` · `POST` · `PATCH /:id` | ver / criar / editar | Lista, programa, conclui ou cancela |
 | `POST /api/bre/oportunidades/:id/encerrar` | bre:editar | Encerramento guiado |
+| `GET /api/bre/escalonamentos?status` · `PATCH /:id` | bre:ver / bre:editar | Lista paginada; marca como resolvido |
+| `GET /api/bre/desempenho?mes=AAAA-MM` | bre:ver | BPI por pessoa, ranking e pilares em coaching |
+| `GET /api/qualidade/sq-bre?status` | qualidade:ver (+ módulo bre) | Prévias e notas confirmadas, paginado |
+| `POST /api/qualidade/sq-bre` | qualidade:criar, escopo além do próprio | Prévia da IA para a conversa |
+| `POST /api/qualidade/sq-bre/:id/confirmar` | qualidade:criar, escopo além do próprio | Nota confirmada + feedback |
 
 Escopo: perfil "próprio" só vê e registra clientes da própria carteira (`contato.responsavel_id`); equipe, unidade
 e empresa seguem o filtro de escopo do sistema. Perfis padrão: dono administra, gestor edita, vendedor só o próprio.
 
 ## 8. Telas
 
-- **Motor BRE** (menu Resultados): fila do dia com "Registrar conversa"; reentradas com Feita/Cancelar; limites
-  da empresa (só administrador).
-- **Registro** (modal, também na conversa): os campos da seção 4.5 e, na conversa, "Sugerir com IA".
+- **Motor BRE** (menu Resultados): "Precisa de uma pessoa" (escalonamentos abertos); fila do dia com "Registrar
+  conversa"; reentradas com Feita/Cancelar; Desempenho (BPI) do mês; limites da empresa e meta de receita (só
+  administrador).
+- **Registro** (modal, também na conversa): os campos da seção 4.5, "Precisa de uma pessoa?" e, na conversa,
+  "Sugerir com IA".
+- **Conversa**: botão "SQ-BRE" para quem avalia; **Qualidade**: lista SQ-BRE com "Confirmar" nas prévias.
 - **Configurar CRM → etapa**: campo "Marco BRE".
 - Tudo funciona em 360 px; textos passam pelo vocabulário da empresa.
 
@@ -225,19 +279,24 @@ e empresa seguem o filtro de escopo do sistema. Perfis padrão: dono administra,
 | Pós-venda | Venda cria retorno + 5 tarefas na ordem certa |
 | Config/isolamento | Limite impossível recusado; nova versão; vendedor não altera; outra empresa e outra carteira não acessam |
 | IA | Demonstração sugere; desconto e oferta descartados com motivo; "não contatar" não vai para a IA |
+| AT-018 | Saída da IA com código fora das listas ou nota fora da escala é recusada |
+| AT-019 | Prévia da IA, supervisor confirma 68, as duas notas na auditoria, BPI usa 68; prévia repetida devolve a mesma |
+| AT-024 | Cliente ativo sem diagnóstico não recebe desconto; com oportunidade em Interesse, recebe |
+| AT-025 | BPI com dados conhecidos: receita 50, pipeline 50, inteligência 81,3, relacionamento 50, qualidade sem dados → 57,8; pesos 30/20/20/20/10 e faixas em teste unitário |
+| AT-026 | 2 semanas abaixo de 70 → um alerta ao gestor; rodar de novo não duplica; 1 semana só → nada; dono e financeiro fora |
+| Escalonamento | Reclamação pela IA abre um só, avisa responsável e gestor; outra carteira não vê nem resolve; pela pessoa no registro |
 
-## 10. O que falta (próximas sprints)
+## 10. O que falta
 
-1. SQ-BRE: rubrica de 5 pilares × 20 pontos na Qualidade, nota prévia da IA e confirmação do supervisor.
-2. BPI (Receita 30, Pipeline 20, Inteligência 20, Qualidade 20, Relacionamento 10), ranking e alerta de coaching
-   (pilar < 70 por 2 semanas).
-3. Escalonamento das 4 situações com aviso ao responsável.
-4. Tela de encerramento guiado no card da oportunidade; tela de motivos de Break.
-5. Painel de concordância IA × supervisor (libera automação pelo percentual da empresa).
-6. Análise da IA pela fila de jobs (hoje é síncrona).
+1. Painel de concordância IA × supervisor (DEC-010): comparar prévia × nota confirmada e sugestão × registro, e
+   liberar a automação pelo percentual da empresa.
+2. Telas: encerramento guiado no card da oportunidade e cadastro de motivos de Break (hoje só pela API).
+3. Campos de inteligência configuráveis por segmento (o pilar Inteligência hoje usa os campos do registro).
+4. Análise da IA pela fila de jobs (hoje é na hora) e BPI pré-calculado quando houver volume.
 
 Riscos e decisões pendentes: a conversa vai inteira para a IA (DEC-009) — antes de cliente real, base legal,
-aviso ao titular, contrato sem uso para treino e prazo de retenção; data de entrega hoje = data da venda.
+aviso ao titular, contrato sem uso para treino e prazo de retenção; data de entrega hoje = data da venda; pontos por
+item do SQ-BRE ainda são proposta (o supervisor dá a nota por pilar).
 
 ## 11. Portando para outro sistema
 

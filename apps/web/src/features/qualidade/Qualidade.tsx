@@ -7,6 +7,7 @@ import { useDataHora, useEu, useSessao } from "../../app/sessao";
 import { useTempoReal } from "../../app/tempo-real";
 import { Modal, useAviso } from "../../ui/sobreposicoes";
 import { CarregarMais, Campo, ListaVazia, Mensagem, Titulo, useEnvio, usePaginado } from "../../ui/ui";
+import { ListaSqBre } from "./SqBre";
 
 const nota = (n: number) => n.toLocaleString("pt-BR", { maximumFractionDigits: 2 });
 
@@ -184,6 +185,7 @@ export function Qualidade() {
         </ul>
         <CarregarMais visivel={lista.temMais} carregando={lista.carregando} aoClicar={() => void lista.carregarMais()} />
       </section>
+      {pode("bre", "ver") && <ListaSqBre />}
       {pode("qualidade", "administrar") && <Criterios />}
     </>
   );

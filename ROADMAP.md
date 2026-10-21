@@ -47,6 +47,12 @@ Detalhes e critérios de pronto de cada fase: `ESPECIFICACAO.md` ("Roteiro de co
       tentativas, silêncio, intervalo entre ciclos e "não contatar", reentradas, encerramento guiado, pós-venda e fila
       do dia; limites por empresa).
 
+- [x] Fase 8.2 — Motor BRE com IA (ETR v0.2, ADR-033): provedor de IA atrás de interface (demonstração e Claude com
+      `ANTHROPIC_API_KEY`); "Sugerir com IA" no registro, com o motor descartando desconto para cliente recente ou antes
+      do diagnóstico e oferta antes dos três "sim"; quem pediu "não contatar" ou foi anonimizado nunca vai para a IA;
+      escalonamento (IA ou pessoa) avisando responsável e gestor e parando as automações; SQ-BRE na Qualidade com prévia
+      da IA e confirmação do supervisor; BPI do mês com ranking e alerta semanal de coaching (pilar < 70 por 2 semanas).
+
 ## Próximas fases (planejadas, não iniciadas)
 
 Plano aprovado só como documentação; cada fase começa com um plano detalhado e o ok do analista. Sprints de 2
@@ -54,12 +60,6 @@ semanas (estimativa de ordem de grandeza, com um desenvolvedor: ~21 sprints, cer
 de `TECH_DEBT.md` que viram funcionalidade e os temas novos levantados no documento comercial estão abaixo.
 Marcos: **primeiro cliente pagante** ao fim da Fase 9 · **venda em escala** ao fim da 11 · **produto completo** ao fim da 15.
 
-- [ ] Fase 8.2 — Motor BRE com IA (2 a 3 sprints; 1ª sprint feita: provedor atrás de interface, "Sugerir com IA" no
-      registro, filtros de desconto/oferta/"não contatar" e análises guardadas): provedor de IA atrás de interface (demonstração e Claude, chave em
-      `ANTHROPIC_API_KEY`); análise da conversa com saída validada pelo contrato da ETR; próximo passo filtrado pelas
-      regras (desconto, três "sim", limites); escalonamento; SQ-BRE dentro da Qualidade (nota prévia e confirmação);
-      BPI, ranking, coaching e concordância IA × supervisor.
-      Pronto quando: AT-018, AT-019 e AT-023 a AT-026 passam e nada de quem pediu "não contatar" ou foi anonimizado vai para a IA.
 - [ ] Sprint 0 — Produção configurada (1 semana, sem código): as pendências da seção seguinte.
       Pronto quando: um convite chega por e-mail, um aviso chega no celular e uma cópia do banco é restaurada e conferida.
 - [ ] Fase 9 — Pronto para vender (3 sprints): provedor de cobrança real com webhook; bloqueio gradual por

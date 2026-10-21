@@ -23,6 +23,7 @@ const INSTRUCOES = `Você apoia atendentes que seguem a doutrina comercial BRE. 
 - break: preencha só se houve uma quebra (recusa, objeção, adiamento), com a categoria e, em comentario, o que o cliente disse com as palavras dele.
 - sugereOferta e sugereDesconto: true só se a conversa pede uma oferta ou um desconto agora.
 - escalonamento: READY_TO_BUY, TECHNICAL_HELP, VIP ou COMPLAINT quando a conversa precisa de uma pessoa; senão null.
+- sqBre: nota prévia de qualidade do atendente, de 0 a 20 em cada pilar: H (humanização: personalizou, usou o nome, citou a compra, interesse genuíno, tom natural), D (diagnóstico: contexto, uso, preferência, objeções, momento), I (inteligência: quanto a conversa trouxe de dado novo sobre o cliente), V (valor: benefício, diferença, conhecimento, recomendação personalizada, confiança, não vendeu só desconto), P (próximo passo: 20 com ação e data, 10 com ação sem data, 0 sem ação). Um supervisor confirma depois.
 - resumo em português, factual, sem inventar preço, estoque, prazo ou dado do cliente. O que não der para saber vai em incertezas.`;
 
 /** Demonstração: regras simples por palavras, para testar o fluxo inteiro sem fornecedor. */
@@ -37,18 +38,21 @@ export function provedorDemonstracao(): ProvedorIaBre {
       const comprou = tem(/comprei|fechado|pode mandar|vou levar|quero comprar/);
       const reclamou = tem(/reclama|péssim|horrível|problema com/);
       const respondeu = cliente.trim().length > 0;
+      const atendente = mensagens.filter((m) => m.de === "atendente").map((m) => m.texto.toLowerCase()).join(" \n");
+      const perguntou = /\?/.test(atendente);
       return SaidaIaBre.parse({
-        resumo: respondeu ? "Resumo da demonstração: o cliente respondeu à conversa." : "O cliente não respondeu.",
+        resumo: respondeu ? "Resumo da demonstração: houve resposta na conversa." : "Sem resposta na conversa.",
         resultado: saiu ? "OPTED_OUT" : comprou ? "PURCHASED" : !respondeu ? "NO_REPLY" : caro ? "REPLIED_NO_ADVANCE" : "ADVANCED",
         temperatura: comprou ? "READY_TO_BUY" : caro ? "WARM" : respondeu ? "HOT" : "COLD",
         estadoEmocional: caro ? "WARY" : respondeu ? "INTERESTED" : null,
         sins: comprou ? ["CONFIRMATION", "AGREEMENT", "VISUALIZATION"] : respondeu ? ["CONFIRMATION"] : [],
-        break: caro && !comprou ? { categoria: "C_FINANCIAL", comentario: "O cliente falou de preço." } : null,
+        break: caro && !comprou ? { categoria: "C_FINANCIAL", comentario: "Falou de preço." } : null,
         proximaAcao: saiu ? "CLOSE_NO_INTEREST" : caro ? "CALL_BACK" : "SEND_CATALOG",
         retornoEmDias: saiu ? null : caro ? 30 : 3,
         sugereOferta: !saiu && respondeu,
         sugereDesconto: caro,
         escalonamento: reclamou ? "COMPLAINT" : comprou ? "READY_TO_BUY" : null,
+        sqBre: { H: atendente ? 12 : 0, D: perguntou ? 12 : 4, I: respondeu ? 8 : 0, V: caro ? 8 : 12, P: saiu ? 0 : 20 },
         incertezas: ["Análise de demonstração por palavras; configure ANTHROPIC_API_KEY para a análise completa."],
       });
     },

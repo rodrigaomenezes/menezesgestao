@@ -47,7 +47,11 @@ histórico do git.
 | 47 | Personalizar usa setas (subir/descer), sem arrastar | BAIXA | `apps/web/src/features/inicio` | Arrastar com teclado acessível, mantendo as setas |
 | 48 | Conversa vai inteira para o provedor de IA (DEC-009): antes de cliente real faltam base legal, aviso ao titular, contrato sem uso para treino e prazo de retenção | ALTA | `modulos/bre` (fase 8.2) | Resolver antes de ligar a IA para qualquer empresa real |
 | 49 | Estado do cliente usa a data da venda confirmada como data da entrega | BAIXA | `modulos/bre/bre.servico.ts` | Usar a data de entrega real quando a venda tiver entrega/expedição |
-| 50 | Escalonamento (4 situações) ficou para a 8.2, junto com a detecção pela IA | MÉDIA | `modulos/bre` | Tabela `escalonamento` + aviso ao responsável na 8.2 |
 | 51 | Fila do dia ordena por cadastro do cliente, não por prioridade (reentrada vencida, estado) | BAIXA | `modulos/bre/bre.servico.ts` | Cursor por prioridade quando houver volume |
 | 52 | Encerramento guiado só pela API: a tela de encerramento no funil fica para a 8.2 | BAIXA | `apps/web/src/features/crm` | Modal "Encerrar pelo método BRE" no card da oportunidade |
 | 53 | Análise da IA roda na hora (a pessoa espera a resposta); com volume, deve ir para a fila de jobs | BAIXA | `modulos/bre/bre.servico.ts` | Job `bre.analisar` + aviso em tempo real quando terminar |
+| 54 | Ranking do BPI lista até 500 pessoas por empresa, sem paginação (é ordenado pelo BPI calculado na hora) | BAIXA | `modulos/bre/desempenho.servico.ts` | Pré-calcular o BPI por dia × pessoa (mesmo plano do item 25) e paginar |
+| 55 | Painel de concordância IA × supervisor (DEC-010) ainda não existe: a automação continua desligada | MÉDIA | `modulos/bre` | Comparar prévia × confirmada (SQ-BRE) e sugestão × registro; liberar pelo percentual da empresa |
+| 56 | Motivos de Break só pela API (sem tela) | BAIXA | `apps/web/src/features/bre` | Lista com criar, renomear e arquivar na tela "Motor BRE" |
+| 57 | Pilar Inteligência usa os campos do registro (emoção, interesse, produto, "sim") até existirem campos de inteligência configuráveis por empresa | MÉDIA | `modulos/bre/desempenho.servico.ts` | Cadastro de campos de inteligência por segmento e completude sobre eles |
+| 58 | SQ-BRE: o supervisor dá a nota por pilar (0 a 20); os pontos por item do livro ficam como guia na tela (PROPOSTA da ETR) | BAIXA | `apps/web/src/features/qualidade/SqBre.tsx` | Checklist por item, se o autor da doutrina fechar os pontos |

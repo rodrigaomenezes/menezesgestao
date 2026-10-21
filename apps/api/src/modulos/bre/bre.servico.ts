@@ -5,16 +5,19 @@ import {
   CHECKLIST_ENCERRAMENTO,
   CONFIG_BRE_PADRAO,
   ConfigBre,
+  ESCALONAMENTOS,
   MOTIVOS_BREAK_PADRAO,
   PROXIMAS_ACOES,
   acaoPadraoBreak,
   type CategoriaBreak,
   type Escopo,
+  type EscalonamentoDto,
   type ItemFilaBreDto,
   type MarcoBre,
   type Pagina,
   type ReentradaDto,
   type RegistroBreEntrada,
+  type SituacaoEscalonamento,
   type TipoReentrada,
 } from "@mg/shared";
 import { sql } from "drizzle-orm";
@@ -26,6 +29,7 @@ import { lerCursor } from "../../infra/paginacao.js";
 import type { ContextoEmpresa } from "../acesso/acesso.js";
 import { filtroUsuariosVisiveis } from "../acesso/escopo.js";
 import { registrar, type Origem } from "../auditoria/registro.js";
+import { notificar } from "../notificacoes/notificar.js";
 import type { AnaliseBreDto, EncerramentoBreEntrada, ReentradaEntrada, SaidaIaBre } from "@mg/shared";
 import { criarProvedorIaBre, IaIndisponivel, type MensagemAnalise, type ProvedorIaBre } from "./ia.js";
 
@@ -35,12 +39,12 @@ export const VERSAO_DOUTRINA = "BRE-v1.0 / ETR 0.2";
 type Linha = Record<string, unknown>;
 const ORIGEM_SISTEMA = (empresaId: string): Origem => ({ empresaId, atorId: null, ip: null, dispositivo: "motor-bre" });
 
-async function q<T extends Linha>(tx: Tx, texto: string, valores: unknown[] = []): Promise<T[]> {
+export async function q<T extends Linha>(tx: Tx, texto: string, valores: unknown[] = []): Promise<T[]> {
   return (await tx.cliente.query(texto, valores)).rows as T[];
 }
 
 /** Página por (criado_em, id), da mais recente para a mais antiga. */
-function paginar<T, D>(linhas: (T & { criado_em: Date; id: string })[], limite: number, dto: (l: T & { criado_em: Date; id: string }) => D): Pagina<D> {
+export function paginar<T, D>(linhas: (T & { criado_em: Date; id: string })[], limite: number, dto: (l: T & { criado_em: Date; id: string }) => D): Pagina<D> {
   const temMais = linhas.length > limite;
   const itens = temMais ? linhas.slice(0, limite) : linhas;
   const ultimo = itens.at(-1);
@@ -55,6 +59,18 @@ const hojeMais = (tx: Tx, dias: number) => q<{ d: string }>(tx, "SELECT to_char(
 export async function lerConfig(tx: Tx): Promise<ConfigBre & { versao: number }> {
   const [l] = await q<{ config: object; versao: number }>(tx, "SELECT config, versao FROM bre_config WHERE empresa_id = $1", [tx.empresaId]);
   return { ...ConfigBre.parse(l?.config ?? {}), versao: l?.versao ?? 0 };
+}
+
+/** As últimas 100 mensagens de texto da conversa, em ordem, como a IA lê (cliente × atendente). */
+export async function mensagensDaConversa(tx: Tx, conversaId: string): Promise<MensagemAnalise[]> {
+  const linhas = await q<{ direcao: string; texto: string }>(
+    tx,
+    `SELECT direcao, texto FROM (SELECT direcao, texto, criado_em FROM mensagem
+       WHERE conversa_id = $1 AND empresa_id = $2 AND tipo = 'texto' AND direcao IN ('entrada','saida') AND texto IS NOT NULL
+       ORDER BY criado_em DESC LIMIT 100) m ORDER BY criado_em`,
+    [conversaId, tx.empresaId],
+  );
+  return linhas.map((m) => ({ de: m.direcao === "entrada" ? "cliente" : "atendente", texto: m.texto }));
 }
 
 export function criarServicoBre(s: Servicos, ia?: ProvedorIaBre) {
@@ -81,15 +97,55 @@ export function criarServicoBre(s: Servicos, ia?: ProvedorIaBre) {
     return l!.id;
   }
 
-  async function criarTarefa(tx: Tx, origem: Origem, contatoId: string, responsavelId: string, titulo: string, venceEm: string) {
-    await q(tx, `INSERT INTO tarefa (empresa_id, contato_id, titulo, responsavel_id, vence_em, criado_por) VALUES ($1, $2, $3, $4, ($5::date + time '09:00') AT TIME ZONE (SELECT fuso FROM empresa WHERE id = $1), $6)`, [
-      tx.empresaId,
-      contatoId,
-      titulo,
-      responsavelId,
-      venceEm,
-      origem.atorId,
-    ]);
+  async function criarTarefa(tx: Tx, origem: Origem, contatoId: string, responsavelId: string, titulo: string, venceEm: string, tipo: "retorno" | "pos_venda") {
+    await q(
+      tx,
+      `INSERT INTO tarefa (empresa_id, contato_id, titulo, responsavel_id, vence_em, criado_por, origem_bre)
+       VALUES ($1, $2, $3, $4, ($5::date + time '09:00') AT TIME ZONE (SELECT fuso FROM empresa WHERE id = $1), $6, $7)`,
+      [tx.empresaId, contatoId, titulo, responsavelId, venceEm, origem.atorId, tipo],
+    );
+  }
+
+  /**
+   * BR-017: abre o escalonamento (um aberto por cliente × situação) e avisa quem responde pelo cliente e o gestor
+   * da equipe dele. Enquanto estiver aberto, as automações não mandam mensagem para esse cliente.
+   */
+  async function abrirEscalonamento(
+    tx: Tx,
+    origem: Origem,
+    e: { contatoId: string; conversaId: string | null; situacao: SituacaoEscalonamento; origem: "ia" | "manual"; observacao?: string | null },
+  ): Promise<string | null> {
+    const [l] = await q<{ id: string }>(
+      tx,
+      `INSERT INTO escalonamento (empresa_id, contato_id, conversa_id, situacao, origem, observacao, criado_por)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       ON CONFLICT (empresa_id, contato_id, situacao) WHERE status = 'aberto' DO NOTHING RETURNING id`,
+      [tx.empresaId, e.contatoId, e.conversaId, e.situacao, e.origem, e.observacao ?? null, origem.atorId],
+    );
+    if (!l) return null;
+    const destinos = await q<{ usuario_id: string; nome: string }>(
+      tx,
+      `SELECT DISTINCT d.usuario_id, c.nome FROM contato c
+         CROSS JOIN LATERAL (
+           SELECT c.responsavel_id AS usuario_id
+           UNION SELECT eq.gestor_id FROM vinculo v JOIN equipe eq ON eq.id = v.equipe_id
+            WHERE v.empresa_id = c.empresa_id AND v.usuario_id = c.responsavel_id AND v.status = 'ativo' AND v.arquivado_em IS NULL AND eq.arquivado_em IS NULL
+         ) d
+       WHERE c.id = $1 AND c.empresa_id = $2 AND d.usuario_id IS NOT NULL`,
+      [e.contatoId, tx.empresaId],
+    );
+    const nomeSituacao = ESCALONAMENTOS.find((x) => x.codigo === e.situacao)!.nome;
+    for (const d of destinos) {
+      await notificar(tx, origem, { usuarioId: d.usuario_id, titulo: `Precisa de uma pessoa: ${nomeSituacao}`, texto: d.nome, link: "/bre" });
+    }
+    await registrar(tx, origem, {
+      acao: "bre.escalonamento_aberto",
+      entidade: "contato",
+      entidadeId: e.contatoId,
+      contatoId: e.contatoId,
+      depois: { escalonamentoId: l.id, situacao: e.situacao, origem: e.origem },
+    });
+    return l.id;
   }
 
   /**
@@ -97,7 +153,7 @@ export function criarServicoBre(s: Servicos, ia?: ProvedorIaBre) {
    * Data combinada com o cliente (reentrada ou retorno vencendo hoje) prevalece sobre o limite entre ciclos.
    */
   async function bloqueioDeTentativa(tx: Tx, c: { id: string; nao_contatar: boolean; estado_bre: string | null; ultima_entrega_em: string | null }, cfg: ConfigBre): Promise<string | null> {
-    if (c.nao_contatar) return "O cliente pediu para não ser contatado. Só fale com ele quando ele mandar mensagem.";
+    if (c.nao_contatar) return "{O contato} pediu para não ser contatad{o|a:contato}. Só fale de novo quando {o contato} mandar mensagem.";
     const [r] = await q<{ cedo: boolean; espera: boolean; entre_ciclos: boolean; combinado: boolean }>(
       tx,
       `SELECT
@@ -112,9 +168,9 @@ export function criarServicoBre(s: Servicos, ia?: ProvedorIaBre) {
                    AND retorno_em = (now() AT TIME ZONE (SELECT fuso FROM empresa WHERE id = $1))::date) AS combinado`,
       [tx.empresaId, c.estado_bre, c.ultima_entrega_em, cfg.horasAntesDoPrimeiroContato, c.id, cfg.horasEntreTentativas, cfg.diasEntreCiclos],
     );
-    if (r!.cedo) return `Cliente recente: o primeiro contato só ${cfg.horasAntesDoPrimeiroContato} horas depois da entrega.`;
+    if (r!.cedo) return `{Contato} recente: o primeiro contato só ${cfg.horasAntesDoPrimeiroContato} horas depois da entrega.`;
     if (r!.espera) return `Aguarde ${cfg.horasEntreTentativas} horas desde a última tentativa antes de abordar de novo.`;
-    if (r!.entre_ciclos && !r!.combinado) return `Este cliente não respondeu ao último ciclo. Novo contato só ${cfg.diasEntreCiclos} dias depois, ou na data combinada com ele.`;
+    if (r!.entre_ciclos && !r!.combinado) return `{Este contato} não respondeu ao último ciclo. Novo contato só ${cfg.diasEntreCiclos} dias depois, ou na data combinada com {ele|ela:contato}.`;
     return null;
   }
 
@@ -228,15 +284,18 @@ export function criarServicoBre(s: Servicos, ia?: ProvedorIaBre) {
       const responsavel = c.responsavel_id ?? ctx.usuarioId;
       if (e.retornoEm && e.resultado !== "OPTED_OUT") {
         const nome = PROXIMAS_ACOES.find((a) => a.codigo === e.proximaAcao)!.nome;
-        await criarTarefa(tx, origem, c.id, ctx.usuarioId, `Retorno: ${nome.toLowerCase()}`, e.retornoEm);
+        await criarTarefa(tx, origem, c.id, ctx.usuarioId, `Retorno: ${nome.toLowerCase()}`, e.retornoEm, "retorno");
         tarefas++;
       }
       // BR-019: venda gera a agenda de pós-venda.
       if (e.resultado === "PURCHASED") {
         for (const dias of cfg.diasPosVenda) {
-          await criarTarefa(tx, origem, c.id, responsavel, `Pós-venda D+${dias}`, await hojeMais(tx, dias));
+          await criarTarefa(tx, origem, c.id, responsavel, `Pós-venda D+${dias}`, await hojeMais(tx, dias), "pos_venda");
           tarefas++;
         }
+      }
+      if (e.escalonamento) {
+        await abrirEscalonamento(tx, origem, { contatoId: c.id, conversaId: e.conversaId ?? null, situacao: e.escalonamento, origem: "manual" });
       }
       await registrar(tx, origem, {
         acao: "bre.conversa_registrada",
@@ -433,7 +492,7 @@ export function criarServicoBre(s: Servicos, ia?: ProvedorIaBre) {
             ${cursor ? sql`AND (c.criado_em, c.id) < (${cursor.criadoEm}::timestamptz, ${cursor.id}::uuid)` : sql``}
           ORDER BY c.criado_em DESC, c.id DESC LIMIT ${f.limite + 1}`)
         .then((r) => r.rows.map((l) => ({ ...l, criado_em: new Date(l.criado_em) })));
-      const NOMES: Record<string, string> = { RECENT: "Cliente recente", ACTIVE: "Cliente ativo", ABOUT_TO_SLEEP: "Prestes a dormir", INACTIVE: "Inativo: reativar" };
+      const NOMES: Record<string, string> = { RECENT: "Primeiro contato depois da entrega", ACTIVE: "Manter o relacionamento", ABOUT_TO_SLEEP: "Reativar antes de esfriar", INACTIVE: "Reativar" };
       return paginar(linhas, f.limite, (l) => ({
         id: l.id,
         contatoId: l.id,
@@ -463,16 +522,8 @@ export function criarServicoBre(s: Servicos, ia?: ProvedorIaBre) {
                         WHERE o.empresa_id = $1 AND o.contato_id = $2 AND e.marco_bre IN ('INTEREST','PROPOSAL','NEGOTIATION','SALE')) AS diagnostico`,
         [ctx.empresaId, c.id],
       );
-      if (c.nao_contatar || extra!.anonimizado) throw invalido("Este cliente pediu para não ser contatado ou foi anonimizado: a conversa não vai para a IA.");
-      const mensagens = (
-        await q<{ direcao: string; texto: string }>(
-          tx,
-          `SELECT direcao, texto FROM (SELECT direcao, texto, criado_em FROM mensagem
-             WHERE conversa_id = $1 AND empresa_id = $2 AND tipo = 'texto' AND direcao IN ('entrada','saida') AND texto IS NOT NULL
-             ORDER BY criado_em DESC LIMIT 100) m ORDER BY criado_em`,
-          [conversaId, ctx.empresaId],
-        )
-      ).map((m): MensagemAnalise => ({ de: m.direcao === "entrada" ? "cliente" : "atendente", texto: m.texto }));
+      if (c.nao_contatar || extra!.anonimizado) throw invalido("{Este contato} pediu para não ser contatad{o|a:contato} ou foi anonimizad{o|a:contato}: a conversa não vai para a IA.");
+      const mensagens = await mensagensDaConversa(tx, conversaId);
       return { c, diagnostico: extra!.diagnostico, mensagens };
     });
 
@@ -487,7 +538,7 @@ export function criarServicoBre(s: Servicos, ia?: ProvedorIaBre) {
     const bloqueios: string[] = [];
     if (saida.sugereDesconto && dados.c.estado_bre === "RECENT") {
       saida = { ...saida, sugereDesconto: false };
-      bloqueios.push("Desconto não sugerido: cliente recente nunca recebe desconto.");
+      bloqueios.push("Desconto não sugerido: no estado Recente nunca há desconto.");
     } else if (saida.sugereDesconto && !dados.diagnostico) {
       saida = { ...saida, sugereDesconto: false };
       bloqueios.push("Desconto não sugerido: só depois do diagnóstico concluído.");
@@ -503,6 +554,9 @@ export function criarServicoBre(s: Servicos, ia?: ProvedorIaBre) {
         "INSERT INTO analise_bre (empresa_id, conversa_id, contato_id, provedor, doutrina, saida, bloqueios, autor_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id",
         [ctx.empresaId, conversaId, dados.c.id, provedor!.nome, VERSAO_DOUTRINA, JSON.stringify(saida), JSON.stringify(bloqueios), ctx.usuarioId],
       );
+      if (saida.escalonamento) {
+        await abrirEscalonamento(tx, origem, { contatoId: dados.c.id, conversaId, situacao: saida.escalonamento, origem: "ia", observacao: saida.resumo.slice(0, 500) });
+      }
       await registrar(tx, origem, {
         acao: "bre.conversa_analisada",
         entidade: "contato",
@@ -512,6 +566,43 @@ export function criarServicoBre(s: Servicos, ia?: ProvedorIaBre) {
       });
       return { ...saida, id: l!.id, provedor: provedor!.nome, bloqueios };
     });
+  }
+
+  async function escalonamentos(ctx: ContextoEmpresa, escopo: Escopo, f: { status: string; cursor?: string; limite: number }): Promise<Pagina<EscalonamentoDto>> {
+    const cursor = lerCursor(f.cursor);
+    return comEmpresa(banco, ctx.empresaId, async (tx) => {
+      const linhas = await tx.db
+        .execute<{ id: string; contato_id: string; contato_nome: string; conversa_id: string | null; situacao: SituacaoEscalonamento; origem: "ia" | "manual"; observacao: string | null; status: "aberto" | "resolvido"; criado_em: Date }>(sql`
+          SELECT x.id, x.contato_id, c.nome AS contato_nome, x.conversa_id, x.situacao, x.origem, x.observacao, x.status, x.criado_em
+          FROM escalonamento x JOIN contato c ON c.id = x.contato_id
+          WHERE x.empresa_id = ${ctx.empresaId} AND x.status = ${f.status}
+            AND (${escopo === "empresa"} OR ${filtroUsuariosVisiveis(ctx, escopo, sql.raw("c.responsavel_id"))})
+            ${cursor ? sql`AND (x.criado_em, x.id) < (${cursor.criadoEm}::timestamptz, ${cursor.id}::uuid)` : sql``}
+          ORDER BY x.criado_em DESC, x.id DESC LIMIT ${f.limite + 1}`)
+        .then((r) => r.rows.map((l) => ({ ...l, criado_em: new Date(l.criado_em) })));
+      return paginar(linhas, f.limite, (l) => ({
+        id: l.id,
+        contatoId: l.contato_id,
+        contatoNome: l.contato_nome,
+        conversaId: l.conversa_id,
+        situacao: l.situacao,
+        origem: l.origem,
+        observacao: l.observacao,
+        status: l.status,
+        criadoEm: l.criado_em.toISOString(),
+      }));
+    });
+  }
+
+  async function resolverEscalonamento(ctx: ContextoEmpresa, escopo: Escopo, origem: Origem, id: string) {
+    await comEmpresa(banco, ctx.empresaId, async (tx) => {
+      const [x] = await q<{ contato_id: string }>(tx, "SELECT contato_id FROM escalonamento WHERE id = $1 AND empresa_id = $2 AND status = 'aberto'", [id, ctx.empresaId]);
+      if (!x) throw naoEncontrado("Escalonamento aberto");
+      await contatoVisivel(tx, ctx, escopo, x.contato_id);
+      await q(tx, "UPDATE escalonamento SET status = 'resolvido', resolvido_por = $2, resolvido_em = now() WHERE id = $1", [id, ctx.usuarioId]);
+      await registrar(tx, origem, { acao: "bre.escalonamento_resolvido", entidade: "contato", entidadeId: x.contato_id, contatoId: x.contato_id, depois: { escalonamentoId: id } });
+    });
+    return { ok: true as const };
   }
 
   // Rotinas (fila de jobs) ---------------------------------------------------------------------------
@@ -581,6 +672,8 @@ export function criarServicoBre(s: Servicos, ia?: ProvedorIaBre) {
   }
 
   return {
+    escalonamentos,
+    resolverEscalonamento,
     analisarConversa,
     registrarConversa,
     config,

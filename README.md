@@ -174,6 +174,14 @@ servidor e a pessoa registra.
   a pessoa confere e salva. O motor descarta desconto para cliente recente ou antes do diagnóstico e oferta antes
   dos três "sim", e diz por quê. Quem pediu "não contatar" ou foi anonimizado nunca vai para a IA. Cada análise
   fica guardada com o provedor e a versão da doutrina.
+- **Precisa de uma pessoa** (escalonamento): pronto para comprar, ajuda técnica, VIP ou reclamação, apontado pela IA
+  ou pela equipe no registro. Avisa quem responde pelo cliente e o gestor, e nenhuma mensagem automática sai para o
+  cliente até alguém marcar como resolvido.
+- **SQ-BRE** (Qualidade): na conversa, "SQ-BRE" pede a nota prévia da IA nos 5 pilares (0 a 20) e o supervisor
+  confirma, ajustando o que precisar. A prévia fica guardada; só a nota confirmada conta.
+- **Desempenho (BPI)** em "Motor BRE": ranking do mês com os pilares Receita 30%, Pipeline 20%, Inteligência 20%,
+  Qualidade 20% e Relacionamento 10% (pilar sem dados fica fora) e quem está em coaching. Toda segunda, quem ficou
+  abaixo de 70 num pilar por 2 semanas gera aviso ao gestor. A meta de receita por pessoa fica nos limites.
 
 ## Testes
 

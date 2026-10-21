@@ -105,6 +105,16 @@ export const TIPOS_REENTRADA = [
 ] as const;
 export type TipoReentrada = (typeof TIPOS_REENTRADA)[number]["codigo"];
 
+/** 3.8 — situações que tiram a conversa da automação e chamam uma pessoa (BR-017). */
+export const ESCALONAMENTOS = [
+  { codigo: "READY_TO_BUY", nome: "Pronto para comprar" },
+  { codigo: "TECHNICAL_HELP", nome: "Precisa de ajuda técnica" },
+  { codigo: "VIP", nome: "VIP" },
+  { codigo: "COMPLAINT", nome: "Reclamação" },
+] as const;
+export type SituacaoEscalonamento = (typeof ESCALONAMENTOS)[number]["codigo"];
+export const CODIGOS_ESCALONAMENTOS = lista(ESCALONAMENTOS);
+
 /** 3.9 — critérios de encerramento e checklist. */
 export const CRITERIOS_ENCERRAMENTO = [
   { codigo: "PURCHASE_DONE", nome: "Compra realizada" },
@@ -162,6 +172,8 @@ export const ConfigBre = z.object({
   /** DEC-010: concordância mínima IA × supervisor para liberar automação (fase 8.2). */
   concordanciaParaAutomacao: z.number().int().min(50).max(100).default(85),
   amostraParaAutomacao: z.number().int().min(20).max(5000).default(200),
+  /** Pilar Receita do BPI: meta mensal por pessoa, em centavos. null = sem meta (o pilar fica fora do BPI). */
+  metaReceitaCentavos: z.number().int().min(0).max(100_000_000_00).nullable().default(null),
 });
 export type ConfigBre = z.infer<typeof ConfigBre>;
 export const CONFIG_BRE_PADRAO: ConfigBre = ConfigBre.parse({});
@@ -237,6 +249,8 @@ export const RegistroBreEntrada = z
     proximaAcao: z.enum(lista(PROXIMAS_ACOES), { error: "Escolha a próxima ação." }),
     retornoEm: z.iso.date({ error: "Data do retorno inválida." }).nullish(),
     break: BreakEntrada.nullish(),
+    /** BR-017: a conversa precisa de uma pessoa (abre escalonamento e avisa quem responde). */
+    escalonamento: z.enum(CODIGOS_ESCALONAMENTOS).nullish(),
     /** Quanto tempo a pessoa levou para registrar (meta: 30 s). */
     segundos: z.number().int().min(0).max(36000).nullish(),
   })
@@ -322,7 +336,9 @@ export const SaidaIaBre = z.object({
   retornoEmDias: z.number().int().min(0).max(365).nullable(),
   sugereOferta: z.boolean(),
   sugereDesconto: z.boolean(),
-  escalonamento: z.enum(["READY_TO_BUY", "TECHNICAL_HELP", "VIP", "COMPLAINT"]).nullable(),
+  escalonamento: z.enum(CODIGOS_ESCALONAMENTOS).nullable(),
+  /** Nota prévia do SQ-BRE por pilar (0 a 20); o supervisor confirma (D-05). */
+  sqBre: z.object({ H: z.number().int().min(0).max(20), D: z.number().int().min(0).max(20), I: z.number().int().min(0).max(20), V: z.number().int().min(0).max(20), P: z.number().int().min(0).max(20) }),
   incertezas: z.array(z.string().max(300)).max(10),
 });
 export type SaidaIaBre = z.infer<typeof SaidaIaBre>;
@@ -334,3 +350,115 @@ export const AnaliseBreDto = SaidaIaBre.extend({
   bloqueios: z.array(z.string()),
 });
 export type AnaliseBreDto = z.infer<typeof AnaliseBreDto>;
+
+// SQ-BRE (ETR 6.1, D-05, D-06): 5 pilares de 20 pontos. A IA dá a prévia; só a nota confirmada conta no BPI.
+
+export const PILARES_SQ = [
+  { codigo: "H", nome: "Humanização", itens: ["Personalizou a conversa", "Usou o nome", "Citou algo da compra", "Mostrou interesse genuíno", "Tom natural"] },
+  { codigo: "D", nome: "Diagnóstico", itens: ["Contexto", "Uso", "Preferência", "Objeções", "Momento de compra"] },
+  { codigo: "I", nome: "Inteligência", itens: ["Registrou ou atualizou os dados que a conversa trouxe"] },
+  { codigo: "V", nome: "Valor", itens: ["Benefício", "Diferença", "Conhecimento", "Recomendação personalizada", "Confiança", "Não vendeu só desconto"] },
+  { codigo: "P", nome: "Próximo passo", itens: ["Ação da lista com data (20), sem data (10), nenhuma (0)"] },
+] as const;
+export type PilarSq = (typeof PILARES_SQ)[number]["codigo"];
+export const NotasSq = z.object({
+  H: z.number().int().min(0, { error: "Cada pilar vai de 0 a 20." }).max(20, { error: "Cada pilar vai de 0 a 20." }),
+  D: z.number().int().min(0, { error: "Cada pilar vai de 0 a 20." }).max(20, { error: "Cada pilar vai de 0 a 20." }),
+  I: z.number().int().min(0, { error: "Cada pilar vai de 0 a 20." }).max(20, { error: "Cada pilar vai de 0 a 20." }),
+  V: z.number().int().min(0, { error: "Cada pilar vai de 0 a 20." }).max(20, { error: "Cada pilar vai de 0 a 20." }),
+  P: z.number().int().min(0, { error: "Cada pilar vai de 0 a 20." }).max(20, { error: "Cada pilar vai de 0 a 20." }),
+});
+export type NotasSq = z.infer<typeof NotasSq>;
+export const somaSq = (n: NotasSq) => n.H + n.D + n.I + n.V + n.P;
+
+/** Faixas do SQ-BRE (FONTE). */
+export function faixaSq(nota: number): string {
+  if (nota >= 95) return "Excelência";
+  if (nota >= 85) return "Muito bom";
+  if (nota >= 70) return "Bom";
+  if (nota >= 50) return "Regular";
+  return "Requer reciclagem";
+}
+
+export const SqBreDto = z.object({
+  id: Id,
+  conversaId: Id,
+  avaliadoId: Id,
+  avaliadoNome: z.string(),
+  contatoNome: z.string().nullable(),
+  provedor: z.string(),
+  previa: NotasSq,
+  notaPrevia: z.number().int(),
+  confirmada: NotasSq.nullable(),
+  nota: z.number().int().nullable(),
+  faixa: z.string().nullable(),
+  feedback: z.string().nullable(),
+  status: z.enum(["previa", "confirmada"]),
+  criadoEm: DataIso,
+});
+export type SqBreDto = z.infer<typeof SqBreDto>;
+export const SqBreEntrada = z.object({ conversaId: Id });
+export const ConfirmarSqBreEntrada = z.object({ notas: NotasSq, feedback: z.string().trim().max(2000).nullish() });
+export const FiltroSqBre = Paginacao.extend({ status: z.enum(["previa", "confirmada"]).optional() });
+
+// BPI (ETR 6.2, figura 14.7): pilares de 0 a 100 com os pesos do livro. Pilar sem dados fica fora e os pesos
+// dos demais são redistribuídos — nunca vira zero por falta de informação.
+
+export const PILARES_BPI = [
+  { codigo: "receita", nome: "Receita", peso: 30 },
+  { codigo: "pipeline", nome: "Pipeline", peso: 20 },
+  { codigo: "inteligencia", nome: "Inteligência (CRM)", peso: 20 },
+  { codigo: "qualidade", nome: "Qualidade", peso: 20 },
+  { codigo: "relacionamento", nome: "Relacionamento", peso: 10 },
+] as const;
+export type PilarBpi = (typeof PILARES_BPI)[number]["codigo"];
+export type NotasBpi = Record<PilarBpi, number | null>;
+
+/** Valor contra a meta, em 0 a 100 (acima da meta não passa de 100). */
+export const contraMeta = (valor: number, meta: number) => (meta > 0 ? Math.min(100, (valor / meta) * 100) : 0);
+
+export function calcularBpi(n: NotasBpi): number | null {
+  const presentes = PILARES_BPI.filter((p) => n[p.codigo] !== null);
+  const pesos = presentes.reduce((t, p) => t + p.peso, 0);
+  if (!pesos) return null;
+  return Math.round((presentes.reduce((t, p) => t + p.peso * n[p.codigo]!, 0) / pesos) * 10) / 10;
+}
+
+/** Faixas do BPI (FONTE, figura 14.7). */
+export function faixaBpi(bpi: number): string {
+  if (bpi >= 95) return "Elite";
+  if (bpi >= 90) return "Excelente";
+  if (bpi >= 80) return "Muito bom";
+  if (bpi >= 70) return "Adequado";
+  return "Plano de desenvolvimento";
+}
+
+const NotaPilar = z.number().nullable();
+export const BpiDto = z.object({
+  usuarioId: Id,
+  nome: z.string(),
+  posicao: z.number().int(),
+  pilares: z.object({ receita: NotaPilar, pipeline: NotaPilar, inteligencia: NotaPilar, qualidade: NotaPilar, relacionamento: NotaPilar }),
+  bpi: z.number().nullable(),
+  faixa: z.string().nullable(),
+  /** Pilares abaixo de 70 nas duas últimas semanas (BR-022). */
+  coaching: z.array(z.string()),
+});
+export type BpiDto = z.infer<typeof BpiDto>;
+export const FiltroBpi = z.object({ mes: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, { error: "Mês no formato AAAA-MM." }).optional() });
+export const BpiRespostaDto = z.object({ mes: z.string(), itens: z.array(BpiDto) });
+
+// Escalonamento (BR-017, FR-024).
+export const EscalonamentoDto = z.object({
+  id: Id,
+  contatoId: Id,
+  contatoNome: z.string(),
+  conversaId: Id.nullable(),
+  situacao: z.enum(CODIGOS_ESCALONAMENTOS),
+  origem: z.enum(["ia", "manual"]),
+  observacao: z.string().nullable(),
+  status: z.enum(["aberto", "resolvido"]),
+  criadoEm: DataIso,
+});
+export type EscalonamentoDto = z.infer<typeof EscalonamentoDto>;
+export const FiltroEscalonamentos = Paginacao.extend({ status: z.enum(["aberto", "resolvido"]).default("aberto") });

@@ -138,6 +138,9 @@ tests/      integration/ (Vitest + PostgreSQL real), e2e/ (Playwright, 5 largura
   cliente (índice único parcial); `registro_bre`, `break_bre` e `reentrada` guardam o registro de 30 s, a Regra de
   Ouro e o retorno combinado. Os limites de cada empresa ficam em `bre_config` (versão + auditoria). Os bloqueios
   da fila do dia e do registro são as mesmas regras, em SQL para a lista e em código para o registro.
+  Na 8.2: `analise_bre` (o que a IA sugeriu e o que o motor descartou), `sq_bre` (prévia e nota confirmada lado a
+  lado), `escalonamento` (um aberto por cliente × situação), `coaching_alerta` (um por pessoa × pilar × semana) e
+  `tarefa.origem_bre`. O BPI não tem tabela: sai dessas fontes na consulta (ADR-033).
 - Campos personalizados: definição em `campo_personalizado`, valores em `campos jsonb` validados pelo serviço.
 - Sessões e tokens guardam só o HMAC (`SESSION_SECRET`); conteúdo sensível de jobs vai cifrado (`CRM_CHAVE`).
 

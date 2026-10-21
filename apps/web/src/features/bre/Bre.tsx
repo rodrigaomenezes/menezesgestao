@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   CATEGORIAS_BREAK,
+  ESCALONAMENTOS,
+  PILARES_BPI,
   ESTADOS_CLIENTE,
   ESTADOS_EMOCIONAIS,
   PROXIMAS_ACOES,
@@ -10,6 +12,8 @@ import {
   SINS,
   TEMPERATURAS,
   type AnaliseBreDto,
+  type BpiDto,
+  type EscalonamentoDto,
   type ItemFilaBreDto,
   type MotivoBreakDto,
   type ReentradaDto,
@@ -48,6 +52,7 @@ export function BotaoRegistrarBre({ contatoId, conversaId, aoRegistrar }: { cont
     get<{ itens: MotivoBreakDto[] }>("/bre/motivos").then((r) => setMotivos(r.itens.filter((m) => !m.arquivadoEm)), () => undefined);
   }, [aberto]);
   const [avisoIa, setAvisoIa] = useState("");
+  const [escalonar, setEscalonar] = useState("");
   const daCategoria = motivos.filter((m) => m.categoria === categoria);
   // A IA só pré-preenche: a pessoa confere e salva (BRE-P-010).
   const sugestao = useEnvio(async () => {
@@ -64,6 +69,7 @@ export function BotaoRegistrarBre({ contatoId, conversaId, aoRegistrar }: { cont
       setMotivoId("");
       setComentario(a.break.comentario);
     }
+    setEscalonar(a.escalonamento ?? "");
     setAvisoIa([a.resumo, ...a.bloqueios, ...a.incertezas].join(" "));
   });
   const semRetorno = proximaAcao === "CLOSE_NO_INTEREST" || resultado === "OPTED_OUT";
@@ -78,6 +84,7 @@ export function BotaoRegistrarBre({ contatoId, conversaId, aoRegistrar }: { cont
       proximaAcao,
       retornoEm: semRetorno ? null : retornoEm,
       break: comBreak ? { categoria, motivoId: motivoId || daCategoria[0]?.id, comentario } : null,
+      escalonamento: escalonar || null,
       segundos: Math.round((Date.now() - inicio) / 1000),
     });
     avisar(r.cicloEncerrado ? "Conversa registrada. O ciclo foi encerrado e a reentrada ficou programada." : "Conversa registrada.");
@@ -107,6 +114,7 @@ export function BotaoRegistrarBre({ contatoId, conversaId, aoRegistrar }: { cont
               <Escolha rotulo="Temperatura" nome="bre-temperatura" valor={temperatura} aoMudar={setTemperatura} opcoes={opcoes(TEMPERATURAS)} />
               <Escolha rotulo="Estado emocional" nome="bre-emocao" valor={emocao} aoMudar={setEmocao} opcoes={opcoes(ESTADOS_EMOCIONAIS)} vazio="Não percebi" />
               <Escolha rotulo="Próxima ação" nome="bre-acao" valor={proximaAcao} aoMudar={setProximaAcao} opcoes={opcoes(PROXIMAS_ACOES)} />
+              <Escolha rotulo="Precisa de uma pessoa?" nome="bre-escalonar" valor={escalonar} aoMudar={setEscalonar} opcoes={opcoes(ESCALONAMENTOS)} vazio="Não" />
               {!semRetorno && <Campo rotulo="Data do retorno" nome="bre-retorno" tipo="date" valor={retornoEm} aoMudar={setRetornoEm} obrigatorio />}
             </div>
             <fieldset className="campo grupo-marcar">
@@ -205,12 +213,21 @@ const LIMITES = [
 function Limites() {
   const avisar = useAviso();
   const [valores, setValores] = useState<Record<string, string>>({});
+  const [meta, setMeta] = useState("");
   const carregar = useCallback(() => {
-    get<Record<string, number>>("/bre/config").then((c) => setValores(Object.fromEntries(LIMITES.map((l) => [l.chave, String(c[l.chave])]))), () => undefined);
+    get<Record<string, number | null>>("/bre/config").then((c) => {
+      setValores(Object.fromEntries(LIMITES.map((l) => [l.chave, String(c[l.chave])])));
+      setMeta(c.metaReceitaCentavos ? String(c.metaReceitaCentavos / 100) : "");
+    }, () => undefined);
   }, []);
   useEffect(carregar, [carregar]);
   const envio = useEnvio(async () => {
-    await put("/bre/config", Object.fromEntries(LIMITES.map((l) => [l.chave, Number(valores[l.chave])])));
+    const reais = meta.trim() ? Number(meta.replace(/\./g, "").replace(",", ".")) : null;
+    if (reais !== null && !(reais >= 0)) {
+      envio.setErro("Meta de receita: digite um valor em reais, como 42000.");
+      return;
+    }
+    await put("/bre/config", { ...Object.fromEntries(LIMITES.map((l) => [l.chave, Number(valores[l.chave])])), metaReceitaCentavos: reais === null ? null : Math.round(reais * 100) });
     avisar("Limites salvos.");
     carregar();
   });
@@ -222,12 +239,98 @@ function Limites() {
           {LIMITES.map((l) => (
             <Campo key={l.chave} rotulo={l.rotulo} nome={`bre-${l.chave}`} tipo="number" valor={valores[l.chave] ?? ""} aoMudar={(v) => setValores({ ...valores, [l.chave]: v })} obrigatorio />
           ))}
+          <Campo rotulo="Meta de receita por pessoa no mês (R$, vazio = sem meta)" nome="bre-meta" valor={meta} aoMudar={setMeta} />
         </div>
         <Mensagem tipo="erro">{envio.erro}</Mensagem>
         <button type="submit" className="botao" disabled={envio.enviando}>
           Salvar limites
         </button>
       </form>
+    </section>
+  );
+}
+
+const nomeSituacao = (c: string) => ESCALONAMENTOS.find((x) => x.codigo === c)?.nome ?? c;
+
+/** BR-017: conversas que precisam de uma pessoa (a automação fica parada até resolver). */
+function Escalonamentos() {
+  const { pode } = useSessao();
+  const avisar = useAviso();
+  const lista = usePaginado<EscalonamentoDto>("/bre/escalonamentos?limite=30");
+  useTempoReal(["bre.escalonamento"], () => void lista.recarregar());
+  const resolver = async (x: EscalonamentoDto) => {
+    try {
+      await patch(`/bre/escalonamentos/${x.id}`);
+      avisar("Escalonamento resolvido.");
+      void lista.recarregar();
+    } catch (e) {
+      avisar(e instanceof ErroApi ? e.message : "Não foi possível salvar.", "erro");
+    }
+  };
+  if (!lista.carregando && !lista.itens.length && !lista.erro) return null;
+  return (
+    <section className="cartao" aria-labelledby="titulo-escalonamentos">
+      <h2 id="titulo-escalonamentos">Precisa de uma pessoa</h2>
+      <p className="dica">Enquanto estiver aqui, nenhuma mensagem automática sai para essa pessoa.</p>
+      <Mensagem tipo="erro">{lista.erro}</Mensagem>
+      <ul className="lista">
+        {lista.itens.map((x) => (
+          <li key={x.id} className="item">
+            <div className="item-principal">
+              <strong>{x.contatoNome}</strong>
+              <span className="item-detalhe">
+                {nomeSituacao(x.situacao)} · {x.origem === "ia" ? "apontado pela IA" : "apontado pela equipe"}
+              </span>
+              {x.observacao && <span className="item-detalhe">{x.observacao}</span>}
+            </div>
+            {pode("bre", "editar") && (
+              <div className="item-acoes">
+                <button type="button" className="botao botao-secundario" onClick={() => void resolver(x)}>
+                  Resolvido
+                </button>
+              </div>
+            )}
+          </li>
+        ))}
+      </ul>
+      <CarregarMais visivel={lista.temMais} carregando={lista.carregando} aoClicar={() => void lista.carregarMais()} />
+    </section>
+  );
+}
+
+const numero = (n: number | null) => (n === null ? "sem dados" : n.toLocaleString("pt-BR", { maximumFractionDigits: 1 }));
+
+/** BPI do mês (D-14): ranking, pilares e quem está em coaching (BR-022). */
+function Desempenho() {
+  const [mes, setMes] = useState("");
+  const [dados, setDados] = useState<{ mes: string; itens: BpiDto[] } | null>(null);
+  const [erro, setErro] = useState("");
+  useEffect(() => {
+    get<{ mes: string; itens: BpiDto[] }>(`/bre/desempenho${mes ? `?mes=${mes}` : ""}`).then(
+      (r) => (setDados(r), setErro("")),
+      (e) => setErro(e instanceof ErroApi ? e.message : "Não foi possível carregar o desempenho."),
+    );
+  }, [mes]);
+  const comDados = dados?.itens.filter((i) => i.bpi !== null) ?? [];
+  return (
+    <section className="cartao" aria-labelledby="titulo-desempenho-bre">
+      <h2 id="titulo-desempenho-bre">Desempenho (BPI)</h2>
+      <Campo rotulo="Mês" nome="bre-mes" tipo="month" valor={mes || dados?.mes || ""} aoMudar={setMes} />
+      <Mensagem tipo="erro">{erro}</Mensagem>
+      {dados && !comDados.length && <ListaVazia>Ninguém atendeu pelo método BRE neste mês.</ListaVazia>}
+      <ol className="lista">
+        {comDados.map((i) => (
+          <li key={i.usuarioId} className="item">
+            <div className="item-principal">
+              <strong>
+                {i.posicao}º {i.nome} · BPI {numero(i.bpi)} ({i.faixa})
+              </strong>
+              <span className="item-detalhe">{PILARES_BPI.map((p) => `${p.nome}: ${numero(i.pilares[p.codigo])}`).join(" · ")}</span>
+              {i.coaching.length > 0 && <span className="item-detalhe">Coaching: abaixo de 70 há 2 semanas em {i.coaching.join(", ")}</span>}
+            </div>
+          </li>
+        ))}
+      </ol>
     </section>
   );
 }
@@ -239,6 +342,7 @@ export function Bre() {
   return (
     <>
       <Titulo>Motor BRE</Titulo>
+      <Escalonamentos />
       <section className="cartao" aria-labelledby="titulo-fila-bre">
         <h2 id="titulo-fila-bre">Fila do dia</h2>
         <p className="dica">Só aparece quem pode ser contatado hoje: os limites de tentativas, silêncio e “não contatar” já foram aplicados.</p>
@@ -260,6 +364,7 @@ export function Bre() {
         <CarregarMais visivel={fila.temMais} carregando={fila.carregando} aoClicar={() => void fila.carregarMais()} />
       </section>
       <Reentradas />
+      <Desempenho />
       {pode("bre", "administrar") && <Limites />}
     </>
   );

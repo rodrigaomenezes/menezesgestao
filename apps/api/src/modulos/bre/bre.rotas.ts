@@ -5,7 +5,15 @@ import {
   AnaliseBreDto,
   AtualizarMotivoBreakEntrada,
   AtualizarReentradaEntrada,
+  BpiRespostaDto,
   BreakDto,
+  ConfirmarSqBreEntrada,
+  EscalonamentoDto,
+  FiltroBpi,
+  FiltroEscalonamentos,
+  FiltroSqBre,
+  SqBreDto,
+  SqBreEntrada,
   ConfigBreDto,
   ConfigBreEntrada,
   EncerramentoBreEntrada,
@@ -24,16 +32,26 @@ import {
   pagina,
 } from "@mg/shared";
 import type { Servicos } from "../../app.js";
-import { exigirEmpresa, exigirEscopo, origemDe } from "../acesso/acesso.js";
+import { ErroApp } from "../../infra/erros.js";
+import { exigirEmpresa, exigirEscopo, origemDe, type ContextoEmpresa } from "../acesso/acesso.js";
 import { criarServicoBre } from "./bre.servico.js";
+import { criarServicoDesempenho } from "./desempenho.servico.js";
 
 export const FILA_BRE_DIARIA = "bre.classificar";
 export const FILA_BRE_HORARIA = "bre.silencio";
+export const FILA_BRE_SEMANAL = "bre.coaching";
+
+/** O SQ-BRE mora na Qualidade (DEC-014), mas só existe com o motor BRE ligado. */
+function exigirBre(ctx: ContextoEmpresa): ContextoEmpresa {
+  if (!ctx.modulos.includes("bre")) throw new ErroApp(403, "MODULO_INATIVO", "Este módulo não está ativo no plano da empresa. Fale com o administrador.");
+  return ctx;
+}
 
 export const rotasBre =
   (s: Servicos): FastifyPluginAsyncZod =>
   async (app) => {
     const bre = criarServicoBre(s);
+    const desempenho = criarServicoDesempenho(s);
     const tags = ["Motor BRE"];
     const acesso = (acao: "ver" | "criar" | "editar" | "administrar") => ({ acesso: { modulo: "bre" as const, acao } });
 
@@ -98,6 +116,42 @@ export const rotasBre =
       { config: acesso("editar"), schema: { tags, summary: "Marcar reentrada como feita ou cancelada", params: ParamId, body: AtualizarReentradaEntrada, response: { 200: Ok } } },
       async (req) => bre.concluirReentrada(exigirEmpresa(req), exigirEscopo(req), origemDe(req), req.params.id, req.body.status),
     );
+
+    app.get(
+      "/api/bre/desempenho",
+      { config: acesso("ver"), schema: { tags, summary: "BPI do mês por pessoa (ranking) e pilares em coaching", querystring: FiltroBpi, response: { 200: BpiRespostaDto } } },
+      async (req) => desempenho.bpi(exigirEmpresa(req), exigirEscopo(req), req.query.mes),
+    );
+    app.get(
+      "/api/bre/escalonamentos",
+      { config: acesso("ver"), schema: { tags, summary: "Conversas que precisam de uma pessoa", querystring: FiltroEscalonamentos, response: { 200: pagina(EscalonamentoDto) } } },
+      async (req) => bre.escalonamentos(exigirEmpresa(req), exigirEscopo(req), req.query),
+    );
+    app.patch(
+      "/api/bre/escalonamentos/:id",
+      { config: acesso("editar"), schema: { tags, summary: "Marcar escalonamento como resolvido", params: ParamId, response: { 200: Ok } } },
+      async (req) => bre.resolverEscalonamento(exigirEmpresa(req), exigirEscopo(req), origemDe(req), req.params.id),
+    );
+
+    {
+      const tagsQ = ["Qualidade"];
+      const qualidade = (acao: "ver" | "criar") => ({ acesso: { modulo: "qualidade" as const, acao } });
+      app.get(
+        "/api/qualidade/sq-bre",
+        { config: qualidade("ver"), schema: { tags: tagsQ, summary: "Avaliações SQ-BRE (prévias e confirmadas)", querystring: FiltroSqBre, response: { 200: pagina(SqBreDto) } } },
+        async (req) => desempenho.listarSq(exigirBre(exigirEmpresa(req)), exigirEscopo(req), req.query),
+      );
+      app.post(
+        "/api/qualidade/sq-bre",
+        { config: qualidade("criar"), schema: { tags: tagsQ, summary: "Prévia SQ-BRE da conversa pela IA", body: SqBreEntrada, response: { 200: SqBreDto } } },
+        async (req) => desempenho.previa(exigirBre(exigirEmpresa(req)), exigirEscopo(req), origemDe(req), req.body.conversaId),
+      );
+      app.post(
+        "/api/qualidade/sq-bre/:id/confirmar",
+        { config: qualidade("criar"), schema: { tags: tagsQ, summary: "Supervisor confirma a nota SQ-BRE (ajustando ou não a prévia)", params: ParamId, body: ConfirmarSqBreEntrada, response: { 200: SqBreDto } } },
+        async (req) => desempenho.confirmar(exigirBre(exigirEmpresa(req)), exigirEscopo(req), origemDe(req), req.params.id, req.body.notas, req.body.feedback ?? null),
+      );
+    }
 
     app.post(
       "/api/bre/oportunidades/:id/encerrar",

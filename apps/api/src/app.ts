@@ -35,7 +35,8 @@ import { rotasPerfis } from "./modulos/permissoes/perfis.rotas.js";
 import { rotasAuditoria } from "./modulos/auditoria/auditoria.rotas.js";
 import { rotasNotificacoes } from "./modulos/notificacoes/notificacoes.rotas.js";
 import { rotasInicio } from "./modulos/inicio/inicio.rotas.js";
-import { FILA_BRE_DIARIA, FILA_BRE_HORARIA, rotasBre } from "./modulos/bre/bre.rotas.js";
+import { FILA_BRE_DIARIA, FILA_BRE_HORARIA, FILA_BRE_SEMANAL, rotasBre } from "./modulos/bre/bre.rotas.js";
+import { criarServicoDesempenho } from "./modulos/bre/desempenho.servico.js";
 import { criarServicoBre } from "./modulos/bre/bre.servico.js";
 import { rotasSistema } from "./modulos/sistema/sistema.rotas.js";
 import { provedorArquivosBanco } from "./modulos/arquivos/armazenamento.js";
@@ -211,6 +212,10 @@ export async function criarApp(servicos: Servicos): Promise<AppMontado> {
   await servicos.jobs.agendar(FILA_BRE_DIARIA, "7 3 * * *");
   await servicos.jobs.trabalhar(FILA_BRE_HORARIA, () => bre.rotinaHoraria());
   await servicos.jobs.agendar(FILA_BRE_HORARIA, "11 * * * *");
+  // Coaching (BR-022): segunda de manhã, depois de fechar a semana.
+  const desempenhoBre = criarServicoDesempenho(servicos);
+  await servicos.jobs.trabalhar(FILA_BRE_SEMANAL, () => desempenhoBre.rotinaSemanal());
+  await servicos.jobs.agendar(FILA_BRE_SEMANAL, "13 7 * * 1");
   await app.register(rotasWhiteLabel(servicos, arquivos, envio));
   // Automações: varre os eventos a cada minuto. Cobrança: ciclo diário de faturas.
   const automacoes = criarServicoAutomacoes(servicos, envio);

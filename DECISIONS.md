@@ -493,3 +493,20 @@ O menezesgestao já tem multiempresa, WhatsApp, fila, tarefas, vendas e eventos:
 na etapa preserva o princípio de "tudo é configuração" sem perder a doutrina; e a 8.1 sem IA deixa o processo ser
 validado antes da automação, como o próprio livro pede.
 
+# ADR-033 — SQ-BRE na Qualidade, BPI calculado na consulta e escalonamento que para a automação
+
+## Decisão
+O SQ-BRE mora no módulo Qualidade (rotas `/api/qualidade/sq-bre`, permissão de Qualidade) e só existe com o motor BRE
+ligado. Tabela própria `sq_bre`, com a prévia da IA e a nota confirmada lado a lado; uma prévia aberta por conversa.
+O BPI não tem tabela: é calculado na consulta a partir das vendas confirmadas, do funil (eventos de etapa), dos
+registros BRE, do SQ-BRE confirmado e das tarefas do motor (`tarefa.origem_bre`). Pilar sem dados sai do cálculo e os
+pesos dos demais são redistribuídos; a meta mensal de receita vale proporcional aos dias do período; quem não atendeu
+no período (dono, financeiro) fica fora. O coaching roda toda segunda (job) e grava `coaching_alerta` único por
+pessoa × pilar × semana. O escalonamento é único por cliente × situação enquanto aberto, avisa o responsável e o
+gestor da equipe e faz as automações ignorarem o envio de mensagem para o cliente.
+
+## Por quê
+Reaproveitar a Qualidade mantém um lugar só para avaliar atendimento, sem misturar a escala 0–10 dos critérios livres
+com os 5 pilares × 20 da doutrina. Calcular o BPI na hora evita números duplicados que divergem dos registros; se o
+volume pedir, o caminho é a visão materializada já prevista (item 25 da dívida).
+

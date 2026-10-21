@@ -163,7 +163,7 @@ describe("Motor BRE — limites de contato", () => {
     const { rows } = await t.banco.pool.query("SELECT nao_contatar FROM contato WHERE id = $1", [contatoId]);
     expect(rows[0].nao_contatar).toBe(true);
     const tentativa = await vendedor.pedir("POST", "/api/bre/registros", registro(contatoId));
-    expect(tentativa.json().error.message).toBe("O cliente pediu para não ser contatado. Só fale com ele quando ele mandar mensagem.");
+    expect(tentativa.json().error.message).toBe("O aluno pediu para não ser contatado. Só fale de novo quando o aluno mandar mensagem.");
     const fila = (await vendedor.get("/api/bre/fila-do-dia?limite=100")).json();
     expect(fila.itens.map((i: { contatoId: string }) => i.contatoId)).not.toContain(contatoId);
   });
@@ -244,7 +244,7 @@ describe("Motor BRE — análise da conversa pela IA (8.2)", () => {
     const a = r.json();
     expect(a).toMatchObject({ provedor: "demonstracao", resultado: "REPLIED_NO_ADVANCE", sugereDesconto: false, sugereOferta: false, break: { categoria: "C_FINANCIAL" } });
     expect(a.bloqueios).toEqual([
-      "Desconto não sugerido: cliente recente nunca recebe desconto.",
+      "Desconto não sugerido: no estado Recente nunca há desconto.",
       'Oferta não sugerida: faltam os três "sim" (confirmação, concordância e visualização).',
     ]);
     const { rows } = await t.banco.pool.query("SELECT provedor, doutrina FROM analise_bre WHERE id = $1", [a.id]);
@@ -257,7 +257,7 @@ describe("Motor BRE — análise da conversa pela IA (8.2)", () => {
     await t.banco.pool.query("UPDATE contato SET nao_contatar = true WHERE id = $1", [contatoId]);
     const conv = await conversa(contatoId, [["entrada", "Oi"]]);
     const r = await vendedor.pedir("POST", `/api/bre/conversas/${conv}/analisar`);
-    expect(r.json().error.message).toBe("Este cliente pediu para não ser contatado ou foi anonimizado: a conversa não vai para a IA.");
+    expect(r.json().error.message).toBe("Este aluno pediu para não ser contatado ou foi anonimizado: a conversa não vai para a IA.");
     expect((await t.banco.pool.query("SELECT 1 FROM analise_bre WHERE conversa_id = $1", [conv])).rowCount).toBe(0);
   });
 });

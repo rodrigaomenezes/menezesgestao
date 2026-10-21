@@ -1,6 +1,8 @@
 // Motor BRE nas cinco larguras: a reentrada combinada para hoje põe o cliente na fila do dia, o registro de
 // 30 segundos sai pelo modal e a tela não rola para o lado.
 import { expect, test } from "@playwright/test";
+import pg from "pg";
+import { urlBancoTeste } from "../apoio/ambiente.js";
 import { dados, entrar, pessoa, semRolagemLateral } from "./apoio.js";
 
 test("fila do dia e registro de conversa", async ({ page }, info) => {
@@ -27,4 +29,41 @@ test("fila do dia e registro de conversa", async ({ page }, info) => {
   await semRolagemLateral(page);
   await page.getByRole("button", { name: "Salvar registro" }).click();
   await expect(page.getByText("Conversa registrada.")).toBeVisible();
+});
+
+test("SQ-BRE: o gestor pede a prévia da IA na conversa, ajusta e confirma; o desempenho aparece", async ({ page }, info) => {
+  const { a } = dados();
+  const pool = new pg.Pool({ connectionString: urlBancoTeste() });
+  let conversaId: string;
+  try {
+    const vendedor = (await pool.query("SELECT id FROM usuario WHERE lower(email) = lower($1)", [pessoa(a, "vendedor").email])).rows[0].id;
+    const canal = (await pool.query("INSERT INTO canal (empresa_id, nome, provedor) VALUES ($1, $2, 'demonstracao') RETURNING id", [a.id, `SQ ${info.project.name}`])).rows[0].id;
+    const contato = (await pool.query("INSERT INTO contato (empresa_id, nome, responsavel_id) VALUES ($1, $2, $3) RETURNING id", [a.id, `Cliente SQ ${info.project.name}`, vendedor])).rows[0].id;
+    conversaId = (await pool.query("INSERT INTO conversa (empresa_id, canal_id, contato_id, atribuida_a) VALUES ($1, $2, $3, $4) RETURNING id", [a.id, canal, contato, vendedor])).rows[0].id;
+    for (const [i, [direcao, texto]] of [["saida", "Oi! Como foi com o perfume?"], ["entrada", "Amei, quero outro"]].entries()) {
+      await pool.query(
+        "INSERT INTO mensagem (empresa_id, conversa_id, canal_id, direcao, tipo, status, texto, criado_em) VALUES ($1, $2, $3, $4, 'texto', 'recebida', $5, now() + make_interval(secs => $6))",
+        [a.id, conversaId, canal, direcao, texto, i],
+      );
+    }
+  } finally {
+    await pool.end();
+  }
+
+  await entrar(page, pessoa(a, "gestor").email);
+  await page.goto(`/conversas/${conversaId}`);
+  await page.getByRole("button", { name: "SQ-BRE", exact: true }).click();
+  const modal = page.getByRole("dialog");
+  await expect(modal).toContainText("Prévia da IA");
+  await modal.getByLabel(/^Humanização/).selectOption("20");
+  await semRolagemLateral(page);
+  await modal.getByRole("button", { name: "Confirmar nota" }).click();
+  await expect(page.getByText(/Nota SQ-BRE confirmada: \d+/)).toBeVisible();
+
+  await page.goto("/qualidade");
+  await expect(page.getByRole("region", { name: "SQ-BRE" })).toContainText("Vendedor A1");
+  await page.goto("/bre");
+  await expect(page.getByRole("heading", { name: "Desempenho (BPI)" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Desempenho (BPI)" })).toContainText("Vendedor A1");
+  await semRolagemLateral(page);
 });
