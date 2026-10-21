@@ -2,7 +2,8 @@
 // A prévia fica guardada ao lado da nota confirmada (D-05); só a confirmada conta no BPI.
 import { useState } from "react";
 import { PILARES_SQ, faixaSq, somaSq, type NotasSq, type SqBreDto } from "@mg/shared";
-import { post } from "../../app/api";
+import { get, post } from "../../app/api";
+import { esperarResultado } from "../bre/espera";
 import { useDataHora, useSessao } from "../../app/sessao";
 import { useTempoReal } from "../../app/tempo-real";
 import { Modal, useAviso } from "../../ui/sobreposicoes";
@@ -13,7 +14,7 @@ const PONTOS = Array.from({ length: 21 }, (_, i) => 20 - i);
 
 function ConfirmarSqBre({ avaliacao, aoFechar, aoConfirmar }: { avaliacao: SqBreDto; aoFechar(): void; aoConfirmar(): void }) {
   const avisar = useAviso();
-  const [notas, setNotas] = useState<NotasSq>(avaliacao.previa);
+  const [notas, setNotas] = useState<NotasSq>(avaliacao.previa ?? { H: 10, D: 10, I: 10, V: 10, P: 10 });
   const [feedback, setFeedback] = useState("");
   const total = somaSq(notas);
   const envio = useEnvio(async () => {
@@ -25,7 +26,9 @@ function ConfirmarSqBre({ avaliacao, aoFechar, aoConfirmar }: { avaliacao: SqBre
     <Modal aberto titulo={`SQ-BRE · ${avaliacao.avaliadoNome}`} aoFechar={aoFechar}>
       <form onSubmit={envio.enviar}>
         <p className="dica">
-          Prévia da IA: {avaliacao.notaPrevia} ({faixaSq(avaliacao.notaPrevia)}). Ajuste o que precisar; vale a nota que você confirmar.
+          {avaliacao.notaPrevia !== null
+            ? `Prévia da IA: ${avaliacao.notaPrevia} (${faixaSq(avaliacao.notaPrevia)}). Ajuste o que precisar; vale a nota que você confirmar.`
+            : `${avaliacao.erro ?? "A IA não deu a prévia."} Dê a nota de cada pilar.`}
         </p>
         {PILARES_SQ.map((p) => (
           <div key={p.codigo} className="campo campo-nota">
@@ -69,7 +72,17 @@ export function BotaoSqBre({ conversaId }: { conversaId: string }) {
   const { pode } = useSessao();
   const podeAvaliar = usePodeAvaliar();
   const [avaliacao, setAvaliacao] = useState<SqBreDto | null>(null);
-  const envio = useEnvio(async () => setAvaliacao(await post<SqBreDto>("/qualidade/sq-bre", { conversaId })));
+  const avisarBotao = useAviso();
+  const envio = useEnvio(async () => {
+    const pedido = await post<SqBreDto>("/qualidade/sq-bre", { conversaId });
+    const r = pedido.status === "processando" ? await esperarResultado(() => get<SqBreDto>(`/qualidade/sq-bre/${pedido.id}`)) : pedido;
+    if (r.status === "confirmada") return;
+    if (r.status === "processando") {
+      avisarBotao("A IA está demorando para dar a prévia. Ela aparece na Qualidade assim que chegar.");
+      return;
+    }
+    setAvaliacao(r);
+  });
   if (!podeAvaliar || !pode("bre", "ver")) return null;
   return (
     <>
@@ -100,7 +113,14 @@ export function ListaSqBre() {
           <li key={a.id} className="item">
             <div className="item-principal">
               <strong>
-                {a.status === "confirmada" ? `Nota ${a.nota} (${a.faixa})` : `Prévia ${a.notaPrevia}, esperando confirmação`} · {a.avaliadoNome}
+                {a.status === "confirmada"
+                  ? `Nota ${a.nota} (${a.faixa})`
+                  : a.status === "previa"
+                    ? `Prévia ${a.notaPrevia}, esperando confirmação`
+                    : a.status === "falhou"
+                      ? "A IA não deu a prévia: avalie manualmente"
+                      : "Prévia sendo preparada pela IA"}{" "}
+                · {a.avaliadoNome}
               </strong>
               <span className="item-detalhe">
                 {a.contatoNome ? `Conversa com ${a.contatoNome} · ` : ""}
@@ -108,7 +128,7 @@ export function ListaSqBre() {
               </span>
               {a.feedback && <p className="texto-livre">{a.feedback}</p>}
             </div>
-            {a.status === "previa" && podeAvaliar && (
+            {(a.status === "previa" || a.status === "falhou") && podeAvaliar && (
               <div className="item-acoes">
                 <button type="button" className="botao botao-secundario" onClick={() => setAberta(a)}>
                   Confirmar

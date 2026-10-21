@@ -174,6 +174,8 @@ export const ConfigBre = z.object({
   amostraParaAutomacao: z.number().int().min(20).max(5000).default(200),
   /** DEC-009: troca dados pessoais por marcadores antes de enviar a conversa à IA (desligado nos primeiros testes). */
   mascararDadosIa: z.boolean().default(false),
+  /** Robustez: análises de IA (sugestão e prévia SQ-BRE) por hora na empresa. */
+  limiteIaPorHora: z.number().int().min(1).max(10_000).default(300),
   /** Pilar Receita do BPI: meta mensal por pessoa, em centavos. null = sem meta (o pilar fica fora do BPI). */
   metaReceitaCentavos: z.number().int().min(0).max(100_000_000_00).nullable().default(null),
 });
@@ -345,11 +347,17 @@ export const SaidaIaBre = z.object({
 });
 export type SaidaIaBre = z.infer<typeof SaidaIaBre>;
 
-export const AnaliseBreDto = SaidaIaBre.extend({
+/** A análise roda pela fila de jobs: nasce "processando" e termina "pronta" (com a sugestão) ou "falhou" (com o motivo). */
+export const STATUS_IA = ["processando", "pronta", "falhou"] as const;
+export const AnaliseBreDto = z.object({
   id: Id,
-  provedor: z.string(),
-  /** Sugestões que o motor descartou e por quê (BRE-BR-007, BR-014, BR-016). */
-  bloqueios: z.array(z.string()),
+  status: z.enum(STATUS_IA),
+  provedor: z.string().nullable(),
+  erro: z.string().nullable(),
+  sugestao: SaidaIaBre.extend({
+    /** Sugestões que o motor descartou e por quê (BRE-BR-007, BR-014, BR-016). */
+    bloqueios: z.array(z.string()),
+  }).nullable(),
 });
 export type AnaliseBreDto = z.infer<typeof AnaliseBreDto>;
 
@@ -389,13 +397,15 @@ export const SqBreDto = z.object({
   avaliadoNome: z.string(),
   contatoNome: z.string().nullable(),
   provedor: z.string(),
-  previa: NotasSq,
-  notaPrevia: z.number().int(),
+  previa: NotasSq.nullable(),
+  notaPrevia: z.number().int().nullable(),
+  erro: z.string().nullable(),
   confirmada: NotasSq.nullable(),
   nota: z.number().int().nullable(),
   faixa: z.string().nullable(),
   feedback: z.string().nullable(),
-  status: z.enum(["previa", "confirmada"]),
+  /** processando/falhou = a IA ainda não deu (ou não conseguiu dar) a prévia; o supervisor pode confirmar se falhou. */
+  status: z.enum(["processando", "falhou", "previa", "confirmada"]),
   criadoEm: DataIso,
 });
 export type SqBreDto = z.infer<typeof SqBreDto>;
@@ -447,8 +457,15 @@ export const BpiDto = z.object({
   coaching: z.array(z.string()),
 });
 export type BpiDto = z.infer<typeof BpiDto>;
-export const FiltroBpi = z.object({ mes: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, { error: "Mês no formato AAAA-MM." }).optional() });
-export const BpiRespostaDto = z.object({ mes: z.string(), itens: z.array(BpiDto) });
+export const FiltroBpi = Paginacao.extend({ atualizar: z.enum(["sim"]).optional(), mes: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, { error: "Mês no formato AAAA-MM." }).optional() });
+export const BpiRespostaDto = z.object({
+  mes: z.string(),
+  /** Quando o BPI guardado foi calculado (recalcula de hora em hora, ou na consulta se ficou velho). */
+  calculadoEm: DataIso,
+  itens: z.array(BpiDto),
+  proximoCursor: z.string().nullable(),
+});
+export type BpiRespostaDto = z.infer<typeof BpiRespostaDto>;
 
 // Escalonamento (BR-017, FR-024).
 export const EscalonamentoDto = z.object({
@@ -491,8 +508,12 @@ export type ConcordanciaDto = z.infer<typeof ConcordanciaDto>;
  * LGPD (DEC-009): troca e-mail, CPF, CNPJ, CEP e telefone por marcadores antes de a conversa sair para a IA.
  * A ordem importa: documentos com pontuação antes do telefone, que pega sequências longas de dígitos.
  */
-export function mascararDadosPessoais(texto: string): string {
-  return texto
+export function mascararDadosPessoais(texto: string, nomes: readonly string[] = []): string {
+  // Partes do nome do cliente (3 letras ou mais), sem distinguir maiúsculas; letras acentuadas contam como letra.
+  const partes = [...new Set(nomes.flatMap((n) => n.split(/\s+/)).filter((p) => p.length >= 3))].map((p) => p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  const semNome = partes.length ? texto.replace(new RegExp(`(?<!\\p{L})(${partes.join("|")})(?!\\p{L})`, "giu"), "[nome]") : texto;
+  return semNome
+    .replace(/\b(rua|r\.|avenida|av\.?|travessa|tv\.|alameda|al\.|rodovia|estrada|praça|largo)\s+[^,\n]{2,60}(,\s*(n[ºo°.]?\s*)?\d+[a-z]?)?/giu, "[endereço]")
     .replace(/[\w.+-]+@[\w-]+(\.[\w-]+)+/g, "[e-mail]")
     .replace(/\b\d{3}\.\d{3}\.\d{3}-\d{2}\b/g, "[CPF]")
     .replace(/\b\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}\b/g, "[CNPJ]")

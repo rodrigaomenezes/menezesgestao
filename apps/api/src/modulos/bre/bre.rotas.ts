@@ -97,8 +97,16 @@ export const rotasBre =
     );
     app.post(
       "/api/bre/conversas/:id/analisar",
-      { config: acesso("criar"), schema: { tags, summary: "Analisar a conversa com a IA (sugere; a pessoa confirma no registro)", params: ParamId, response: { 200: AnaliseBreDto } } },
-      async (req) => bre.analisarConversa(exigirEmpresa(req), exigirEscopo(req), origemDe(req), req.params.id),
+      {
+        config: acesso("criar"),
+        schema: { tags, summary: "Pedir a análise da conversa à IA (vai para a fila; o resultado chega em tempo real)", params: ParamId, response: { 202: AnaliseBreDto } },
+      },
+      async (req, reply) => reply.status(202).send(await bre.pedirAnalise(exigirEmpresa(req), exigirEscopo(req), origemDe(req), req.params.id)),
+    );
+    app.get(
+      "/api/bre/analises/:id",
+      { config: acesso("ver"), schema: { tags, summary: "Situação e resultado de uma análise da IA", params: ParamId, response: { 200: AnaliseBreDto } } },
+      async (req) => bre.obterAnalise(exigirEmpresa(req), exigirEscopo(req), req.params.id),
     );
     app.get(
       "/api/bre/breaks",
@@ -171,7 +179,7 @@ export const rotasBre =
     app.get(
       "/api/bre/desempenho",
       { config: acesso("ver"), schema: { tags, summary: "BPI do mês por pessoa (ranking) e pilares em coaching", querystring: FiltroBpi, response: { 200: BpiRespostaDto } } },
-      async (req) => desempenho.bpi(exigirEmpresa(req), exigirEscopo(req), req.query.mes),
+      async (req) => desempenho.bpi(exigirEmpresa(req), exigirEscopo(req), req.query),
     );
     app.get(
       "/api/bre/escalonamentos",
@@ -194,8 +202,13 @@ export const rotasBre =
       );
       app.post(
         "/api/qualidade/sq-bre",
-        { config: qualidade("criar"), schema: { tags: tagsQ, summary: "Prévia SQ-BRE da conversa pela IA", body: SqBreEntrada, response: { 200: SqBreDto } } },
+        { config: qualidade("criar"), schema: { tags: tagsQ, summary: "Pedir a prévia SQ-BRE da conversa à IA (vai para a fila)", body: SqBreEntrada, response: { 200: SqBreDto } } },
         async (req) => desempenho.previa(exigirBre(exigirEmpresa(req)), exigirEscopo(req), origemDe(req), req.body.conversaId),
+      );
+      app.get(
+        "/api/qualidade/sq-bre/:id",
+        { config: qualidade("ver"), schema: { tags: tagsQ, summary: "Uma avaliação SQ-BRE (para acompanhar a prévia da IA)", params: ParamId, response: { 200: SqBreDto } } },
+        async (req) => desempenho.obterSq(exigirBre(exigirEmpresa(req)), exigirEscopo(req), req.params.id),
       );
       app.post(
         "/api/qualidade/sq-bre/:id/confirmar",

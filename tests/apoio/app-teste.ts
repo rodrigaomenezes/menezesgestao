@@ -219,3 +219,15 @@ export async function criarPessoas(banco: Banco, e: EmpresaSemeada, n: number, p
   });
   return emails;
 }
+
+/** Repete a leitura até a condição valer (trabalho que roda pela fila de jobs); falha com o último valor lido. */
+export async function esperarAte<T>(ler: () => Promise<T>, pronto: (v: T) => boolean, limiteMs = 15_000): Promise<T> {
+  const fim = Date.now() + limiteMs;
+  let v = await ler();
+  while (!pronto(v)) {
+    if (Date.now() > fim) throw new Error(`Tempo esgotado esperando: ${JSON.stringify(v).slice(0, 300)}`);
+    await new Promise((r) => setTimeout(r, 200));
+    v = await ler();
+  }
+  return v;
+}

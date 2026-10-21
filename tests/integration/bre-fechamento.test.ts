@@ -53,7 +53,7 @@ describe("campos de inteligência", () => {
       retornoEm: new Date(Date.now() + 40 * 864e5).toISOString().slice(0, 10),
     });
     expect(r.statusCode).toBe(201);
-    const bpi = (await dono.get("/api/bre/desempenho")).json();
+    const bpi = (await dono.get("/api/bre/desempenho?atualizar=sim&limite=100")).json();
     expect(bpi.itens.find((i: { usuarioId: string }) => i.usuarioId === pessoa("vendedor")).pilares.inteligencia).toBe(100);
   });
 });

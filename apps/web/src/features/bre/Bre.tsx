@@ -16,6 +16,7 @@ import {
   TIPOS_REENTRADA,
   type AnaliseBreDto,
   type BpiDto,
+  type BpiRespostaDto,
   type ConcordanciaDto,
   type InteligenciaContatoDto,
   type EscalonamentoDto,
@@ -23,12 +24,13 @@ import {
   type MotivoBreakDto,
   type ReentradaDto,
 } from "@mg/shared";
-import { ErroApi, get, patch, post, put } from "../../app/api";
-import { useSessao } from "../../app/sessao";
+import { ErroApi, get, patch, post, put, query } from "../../app/api";
+import { useDataHora, useSessao } from "../../app/sessao";
 import { useTempoReal } from "../../app/tempo-real";
 import { useVocabulario } from "../../app/vocabulario";
 import { Modal, useAviso } from "../../ui/sobreposicoes";
 import { AutomacaoBre } from "./Automacao";
+import { esperarResultado } from "./espera";
 import { CarregarMais, Campo, Escolha, ListaVazia, Mensagem, Titulo, useEnvio, usePaginado } from "../../ui/ui";
 
 const opcoes = (l: readonly { codigo: string; nome: string }[]) => l.map((i) => ({ valor: i.codigo, texto: i.nome }));
@@ -64,7 +66,13 @@ export function BotaoRegistrarBre({ contatoId, conversaId, aoRegistrar }: { cont
   const daCategoria = motivos.filter((m) => m.categoria === categoria);
   // A IA só pré-preenche: a pessoa confere e salva (BRE-P-010).
   const sugestao = useEnvio(async () => {
-    const a = await post<AnaliseBreDto>(`/bre/conversas/${conversaId}/analisar`);
+    const pedido = await post<AnaliseBreDto>(`/bre/conversas/${conversaId}/analisar`);
+    const r = await esperarResultado(() => get<AnaliseBreDto>(`/bre/analises/${pedido.id}`));
+    if (r.status !== "pronta" || !r.sugestao) {
+      setAvisoIa(r.status === "processando" ? "A IA está demorando. Preencha o registro ou tente de novo daqui a pouco." : (r.erro ?? "A IA não conseguiu analisar."));
+      return;
+    }
+    const a = r.sugestao;
     setResultado(a.resultado);
     setTemperatura(a.temperatura);
     setEmocao(a.estadoEmocional ?? "");
@@ -111,7 +119,7 @@ export function BotaoRegistrarBre({ contatoId, conversaId, aoRegistrar }: { cont
             {conversaId && (
               <p>
                 <button type="button" className="botao botao-secundario" disabled={sugestao.enviando} onClick={() => void sugestao.enviar()}>
-                  {sugestao.enviando ? "Analisando…" : "Sugerir com IA"}
+                  {sugestao.enviando ? "Analisando… (pode levar alguns segundos)" : "Sugerir com IA"}
                 </button>
               </p>
             )}
@@ -321,22 +329,44 @@ function Escalonamentos() {
 
 const numero = (n: number | null) => (n === null ? "sem dados" : n.toLocaleString("pt-BR", { maximumFractionDigits: 1 }));
 
-/** BPI do mês (D-14): ranking, pilares e quem está em coaching (BR-022). */
+/** BPI do mês (D-14): ranking, pilares e quem está em coaching (BR-022). Lido do cálculo guardado, paginado. */
 function Desempenho() {
+  const hora = useDataHora();
   const [mes, setMes] = useState("");
-  const [dados, setDados] = useState<{ mes: string; itens: BpiDto[] } | null>(null);
+  const [dados, setDados] = useState<BpiRespostaDto | null>(null);
+  const [itens, setItens] = useState<BpiDto[]>([]);
   const [erro, setErro] = useState("");
-  useEffect(() => {
-    get<{ mes: string; itens: BpiDto[] }>(`/bre/desempenho${mes ? `?mes=${mes}` : ""}`).then(
-      (r) => (setDados(r), setErro("")),
-      (e) => setErro(e instanceof ErroApi ? e.message : "Não foi possível carregar o desempenho."),
-    );
-  }, [mes]);
-  const comDados = dados?.itens.filter((i) => i.bpi !== null) ?? [];
+  const [carregando, setCarregando] = useState(false);
+  const buscar = useCallback(
+    async (opcoes: { cursor?: string | null; atualizar?: boolean } = {}) => {
+      setCarregando(true);
+      try {
+        const r = await get<BpiRespostaDto>(`/bre/desempenho${query({ mes: mes || undefined, limite: 30, cursor: opcoes.cursor ?? undefined, atualizar: opcoes.atualizar ? "sim" : undefined })}`);
+        setDados(r);
+        setItens((antes) => (opcoes.cursor ? [...antes, ...r.itens] : r.itens));
+        setErro("");
+      } catch (e) {
+        setErro(e instanceof ErroApi ? e.message : "Não foi possível carregar o desempenho.");
+      } finally {
+        setCarregando(false);
+      }
+    },
+    [mes],
+  );
+  useEffect(() => void buscar(), [buscar]);
+  const comDados = itens.filter((i) => i.bpi !== null);
   return (
     <section className="cartao" aria-labelledby="titulo-desempenho-bre">
       <h2 id="titulo-desempenho-bre">Desempenho (BPI)</h2>
       <Campo rotulo="Mês" nome="bre-mes" tipo="month" valor={mes || dados?.mes || ""} aoMudar={setMes} />
+      {dados && (
+        <p className="dica">
+          Calculado em {hora(dados.calculadoEm)}.{" "}
+          <button type="button" className="botao botao-secundario botao-pequeno" disabled={carregando} onClick={() => void buscar({ atualizar: true })}>
+            Recalcular agora
+          </button>
+        </p>
+      )}
       <Mensagem tipo="erro">{erro}</Mensagem>
       {dados && !comDados.length && <ListaVazia>Ninguém atendeu pelo método BRE neste mês.</ListaVazia>}
       <ol className="lista">
@@ -352,6 +382,7 @@ function Desempenho() {
           </li>
         ))}
       </ol>
+      <CarregarMais visivel={Boolean(dados?.proximoCursor)} carregando={carregando} aoClicar={() => void buscar({ cursor: dados?.proximoCursor })} />
     </section>
   );
 }

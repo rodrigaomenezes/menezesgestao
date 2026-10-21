@@ -1,8 +1,8 @@
 # Motor BRE — Análise para desenvolvimento
 
 Documento técnico para quem vai implementar ou portar o motor BRE. A fonte funcional é a ETR BRE-ETR-001 v0.2
-(doutrina BRE v1.0); a implementação de referência está no menezesgestao (PR #22, ADR-032 a ADR-035). Tudo abaixo descreve
-o que já roda e foi testado (fases 8.1 a 8.4), e marca o que ainda falta.
+(doutrina BRE v1.0); a implementação de referência está no menezesgestao (PR #22, ADR-032 a ADR-036). Tudo abaixo descreve
+o que já roda e foi testado (fases 8.1 a 8.5), e marca o que ainda falta.
 
 ## 1. O que é
 
@@ -31,7 +31,7 @@ Tela (React)  ──►  API /api/bre/*  ──►  Serviço do motor (regras)  
 | Peça | Arquivo | Papel |
 | --- | --- | --- |
 | Contrato | `packages/shared/src/dto-bre.ts` | Listas fechadas, limites padrão, regras puras, DTOs e validação (Zod) |
-| Migrações | `database/migrations/0011_bre.sql` a `0015_bre_automacao.sql` | Tabelas, CHECK das listas, RLS |
+| Migrações | `database/migrations/0011_bre.sql` a `0016_bre_robustez.sql` | Tabelas, CHECK das listas, RLS |
 | Serviço | `apps/api/src/modulos/bre/bre.servico.ts` | Regras do motor, IA e escalonamento |
 | Desempenho | `apps/api/src/modulos/bre/desempenho.servico.ts` | SQ-BRE, BPI, ranking e coaching |
 | Automação | `apps/api/src/modulos/bre/automacao.servico.ts` | Pós-venda, aniversário e reentrada por modelo de texto |
@@ -231,6 +231,20 @@ mascarados. Antes do uso real: ligar, base legal, aviso ao titular, contrato sem
 - Um registro por automação × cliente × referência: rodar de novo não repete. Erro num cliente não para os outros.
 - Rotina diária às 09:17 (São Paulo) e "Rodar agora" para o administrador.
 
+### 4.15 Robustez (8.5)
+- **IA pela fila.** `POST /api/bre/conversas/:id/analisar` valida e devolve 202 com a análise "processando"; o
+  trabalhador (`bre.ia`) chama a IA, aplica os filtros da seção 4.7, grava `pronta` (com `ms` e tokens) e avisa quem
+  pediu em tempo real (`bre.analise_pronta`). Recusa ou resposta fora do contrato → `falhou` com o motivo; erro
+  passageiro → a fila tenta de novo (até 3 vezes); "processando" há mais de 10 min é lido como falha. A tela consulta
+  `GET /api/bre/analises/:id` com espera crescente (1 s, 2 s… até 90 s).
+- **Prévia do SQ-BRE pela fila**, do mesmo jeito (`GET /api/qualidade/sq-bre/:id`). Prévia que falhou não trava: o
+  supervisor confirma a nota por pilar mesmo assim; enquanto processa, a confirmação espera.
+- **Limite por hora** de pedidos à IA por empresa (`limiteIaPorHora`, padrão 300).
+- **BPI guardado** em `bre_bpi` (empresa × mês × pessoa, com a posição na empresa): recalcula de hora em hora, quando
+  tem mais de 10 min, a pedido (`atualizar=sim`) ou logo após registro BRE e nota SQ-BRE. Leitura paginada pela
+  posição (`cursor`, `limite`) e filtrada pelo escopo; a resposta traz `calculadoEm`.
+- **Mascaramento** também do nome do cliente (partes com 3 letras ou mais) e de endereços (rua, avenida, travessa…).
+
 ## 5. Banco de dados
 
 Todas com `empresa_id`, RLS (`empresa_id = app_empresa_id()`) e só INSERT/SELECT/UPDATE para o papel da aplicação.
@@ -255,6 +269,9 @@ Todas com `empresa_id`, RLS (`empresa_id = app_empresa_id()`) e só INSERT/SELEC
 | `campo_personalizado.inteligencia_bre` | boolean | Campo do contato que conta como inteligência |
 | `oportunidade.encerramento_bre` → DTO `encerradaBre` | critério e data | A ficha mostra "Encerrada pelo método BRE" |
 | `bre_automacao` | `tipo`, `canal_id`, `texto`, `dias` ou `campo_chave`, `ativa` | Nasce desligada |
+| `analise_bre` (+8.5) | `status`, `erro`, `ms`, `tokens_entrada`, `tokens_saida`, `concluida_em`; `saida` pode faltar | Pedido à IA pela fila |
+| `sq_bre` (+8.5) | `previa` e `nota_previa` podem faltar; `erro`, `ms`, tokens | Prévia pela fila |
+| `bre_bpi` | `mes`, `usuario_id`, `posicao`, `pilares`, `bpi`, `coaching`, `calculado_em` | Cache do BPI (recalculável) |
 | `bre_automacao_execucao` | `referencia`, `status` (enviada/ignorada), `detalhe`, `mensagem_id` | Única por automação × cliente × referência |
 
 A permissão `permissao.modulo` passa a aceitar `bre`.
@@ -272,6 +289,7 @@ A permissão `permissao.modulo` passa a aceitar `bre`.
 | `diasPosVenda` | [2, 5, 10, 20, 30] | Agenda de pós-venda |
 | `concordanciaParaAutomacao` / `amostraParaAutomacao` | 85% / 200 | Liberação da automação (ainda não usado) |
 | `metaReceitaCentavos` | sem meta | Pilar Receita do BPI (por pessoa, no mês) |
+| `limiteIaPorHora` | 300 | Pedidos à IA (sugestões + prévias) por hora na empresa |
 | `mascararDadosIa` | desligado | Troca dados pessoais por marcadores antes de enviar à IA (seção 4.13) |
 
 ## 7. API
@@ -285,13 +303,15 @@ Todas exigem sessão, empresa e o módulo `bre`; erro sempre `{ error: { code, m
 | `GET /api/bre/motivos` | bre:ver | Motivos por categoria (semeia na 1ª vez) |
 | `POST /api/bre/motivos` · `PATCH /api/bre/motivos/:id` | bre:administrar | Cria, renomeia, arquiva |
 | `POST /api/bre/registros` | bre:criar | Registro da conversa (seção 4.5) |
-| `POST /api/bre/conversas/:id/analisar` | bre:criar | Sugestão da IA (seção 4.7) |
+| `GET /api/bre/analises/:id` | bre:ver | Situação e resultado de um pedido à IA |
+| `GET /api/qualidade/sq-bre/:id` | qualidade:ver (+ módulo bre) | Situação de uma avaliação SQ-BRE (prévia pela fila) |
+| `POST /api/bre/conversas/:id/analisar` | bre:criar | Pede a sugestão da IA (202; seção 4.15) |
 | `GET /api/bre/breaks?contatoId` | bre:ver | Breaks, paginado |
 | `GET /api/bre/fila-do-dia` | bre:ver | Quem pode ser contatado hoje, paginado |
 | `GET /api/bre/reentradas?status` · `POST` · `PATCH /:id` | ver / criar / editar | Lista, programa, conclui ou cancela |
 | `POST /api/bre/oportunidades/:id/encerrar` | bre:editar | Encerramento guiado |
 | `GET /api/bre/escalonamentos?status` · `PATCH /:id` | bre:ver / bre:editar | Lista paginada; marca como resolvido |
-| `GET /api/bre/desempenho?mes=AAAA-MM` | bre:ver | BPI por pessoa, ranking e pilares em coaching |
+| `GET /api/bre/desempenho?mes=AAAA-MM&cursor&limite&atualizar=sim` | bre:ver | BPI guardado por pessoa, ranking paginado, pilares em coaching e `calculadoEm` |
 | `GET /api/bre/contatos/:id/inteligencia` | bre:ver | Campos de inteligência: quantos, preenchidos, o que falta |
 | `GET /api/bre/concordancia` | bre:administrar | Concordância por campo, bloqueios e se a automação estaria liberada |
 | `GET /api/bre/automacoes` · `POST` · `PATCH /:id` | bre:administrar | Lista, cria (desligada), altera, liga (exige liberação), desliga, arquiva |
@@ -345,6 +365,7 @@ e empresa seguem o filtro de escopo do sistema. Perfis padrão: dono administra,
 | Concordância | Sem amostra não libera; 100% libera; 80% (abaixo de 85%) não libera, com o motivo; sugestão barrada não libera; vendedor sem acesso |
 | Encerramento | A oportunidade passa a trazer o critério do encerramento |
 | Automação | Não liga sem liberação; envia o pós-venda com o texto preenchido; pula "não contatar", escalonamento e sem telefone com o motivo no vocabulário; não repete; aniversário; pausa se a concordância cair |
+| Robustez | Recusa vira "falhou" e avisa quem pediu; erro passageiro volta para a fila; parado há 11 min lê como falha; limite por hora; prévia que falhou deixa confirmar; BPI guardado, reaproveitado, recalculado a pedido e paginado; nota SQ-BRE já aparece no BPI sem recalcular à mão |
 | Mascaramento | Desligado, a IA lê o texto como está; ligado, sem telefone, e-mail e CPF (unitário cobre CNPJ, CEP e textos sem dado pessoal) |
 
 ## 10. O que falta
@@ -352,7 +373,7 @@ e empresa seguem o filtro de escopo do sistema. Perfis padrão: dono administra,
 1. Automação de lançamento compatível e alerta de estoque (dependem de catálogo com estoque e de definir
    "compatível"); mensagens modelo da API oficial para envios fora da janela de 24 h.
 2. Ligar o mascaramento antes do uso real e avaliar mascarar nomes e endereços (seção 4.13).
-3. Análise da IA pela fila de jobs (hoje é na hora) e BPI pré-calculado quando houver volume.
+3. Mudanças de vendas e funil chegam ao BPI guardado em até 10 minutos (as do próprio motor, na hora).
 
 Riscos: data de entrega hoje = data da venda; pontos por item do SQ-BRE ainda são proposta (o supervisor dá a nota
 por pilar).

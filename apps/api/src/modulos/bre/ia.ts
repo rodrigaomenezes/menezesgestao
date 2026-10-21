@@ -10,9 +10,15 @@ export interface MensagemAnalise {
   texto: string;
 }
 
+export interface ResultadoIa {
+  saida: SaidaIaBre;
+  /** Tokens cobrados pelo provedor (para acompanhar o custo); a demonstração não tem. */
+  tokens?: { entrada: number; saida: number };
+}
+
 export interface ProvedorIaBre {
   nome: string;
-  analisar(mensagens: MensagemAnalise[]): Promise<SaidaIaBre>;
+  analisar(mensagens: MensagemAnalise[]): Promise<ResultadoIa>;
 }
 
 export class IaIndisponivel extends Error {}
@@ -40,7 +46,7 @@ export function provedorDemonstracao(): ProvedorIaBre {
       const respondeu = cliente.trim().length > 0;
       const atendente = mensagens.filter((m) => m.de === "atendente").map((m) => m.texto.toLowerCase()).join(" \n");
       const perguntou = /\?/.test(atendente);
-      return SaidaIaBre.parse({
+      return { saida: SaidaIaBre.parse({
         resumo: respondeu ? "Resumo da demonstração: houve resposta na conversa." : "Sem resposta na conversa.",
         resultado: saiu ? "OPTED_OUT" : comprou ? "PURCHASED" : !respondeu ? "NO_REPLY" : caro ? "REPLIED_NO_ADVANCE" : "ADVANCED",
         temperatura: comprou ? "READY_TO_BUY" : caro ? "WARM" : respondeu ? "HOT" : "COLD",
@@ -54,7 +60,7 @@ export function provedorDemonstracao(): ProvedorIaBre {
         escalonamento: reclamou ? "COMPLAINT" : comprou ? "READY_TO_BUY" : null,
         sqBre: { H: atendente ? 12 : 0, D: perguntou ? 12 : 4, I: respondeu ? 8 : 0, V: caro ? 8 : 12, P: saiu ? 0 : 20 },
         incertezas: ["Análise de demonstração por palavras; configure ANTHROPIC_API_KEY para a análise completa."],
-      });
+      }) };
     },
   };
 }
@@ -77,7 +83,7 @@ export function provedorClaude(chave: string, modelo: string): ProvedorIaBre {
       });
       if (r.stop_reason === "refusal") throw new IaIndisponivel("A IA não analisou esta conversa. Preencha o registro manualmente.");
       if (!r.parsed_output) throw new IaIndisponivel("A IA devolveu uma resposta fora do formato. Preencha o registro manualmente.");
-      return SaidaIaBre.parse(r.parsed_output);
+      return { saida: SaidaIaBre.parse(r.parsed_output), tokens: { entrada: r.usage.input_tokens, saida: r.usage.output_tokens } };
     },
   };
 }

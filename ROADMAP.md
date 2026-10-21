@@ -59,6 +59,9 @@ Detalhes e critérios de pronto de cada fase: `ESPECIFICACAO.md` ("Roteiro de co
 - [x] Fase 8.4 — Automação BRE (Fase 4 da ETR, ADR-035): pós-venda D+N, aniversário e reentrada do dia por modelo de
       texto da empresa, pelo canal de WhatsApp; só liga e só envia com o painel IA × equipe liberado; respeita "não
       contatar", escalonamento aberto e os limites de contato; nunca repete; envios e pulos registrados com o motivo.
+- [x] Fase 8.5 — Robustez do motor BRE (ADR-036): IA pela fila de jobs (status, nova tentativa, expiração, aviso em
+      tempo real, limite por hora, tempo e tokens guardados); prévia do SQ-BRE que falha não trava a avaliação; BPI
+      guardado com paginação e "Recalcular agora"; mascaramento também de nome e endereço.
 
 ## Próximas fases (planejadas, não iniciadas)
 

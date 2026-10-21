@@ -38,6 +38,7 @@ import { rotasInicio } from "./modulos/inicio/inicio.rotas.js";
 import { FILA_BRE_AUTOMACAO, FILA_BRE_DIARIA, FILA_BRE_HORARIA, FILA_BRE_SEMANAL, rotasBre } from "./modulos/bre/bre.rotas.js";
 import { criarServicoAutomacaoBre } from "./modulos/bre/automacao.servico.js";
 import { criarServicoDesempenho } from "./modulos/bre/desempenho.servico.js";
+import { FILA_BRE_IA } from "./modulos/bre/bre.servico.js";
 import { criarServicoBre } from "./modulos/bre/bre.servico.js";
 import { rotasSistema } from "./modulos/sistema/sistema.rotas.js";
 import { provedorArquivosBanco } from "./modulos/arquivos/armazenamento.js";
@@ -217,6 +218,13 @@ export async function criarApp(servicos: Servicos): Promise<AppMontado> {
   const desempenhoBre = criarServicoDesempenho(servicos);
   await servicos.jobs.trabalhar(FILA_BRE_SEMANAL, () => desempenhoBre.rotinaSemanal());
   await servicos.jobs.agendar(FILA_BRE_SEMANAL, "13 7 * * 1");
+  // Pedidos à IA (sugestão do registro e prévia do SQ-BRE) pela fila: nova tentativa em falha passageira.
+  await servicos.jobs.trabalhar<{ empresaId: string; tipo: "analise" | "sq"; id: string }>(FILA_BRE_IA, (d) =>
+    d.tipo === "analise" ? bre.processarAnalise(d.empresaId, d.id) : desempenhoBre.processarPrevia(d.empresaId, d.id),
+  );
+  // BPI do mês guardado de hora em hora.
+  await servicos.jobs.trabalhar("bre.bpi", () => desempenhoBre.rotinaHorariaBpi());
+  await servicos.jobs.agendar("bre.bpi", "23 * * * *");
   // Automação do método (fase 8.4): uma vez por dia, de manhã, só nas empresas com automação ligada.
   const automacaoBre = criarServicoAutomacaoBre(servicos, envio);
   await servicos.jobs.trabalhar(FILA_BRE_AUTOMACAO, async () => {

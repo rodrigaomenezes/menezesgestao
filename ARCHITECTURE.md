@@ -145,6 +145,8 @@ tests/      integration/ (Vitest + PostgreSQL real), e2e/ (Playwright, 5 largura
   equipe é calculada na consulta, juntando cada registro à última análise da mesma conversa.
   Na 8.4: `bre_automacao` (modelo de texto, canal, dias ou campo) e `bre_automacao_execucao` (única por automação ×
   cliente × referência). O envio usa o mesmo serviço de saída das conversas (fila de jobs) (ADR-035).
+  Na 8.5: pedidos à IA pela fila `bre.ia` (`analise_bre.status` processando/pronta/falhou, `ms`, `tokens_*`; `sq_bre`
+  com prévia que pode faltar) e o BPI guardado em `bre_bpi` (cache por empresa × mês × pessoa) (ADR-036).
 - Campos personalizados: definição em `campo_personalizado`, valores em `campos jsonb` validados pelo serviço.
 - Sessões e tokens guardam só o HMAC (`SESSION_SECRET`); conteúdo sensível de jobs vai cifrado (`CRM_CHAVE`).
 

@@ -101,5 +101,12 @@ describe("mascaramento para a IA (DEC-009)", () => {
     expect(mascararDadosPessoais("CEP 01310-100, empresa 12.345.678/0001-95")).toBe("CEP [CEP], empresa [CNPJ]");
     expect(mascararDadosPessoais("Quero 2 frascos de 100 ml até dia 15")).toBe("Quero 2 frascos de 100 ml até dia 15");
   });
+  it("também esconde o nome do cliente e endereços", () => {
+    expect(mascararDadosPessoais("Oi, aqui é a Ana Lúcia. Entrega na Rua das Flores, 123, por favor", ["Ana Lúcia Souza"])).toBe(
+      "Oi, aqui é a [nome] [nome]. Entrega na [endereço], por favor",
+    );
+    expect(mascararDadosPessoais("Mariana gostou", ["Ana"])).toBe("Mariana gostou");
+    expect(mascararDadosPessoais("Fica na Av. Paulista, nº 1000 — perto do metrô")).toBe("Fica na [endereço] — perto do metrô");
+  });
   it("vem desligado no padrão (primeiros testes)", () => expect(CONFIG_BRE_PADRAO.mascararDadosIa).toBe(false));
 });

@@ -34,10 +34,35 @@ import { filtroUsuariosVisiveis } from "../acesso/escopo.js";
 import { registrar, type Origem } from "../auditoria/registro.js";
 import { notificar } from "../notificacoes/notificar.js";
 import type { AnaliseBreDto, EncerramentoBreEntrada, ReentradaEntrada, SaidaIaBre } from "@mg/shared";
-import { criarProvedorIaBre, IaIndisponivel, type MensagemAnalise, type ProvedorIaBre } from "./ia.js";
+import { ZodError } from "zod";
+import { criarProvedorIaBre, IaIndisponivel, type MensagemAnalise, type ProvedorIaBre, type ResultadoIa } from "./ia.js";
 
 /** Versão da doutrina aplicada nas análises (BRE-FR-017). */
 export const VERSAO_DOUTRINA = "BRE-v1.0 / ETR 0.2";
+
+/** Fila dos pedidos à IA (análise da conversa e prévia do SQ-BRE). */
+export const FILA_BRE_IA = "bre.ia";
+/** Pedido parado na fila por mais que isto conta como falha (o job pode ter esgotado as tentativas). */
+const EXPIRA_IA_MS = 10 * 60_000;
+export const IA_SEM_RESPOSTA = "A IA não respondeu a tempo. Tente de novo ou preencha manualmente.";
+export const expirada = (status: string, criadoEm: Date) => status === "processando" && Date.now() - new Date(criadoEm).getTime() > EXPIRA_IA_MS;
+
+/** O BPI guardado fica velho: a próxima leitura recalcula (ações do motor que mudam pilares chamam isto). */
+export async function marcarBpiVelho(tx: Tx): Promise<void> {
+  await q(tx, "UPDATE bre_bpi SET calculado_em = '-infinity' WHERE empresa_id = $1", [tx.empresaId]);
+}
+
+/** Robustez: limite de pedidos à IA por hora na empresa (sugestões + prévias do SQ-BRE). */
+export async function exigirLimiteIa(tx: Tx): Promise<void> {
+  const { limiteIaPorHora } = await lerConfig(tx);
+  const [r] = await q<{ n: number }>(
+    tx,
+    `SELECT (SELECT count(*) FROM analise_bre WHERE empresa_id = $1 AND criado_em > now() - interval '1 hour')
+          + (SELECT count(*) FROM sq_bre WHERE empresa_id = $1 AND criado_em > now() - interval '1 hour') AS n`,
+    [tx.empresaId],
+  );
+  if (Number(r!.n) >= limiteIaPorHora) throw invalido(`A empresa chegou ao limite de ${limiteIaPorHora} análises de IA por hora. Tente de novo mais tarde ou preencha manualmente.`);
+}
 
 type Linha = Record<string, unknown>;
 const ORIGEM_SISTEMA = (empresaId: string): Origem => ({ empresaId, atorId: null, ip: null, dispositivo: "motor-bre" });
@@ -70,6 +95,9 @@ export async function lerConfig(tx: Tx): Promise<ConfigBre & { versao: number }>
  */
 export async function mensagensDaConversa(tx: Tx, conversaId: string): Promise<MensagemAnalise[]> {
   const { mascararDadosIa } = await lerConfig(tx);
+  const nomes = mascararDadosIa
+    ? (await q<{ nome: string }>(tx, "SELECT c.nome FROM conversa v JOIN contato c ON c.id = v.contato_id WHERE v.id = $1", [conversaId])).map((c) => c.nome)
+    : [];
   const linhas = await q<{ direcao: string; texto: string }>(
     tx,
     `SELECT direcao, texto FROM (SELECT direcao, texto, criado_em FROM mensagem
@@ -77,7 +105,7 @@ export async function mensagensDaConversa(tx: Tx, conversaId: string): Promise<M
        ORDER BY criado_em DESC LIMIT 100) m ORDER BY criado_em`,
     [conversaId, tx.empresaId],
   );
-  return linhas.map((m) => ({ de: m.direcao === "entrada" ? "cliente" : "atendente", texto: mascararDadosIa ? mascararDadosPessoais(m.texto) : m.texto }));
+  return linhas.map((m) => ({ de: m.direcao === "entrada" ? "cliente" : "atendente", texto: mascararDadosIa ? mascararDadosPessoais(m.texto, nomes) : m.texto }));
 }
 
 /**
@@ -305,6 +333,7 @@ export function criarServicoBre(s: Servicos, ia?: ProvedorIaBre) {
       if (e.escalonamento) {
         await abrirEscalonamento(tx, origem, { contatoId: c.id, conversaId: e.conversaId ?? null, situacao: e.escalonamento, origem: "manual" });
       }
+      await marcarBpiVelho(tx);
       await registrar(tx, origem, {
         acao: "bre.conversa_registrada",
         entidade: "contato",
@@ -515,36 +544,96 @@ export function criarServicoBre(s: Servicos, ia?: ProvedorIaBre) {
   }
 
   /**
-   * Análise da conversa pela IA (fase 8.2). Quem pediu "não contatar" ou foi anonimizado nunca vai para a IA.
-   * O motor descarta o que as regras proíbem (BR-007 desconto, BR-016 oferta antes dos três "sim") e guarda tudo.
+   * Pede a análise da conversa à IA (fase 8.2, pela fila de jobs desde a 8.5). Valida na hora — quem pediu "não
+   * contatar" ou foi anonimizado nunca vai para a IA; limite por hora da empresa — e devolve a análise "processando".
+   * O trabalhador preenche a sugestão e avisa quem pediu em tempo real.
    */
-  async function analisarConversa(ctx: ContextoEmpresa, escopo: Escopo, origem: Origem, conversaId: string): Promise<AnaliseBreDto> {
-    const dados = await comEmpresa(banco, ctx.empresaId, async (tx) => {
+  async function pedirAnalise(ctx: ContextoEmpresa, escopo: Escopo, origem: Origem, conversaId: string): Promise<AnaliseBreDto> {
+    return comEmpresa(banco, ctx.empresaId, async (tx) => {
       const [conv] = await q<{ contato_id: string | null }>(tx, "SELECT contato_id FROM conversa WHERE id = $1 AND empresa_id = $2", [conversaId, ctx.empresaId]);
       if (!conv?.contato_id) throw naoEncontrado("Conversa");
       const c = await contatoVisivel(tx, ctx, escopo, conv.contato_id);
-      const [extra] = await q<{ anonimizado: boolean; diagnostico: boolean }>(
-        tx,
-        `SELECT (SELECT anonimizado_em IS NOT NULL FROM contato WHERE id = $2) AS anonimizado,
-                EXISTS (SELECT 1 FROM oportunidade o JOIN etapa e ON e.id = o.etapa_id
-                        WHERE o.empresa_id = $1 AND o.contato_id = $2 AND e.marco_bre IN ('INTEREST','PROPOSAL','NEGOTIATION','SALE')) AS diagnostico`,
-        [ctx.empresaId, c.id],
-      );
+      const [extra] = await q<{ anonimizado: boolean }>(tx, "SELECT anonimizado_em IS NOT NULL AS anonimizado FROM contato WHERE id = $1", [c.id]);
       if (c.nao_contatar || extra!.anonimizado) throw invalido("{Este contato} pediu para não ser contatad{o|a:contato} ou foi anonimizad{o|a:contato}: a conversa não vai para a IA.");
-      const mensagens = await mensagensDaConversa(tx, conversaId);
-      return { c, diagnostico: extra!.diagnostico, mensagens };
+      await exigirLimiteIa(tx);
+      const [l] = await q<{ id: string }>(
+        tx,
+        "INSERT INTO analise_bre (empresa_id, conversa_id, contato_id, provedor, doutrina, status, autor_id) VALUES ($1, $2, $3, '', $4, 'processando', $5) RETURNING id",
+        [ctx.empresaId, conversaId, c.id, VERSAO_DOUTRINA, ctx.usuarioId],
+      );
+      await s.jobs.enfileirar(tx, FILA_BRE_IA, { empresaId: ctx.empresaId, tipo: "analise", id: l!.id });
+      await registrar(tx, origem, { acao: "bre.analise_pedida", entidade: "analise_bre", entidadeId: l!.id, contatoId: c.id, depois: { conversaId } });
+      return { id: l!.id, status: "processando" as const, provedor: null, erro: null, sugestao: null };
     });
+  }
+
+  async function obterAnalise(ctx: ContextoEmpresa, escopo: Escopo, id: string): Promise<AnaliseBreDto> {
+    return comEmpresa(banco, ctx.empresaId, async (tx) => {
+      const [a] = await q<{ contato_id: string; status: "processando" | "pronta" | "falhou"; provedor: string; erro: string | null; saida: SaidaIaBre | null; bloqueios: string[]; criado_em: Date }>(
+        tx,
+        "SELECT contato_id, status, provedor, erro, saida, bloqueios, criado_em FROM analise_bre WHERE id = $1 AND empresa_id = $2",
+        [id, ctx.empresaId],
+      );
+      if (!a) throw naoEncontrado("Análise");
+      await contatoVisivel(tx, ctx, escopo, a.contato_id);
+      const status = expirada(a.status, a.criado_em) ? "falhou" : a.status;
+      return {
+        id,
+        status,
+        provedor: a.provedor || null,
+        erro: status === "falhou" ? (a.erro ?? IA_SEM_RESPOSTA) : null,
+        sugestao: a.status === "pronta" && a.saida ? { ...a.saida, bloqueios: a.bloqueios } : null,
+      };
+    });
+  }
+
+  /**
+   * Trabalhador da fila: chama a IA fora de qualquer transação, aplica os filtros das regras e guarda o resultado.
+   * Recusa ou resposta fora do contrato vira "falhou" com o motivo; erro passageiro (rede, limite do provedor) sobe
+   * para a fila tentar de novo.
+   */
+  async function processarAnalise(empresaId: string, id: string): Promise<void> {
+    const dados = await comEmpresa(banco, empresaId, async (tx) => {
+      const [a] = await q<{ conversa_id: string; contato_id: string; autor_id: string; status: string }>(
+        tx,
+        "SELECT conversa_id, contato_id, autor_id, status FROM analise_bre WHERE id = $1 AND empresa_id = $2",
+        [id, empresaId],
+      );
+      if (!a || a.status !== "processando") return null;
+      const [c] = await q<{ estado_bre: string | null; diagnostico: boolean }>(
+        tx,
+        `SELECT c.estado_bre, EXISTS (SELECT 1 FROM oportunidade o JOIN etapa e ON e.id = o.etapa_id
+                  WHERE o.empresa_id = c.empresa_id AND o.contato_id = c.id AND e.marco_bre IN ('INTEREST','PROPOSAL','NEGOTIATION','SALE')) AS diagnostico
+         FROM contato c WHERE c.id = $1`,
+        [a.contato_id],
+      );
+      return { ...a, estado: c?.estado_bre ?? null, diagnostico: Boolean(c?.diagnostico), mensagens: await mensagensDaConversa(tx, a.conversa_id) };
+    });
+    if (!dados) return;
 
     provedor ??= criarProvedorIaBre(s.config);
-    let saida: SaidaIaBre;
+    const inicio = Date.now();
+    let resultado: ResultadoIa;
     try {
-      saida = await provedor.analisar(dados.mensagens);
+      resultado = await provedor.analisar(dados.mensagens);
     } catch (err) {
-      throw invalido(err instanceof IaIndisponivel ? err.message : "Não foi possível analisar agora. Tente de novo em instantes ou preencha o registro manualmente.");
+      if (!(err instanceof IaIndisponivel) && !(err instanceof ZodError)) throw err; // passageiro: a fila tenta de novo
+      const erro = err instanceof IaIndisponivel ? err.message : "A IA devolveu uma resposta fora do formato. Preencha o registro manualmente.";
+      await comEmpresa(banco, empresaId, async (tx) => {
+        await q(tx, "UPDATE analise_bre SET status = 'falhou', erro = $2, provedor = $3, ms = $4, concluida_em = now() WHERE id = $1 AND status = 'processando'", [
+          id,
+          erro,
+          provedor!.nome,
+          Date.now() - inicio,
+        ]);
+        await registrar(tx, ORIGEM_SISTEMA(empresaId), { acao: "bre.analise_falhou", entidade: "analise_bre", entidadeId: id, contatoId: dados.contato_id, paraUsuarioId: dados.autor_id, depois: { erro } });
+      });
+      return;
     }
 
+    let saida = resultado.saida;
     const bloqueios: string[] = [];
-    if (saida.sugereDesconto && dados.c.estado_bre === "RECENT") {
+    if (saida.sugereDesconto && dados.estado === "RECENT") {
       saida = { ...saida, sugereDesconto: false };
       bloqueios.push("Desconto não sugerido: no estado Recente nunca há desconto.");
     } else if (saida.sugereDesconto && !dados.diagnostico) {
@@ -556,23 +645,25 @@ export function criarServicoBre(s: Servicos, ia?: ProvedorIaBre) {
       bloqueios.push("Oferta não sugerida: faltam os três \"sim\" (confirmação, concordância e visualização).");
     }
 
-    return comEmpresa(banco, ctx.empresaId, async (tx) => {
-      const [l] = await q<{ id: string }>(
-        tx,
-        "INSERT INTO analise_bre (empresa_id, conversa_id, contato_id, provedor, doutrina, saida, bloqueios, autor_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id",
-        [ctx.empresaId, conversaId, dados.c.id, provedor!.nome, VERSAO_DOUTRINA, JSON.stringify(saida), JSON.stringify(bloqueios), ctx.usuarioId],
+    await comEmpresa(banco, empresaId, async (tx) => {
+      const r = await tx.cliente.query(
+        `UPDATE analise_bre SET status = 'pronta', provedor = $2, saida = $3, bloqueios = $4, ms = $5, tokens_entrada = $6, tokens_saida = $7, concluida_em = now()
+         WHERE id = $1 AND status = 'processando'`,
+        [id, provedor!.nome, JSON.stringify(saida), JSON.stringify(bloqueios), Date.now() - inicio, resultado.tokens?.entrada ?? null, resultado.tokens?.saida ?? null],
       );
+      if (!r.rowCount) return; // outra execução já concluiu
+      const origem = ORIGEM_SISTEMA(empresaId);
       if (saida.escalonamento) {
-        await abrirEscalonamento(tx, origem, { contatoId: dados.c.id, conversaId, situacao: saida.escalonamento, origem: "ia", observacao: saida.resumo.slice(0, 500) });
+        await abrirEscalonamento(tx, origem, { contatoId: dados.contato_id, conversaId: dados.conversa_id, situacao: saida.escalonamento, origem: "ia", observacao: saida.resumo.slice(0, 500) });
       }
       await registrar(tx, origem, {
-        acao: "bre.conversa_analisada",
-        entidade: "contato",
-        entidadeId: dados.c.id,
-        contatoId: dados.c.id,
-        depois: { conversaId, provedor: provedor!.nome, resultado: saida.resultado, bloqueios },
+        acao: "bre.analise_pronta",
+        entidade: "analise_bre",
+        entidadeId: id,
+        contatoId: dados.contato_id,
+        paraUsuarioId: dados.autor_id,
+        depois: { conversaId: dados.conversa_id, provedor: provedor!.nome, resultado: saida.resultado, bloqueios },
       });
-      return { ...saida, id: l!.id, provedor: provedor!.nome, bloqueios };
     });
   }
 
@@ -644,6 +735,7 @@ export function criarServicoBre(s: Servicos, ia?: ProvedorIaBre) {
                 jsonb_array_length(a.bloqueios) > 0 AS bloqueio
          FROM registro_bre r
          JOIN LATERAL (SELECT saida, bloqueios FROM analise_bre x WHERE x.empresa_id = r.empresa_id AND x.conversa_id = r.conversa_id AND x.criado_em <= r.criado_em
+                         AND x.status = 'pronta'
                        ORDER BY x.criado_em DESC LIMIT 1) a ON true
          WHERE r.empresa_id = $1 AND r.conversa_id IS NOT NULL
          ORDER BY r.criado_em DESC LIMIT $2`,
@@ -651,7 +743,7 @@ export function criarServicoBre(s: Servicos, ia?: ProvedorIaBre) {
       );
       const sq = await q<{ perto: boolean }>(
         tx,
-        "SELECT abs(nota_previa - nota) <= 5 AS perto FROM sq_bre WHERE empresa_id = $1 AND nota IS NOT NULL ORDER BY confirmada_em DESC LIMIT $2",
+        "SELECT abs(nota_previa - nota) <= 5 AS perto FROM sq_bre WHERE empresa_id = $1 AND nota IS NOT NULL AND nota_previa IS NOT NULL ORDER BY confirmada_em DESC LIMIT $2",
         [ctx.empresaId, cfg.amostraParaAutomacao],
       );
       const campo = (campoId: string, nome: string, valores: boolean[]) => ({
@@ -756,11 +848,13 @@ export function criarServicoBre(s: Servicos, ia?: ProvedorIaBre) {
   }
 
   return {
+    pedirAnalise,
+    obterAnalise,
+    processarAnalise,
     inteligenciaDoContato,
     concordancia,
     escalonamentos,
     resolverEscalonamento,
-    analisarConversa,
     registrarConversa,
     config,
     salvarConfig,

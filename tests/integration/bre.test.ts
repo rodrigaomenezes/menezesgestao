@@ -2,7 +2,7 @@
 // ETR BRE-ETR-001 v0.2, a rotina de silêncio, o pós-venda e o isolamento entre empresas.
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { criarServicoBre } from "../../apps/api/src/modulos/bre/bre.servico.js";
-import { email, logado, montarTeste, semearDuasEmpresas, type AmbienteTeste, type EmpresasTeste } from "../apoio/app-teste.js";
+import { email, esperarAte, logado, montarTeste, semearDuasEmpresas, type AmbienteTeste, type EmpresasTeste } from "../apoio/app-teste.js";
 
 let t: AmbienteTeste;
 let e: EmpresasTeste;
@@ -220,6 +220,18 @@ describe("Motor BRE — configuração e isolamento", () => {
   });
 });
 
+
+/** Pede a análise à IA (vai para a fila) e espera o trabalhador terminar. */
+async function analisar(cliente: Awaited<ReturnType<typeof logado>>, conversaId: string) {
+  const r = await cliente.pedir("POST", `/api/bre/conversas/${conversaId}/analisar`);
+  expect(r.statusCode, r.body).toBe(202);
+  expect(r.json().status).toBe("processando");
+  return esperarAte(
+    async () => (await cliente.get(`/api/bre/analises/${r.json().id}`)).json(),
+    (a) => a.status !== "processando",
+  );
+}
+
 describe("Motor BRE — análise da conversa pela IA (8.2)", () => {
   /** Conversa do contato com as mensagens dadas (entrada = cliente). */
   async function conversa(contatoId: string, mensagens: [string, string][]): Promise<string> {
@@ -239,16 +251,18 @@ describe("Motor BRE — análise da conversa pela IA (8.2)", () => {
     const contatoId = await cliente([5]);
     await bre.classificar(e.a.empresaId);
     const conv = await conversa(contatoId, [["saida", "Oi! Chegou bem o perfume?"], ["entrada", "Chegou, gostei, mas o próximo está caro demais"]]);
-    const r = await vendedor.pedir("POST", `/api/bre/conversas/${conv}/analisar`);
-    expect(r.statusCode).toBe(200);
-    const a = r.json();
-    expect(a).toMatchObject({ provedor: "demonstracao", resultado: "REPLIED_NO_ADVANCE", sugereDesconto: false, sugereOferta: false, break: { categoria: "C_FINANCIAL" } });
-    expect(a.bloqueios).toEqual([
+    const a = await analisar(vendedor, conv);
+    expect(a).toMatchObject({ status: "pronta", provedor: "demonstracao", erro: null });
+    expect(a.sugestao).toMatchObject({ resultado: "REPLIED_NO_ADVANCE", sugereDesconto: false, sugereOferta: false, break: { categoria: "C_FINANCIAL" } });
+    expect(a.sugestao.bloqueios).toEqual([
       "Desconto não sugerido: no estado Recente nunca há desconto.",
       'Oferta não sugerida: faltam os três "sim" (confirmação, concordância e visualização).',
     ]);
-    const { rows } = await t.banco.pool.query("SELECT provedor, doutrina FROM analise_bre WHERE id = $1", [a.id]);
-    expect(rows[0]).toEqual({ provedor: "demonstracao", doutrina: "BRE-v1.0 / ETR 0.2" });
+    const { rows } = await t.banco.pool.query("SELECT provedor, doutrina, ms IS NOT NULL AS medido FROM analise_bre WHERE id = $1", [a.id]);
+    expect(rows[0]).toEqual({ provedor: "demonstracao", doutrina: "BRE-v1.0 / ETR 0.2", medido: true });
+    // Outra empresa não lê a análise.
+    const donoB = await logado(t.app, email(e.b, "dono"));
+    expect((await donoB.get(`/api/bre/analises/${a.id}`)).statusCode).toBe(403);
   });
 
   it("quem pediu para não ser contatado nunca vai para a IA", async () => {

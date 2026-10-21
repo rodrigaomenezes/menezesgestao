@@ -541,3 +541,21 @@ A doutrina só automatiza o que não exige julgamento (lembretes, aniversários,
 concordância mantém a ordem que o livro pede — validar o processo antes de escalar — e a trava em cada execução
 impede que uma piora passe despercebida.
 
+# ADR-036 — IA do motor BRE pela fila de jobs e BPI guardado
+
+## Decisão
+Os pedidos à IA (sugestão do registro e prévia do SQ-BRE) entram na fila de jobs (`bre.ia`): a rota valida,
+grava a análise "processando" e devolve 202; o trabalhador chama a IA fora de transação, aplica as regras e grava o
+resultado com tempo e tokens, avisando quem pediu em tempo real. Recusa ou resposta fora do contrato viram "falhou"
+com o motivo; erro passageiro volta para a fila (até 3 tentativas); pedido parado há mais de 10 minutos é lido como
+falha. Prévia que falhou não trava a avaliação: o supervisor dá a nota mesmo assim. Cada empresa tem limite de pedidos
+por hora (`limiteIaPorHora`, padrão 300). O BPI do mês fica em `bre_bpi` (cache por empresa × mês × pessoa, com a
+posição na empresa): recalculado de hora em hora, quando tem mais de 10 minutos, a pedido ("Recalcular agora") ou
+logo depois de uma ação do motor que muda pilar (registro, nota SQ-BRE). A leitura é paginada pela posição e filtrada
+pelo escopo. O mascaramento para a IA passa a cobrir também o nome do cliente e endereços.
+
+## Por quê
+Uma chamada de IA pode levar segundos ou falhar; segurar a requisição HTTP e a transação por esse tempo derruba a
+experiência e o banco. O cache do BPI é descartável (sempre recalculável das fontes) e tira o cálculo pesado do
+caminho de cada abertura de tela.
+

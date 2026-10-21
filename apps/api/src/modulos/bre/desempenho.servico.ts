@@ -8,7 +8,7 @@ import {
   faixaBpi,
   faixaSq,
   somaSq,
-  type BpiDto,
+  type BpiRespostaDto,
   type Escopo,
   type NotasBpi,
   type NotasSq,
@@ -26,8 +26,9 @@ import { filtroUsuariosVisiveis } from "../acesso/escopo.js";
 import { registrar, type Origem } from "../auditoria/registro.js";
 import { notificar } from "../notificacoes/notificar.js";
 import { exigirPessoa } from "../operacao/comum.js";
-import { lerConfig, mensagensDaConversa, paginar, q } from "./bre.servico.js";
-import { criarProvedorIaBre, IaIndisponivel, type ProvedorIaBre } from "./ia.js";
+import { FILA_BRE_IA, IA_SEM_RESPOSTA, exigirLimiteIa, expirada, lerConfig, marcarBpiVelho, mensagensDaConversa, paginar, q } from "./bre.servico.js";
+import { ZodError } from "zod";
+import { criarProvedorIaBre, IaIndisponivel, type ProvedorIaBre, type ResultadoIa } from "./ia.js";
 
 const LIMITE_COACHING = 70;
 const ORIGEM_SISTEMA = (empresaId: string): Origem => ({ empresaId, atorId: null, ip: null, dispositivo: "motor-bre" });
@@ -39,13 +40,22 @@ type LinhaSq = {
   avaliado_nome: string;
   contato_nome: string | null;
   provedor: string;
-  previa: NotasSq;
-  nota_previa: number;
+  previa: NotasSq | null;
+  nota_previa: number | null;
+  erro: string | null;
   confirmada: NotasSq | null;
   nota: number | null;
   feedback: string | null;
   criado_em: Date;
 };
+
+/** Situação da avaliação: confirmada, prévia pronta, prévia que falhou (ou expirou na fila) ou ainda processando. */
+function statusSq(l: LinhaSq): SqBreDto["status"] {
+  if (l.nota !== null) return "confirmada";
+  if (l.previa) return "previa";
+  if (l.erro || expirada("processando", l.criado_em)) return "falhou";
+  return "processando";
+}
 
 const dtoSq = (l: LinhaSq): SqBreDto => ({
   id: l.id,
@@ -56,16 +66,17 @@ const dtoSq = (l: LinhaSq): SqBreDto => ({
   provedor: l.provedor,
   previa: l.previa,
   notaPrevia: l.nota_previa,
+  erro: statusSq(l) === "falhou" ? (l.erro ?? IA_SEM_RESPOSTA) : null,
   confirmada: l.confirmada,
   nota: l.nota,
   faixa: l.nota === null ? null : faixaSq(l.nota),
   feedback: l.feedback,
-  status: l.nota === null ? "previa" : "confirmada",
+  status: statusSq(l),
   criadoEm: new Date(l.criado_em).toISOString(),
 });
 
 const SELECT_SQ = `SELECT s.id, s.conversa_id, s.avaliado_id, u.nome AS avaliado_nome, c.nome AS contato_nome, s.provedor, s.previa,
-    s.nota_previa, s.confirmada, s.nota, s.feedback, s.criado_em
+    s.nota_previa, s.erro, s.confirmada, s.nota, s.feedback, s.criado_em
   FROM sq_bre s JOIN usuario u ON u.id = s.avaliado_id JOIN conversa v ON v.id = s.conversa_id LEFT JOIN contato c ON c.id = v.contato_id`;
 
 /**
@@ -195,10 +206,13 @@ export function criarServicoDesempenho(s: Servicos, ia?: ProvedorIaBre) {
 
   // SQ-BRE --------------------------------------------------------------------------------------------
 
-  /** Prévia da IA para a conversa (uma prévia aberta por conversa: pedir de novo devolve a mesma). */
+  /**
+   * Pede a prévia da IA para a conversa (pela fila de jobs desde a 8.5). Uma avaliação aberta por conversa: pedir de
+   * novo devolve a mesma. A avaliação nasce "processando"; o trabalhador preenche a prévia e avisa quem pediu.
+   */
   async function previa(ctx: ContextoEmpresa, escopo: Escopo, origem: Origem, conversaId: string): Promise<SqBreDto> {
     if (escopo === "proprio") throw semPermissao();
-    const dados = await comEmpresa(banco, ctx.empresaId, async (tx) => {
+    return comEmpresa(banco, ctx.empresaId, async (tx) => {
       const [c] = await q<{ atribuida_a: string | null; nao_contatar: boolean | null; anonimizado: boolean | null }>(
         tx,
         `SELECT v.atribuida_a, ct.nao_contatar, ct.anonimizado_em IS NOT NULL AS anonimizado
@@ -210,30 +224,69 @@ export function criarServicoDesempenho(s: Servicos, ia?: ProvedorIaBre) {
       if (c.atribuida_a === ctx.usuarioId) throw invalido("Ninguém avalia o próprio atendimento. Peça a outro gestor.");
       await exigirPessoa(tx, ctx, escopo, c.atribuida_a);
       const [aberta] = await q<LinhaSq>(tx, `${SELECT_SQ} WHERE s.empresa_id = $1 AND s.conversa_id = $2 AND s.nota IS NULL`, [ctx.empresaId, conversaId]);
-      if (aberta) return { aberta, avaliadoId: c.atribuida_a, mensagens: [] };
+      if (aberta) return dtoSq(aberta);
       if (c.nao_contatar || c.anonimizado) throw invalido("{Este contato} pediu para não ser contatad{o|a:contato} ou foi anonimizad{o|a:contato}: a conversa não vai para a IA.");
-      return { aberta: null, avaliadoId: c.atribuida_a, mensagens: await mensagensDaConversa(tx, conversaId) };
-    });
-    if (dados.aberta) return dtoSq(dados.aberta);
-
-    provedor ??= criarProvedorIaBre(s.config);
-    let notas: NotasSq;
-    try {
-      notas = (await provedor.analisar(dados.mensagens)).sqBre;
-    } catch (err) {
-      throw invalido(err instanceof IaIndisponivel ? err.message : "Não foi possível gerar a prévia agora. Tente de novo em instantes.");
-    }
-    return comEmpresa(banco, ctx.empresaId, async (tx) => {
+      await exigirLimiteIa(tx);
       const [l] = await q<{ id: string }>(
         tx,
-        `INSERT INTO sq_bre (empresa_id, conversa_id, avaliado_id, provedor, previa, nota_previa, criado_por)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
+        `INSERT INTO sq_bre (empresa_id, conversa_id, avaliado_id, provedor, criado_por) VALUES ($1, $2, $3, '', $4)
          ON CONFLICT (empresa_id, conversa_id) WHERE confirmada_em IS NULL DO UPDATE SET provedor = sq_bre.provedor RETURNING id`,
-        [ctx.empresaId, conversaId, dados.avaliadoId, provedor!.nome, JSON.stringify(notas), somaSq(notas), ctx.usuarioId],
+        [ctx.empresaId, conversaId, c.atribuida_a, ctx.usuarioId],
       );
-      await registrar(tx, origem, { acao: "qualidade.sq_bre_previa", entidade: "conversa", entidadeId: conversaId, responsavelId: dados.avaliadoId, depois: { notas, provedor: provedor!.nome } });
+      await s.jobs.enfileirar(tx, FILA_BRE_IA, { empresaId: ctx.empresaId, tipo: "sq", id: l!.id });
+      await registrar(tx, origem, { acao: "qualidade.sq_bre_pedida", entidade: "sq_bre", entidadeId: l!.id, responsavelId: c.atribuida_a, depois: { conversaId } });
       const [linha] = await q<LinhaSq>(tx, `${SELECT_SQ} WHERE s.id = $1`, [l!.id]);
       return dtoSq(linha!);
+    });
+  }
+
+  /** Trabalhador da fila: a IA dá a prévia; recusa ou formato errado vira "falhou" (o supervisor avalia mesmo assim). */
+  async function processarPrevia(empresaId: string, id: string): Promise<void> {
+    const dados = await comEmpresa(banco, empresaId, async (tx) => {
+      const [l] = await q<{ conversa_id: string; avaliado_id: string; criado_por: string; pronta: boolean }>(
+        tx,
+        "SELECT conversa_id, avaliado_id, criado_por, (previa IS NOT NULL OR erro IS NOT NULL OR nota IS NOT NULL) AS pronta FROM sq_bre WHERE id = $1 AND empresa_id = $2",
+        [id, empresaId],
+      );
+      if (!l || l.pronta) return null;
+      return { ...l, mensagens: await mensagensDaConversa(tx, l.conversa_id) };
+    });
+    if (!dados) return;
+    provedor ??= criarProvedorIaBre(s.config);
+    const inicio = Date.now();
+    let resultado: ResultadoIa | null = null;
+    let erro: string | null = null;
+    try {
+      resultado = await provedor.analisar(dados.mensagens);
+    } catch (err) {
+      if (!(err instanceof IaIndisponivel) && !(err instanceof ZodError)) throw err; // passageiro: a fila tenta de novo
+      erro = err instanceof IaIndisponivel ? err.message : "A IA devolveu uma resposta fora do formato. Avalie manualmente.";
+    }
+    await comEmpresa(banco, empresaId, async (tx) => {
+      const notas = resultado?.saida.sqBre ?? null;
+      const r = await tx.cliente.query(
+        `UPDATE sq_bre SET provedor = $2, previa = $3, nota_previa = $4, erro = $5, ms = $6, tokens_entrada = $7, tokens_saida = $8
+         WHERE id = $1 AND previa IS NULL AND erro IS NULL AND nota IS NULL`,
+        [id, provedor!.nome, notas ? JSON.stringify(notas) : null, notas ? somaSq(notas) : null, erro, Date.now() - inicio, resultado?.tokens?.entrada ?? null, resultado?.tokens?.saida ?? null],
+      );
+      if (!r.rowCount) return;
+      await registrar(tx, ORIGEM_SISTEMA(empresaId), {
+        acao: notas ? "qualidade.sq_bre_previa" : "qualidade.sq_bre_previa_falhou",
+        entidade: "sq_bre",
+        entidadeId: id,
+        responsavelId: dados.avaliado_id,
+        paraUsuarioId: dados.criado_por,
+        depois: { notas, provedor: provedor!.nome, erro },
+      });
+    });
+  }
+
+  async function obterSq(ctx: ContextoEmpresa, escopo: Escopo, id: string): Promise<SqBreDto> {
+    return comEmpresa(banco, ctx.empresaId, async (tx) => {
+      const [l] = await q<LinhaSq>(tx, `${SELECT_SQ} WHERE s.id = $1 AND s.empresa_id = $2`, [id, ctx.empresaId]);
+      if (!l) throw naoEncontrado("Avaliação SQ-BRE");
+      if (l.avaliado_id !== ctx.usuarioId) await exigirPessoa(tx, ctx, escopo, l.avaliado_id);
+      return dtoSq(l);
     });
   }
 
@@ -244,6 +297,7 @@ export function criarServicoDesempenho(s: Servicos, ia?: ProvedorIaBre) {
       const [l] = await q<LinhaSq>(tx, `${SELECT_SQ} WHERE s.id = $1 AND s.empresa_id = $2`, [id, ctx.empresaId]);
       if (!l) throw naoEncontrado("Avaliação SQ-BRE");
       if (l.nota !== null) throw invalido("Esta avaliação já foi confirmada.");
+      if (statusSq(l) === "processando") throw invalido("A prévia da IA ainda está sendo preparada. Aguarde um instante.");
       if (l.avaliado_id === ctx.usuarioId) throw invalido("Ninguém avalia o próprio atendimento. Peça a outro gestor.");
       await exigirPessoa(tx, ctx, escopo, l.avaliado_id);
       const nota = somaSq(notas);
@@ -254,6 +308,7 @@ export function criarServicoDesempenho(s: Servicos, ia?: ProvedorIaBre) {
         feedback,
         ctx.usuarioId,
       ]);
+      await marcarBpiVelho(tx);
       await registrar(tx, origem, {
         acao: "qualidade.sq_bre_confirmado",
         entidade: "conversa",
@@ -287,49 +342,91 @@ export function criarServicoDesempenho(s: Servicos, ia?: ProvedorIaBre) {
 
   // BPI e coaching --------------------------------------------------------------------------------------
 
-  /** Ranking do mês pelo BPI (D-14), com os pilares em coaching nas duas últimas semanas. */
-  async function bpi(ctx: ContextoEmpresa, escopo: Escopo, mes?: string): Promise<{ mes: string; itens: BpiDto[] }> {
-    return comEmpresa(banco, ctx.empresaId, async (tx) => {
-      const [m] = await q<{ mes: string; inicio: string; fim: string }>(
+  /**
+   * Calcula e guarda o BPI do mês para todas as pessoas ativas da empresa (ranking da empresa inteira e pilares em
+   * coaching nas duas últimas semanas). É um cache: os números sempre saem das fontes; quem saiu da empresa sai daqui.
+   */
+  async function calcularMes(tx: Tx, mes: string | null): Promise<string> {
+    const [m] = await q<{ mes: string; inicio: string; fim: string }>(
+      tx,
+      `SELECT to_char(i, 'YYYY-MM') AS mes, to_char(i, 'YYYY-MM-DD') AS inicio, to_char(i + interval '1 month', 'YYYY-MM-DD') AS fim
+       FROM (SELECT coalesce(to_date($2, 'YYYY-MM'), date_trunc('month', now() AT TIME ZONE fuso)::date) AS i FROM empresa WHERE id = $1) x`,
+      [tx.empresaId, mes],
+    );
+    const pessoas = await q<{ id: string; nome: string }>(
+      tx,
+      `SELECT u.id, u.nome FROM vinculo v JOIN usuario u ON u.id = v.usuario_id
+       WHERE v.empresa_id = $1 AND v.status = 'ativo' AND v.arquivado_em IS NULL`,
+      [tx.empresaId],
+    );
+    const ids = pessoas.map((p) => p.id);
+    const cfg = await lerConfig(tx);
+    const [a, b, c] = await ultimasSemanas(tx);
+    const [doMes, semanaA, semanaB] = await Promise.all([
+      notasBpi(tx, ids, m!.inicio, m!.fim, cfg.metaReceitaCentavos),
+      notasBpi(tx, ids, a, b, cfg.metaReceitaCentavos),
+      notasBpi(tx, ids, b, c, cfg.metaReceitaCentavos),
+    ]);
+    const nomePilar = (p: PilarBpi) => PILARES_BPI.find((x) => x.codigo === p)!.nome;
+    const linhas = pessoas
+      .map((p) => ({ p, pilares: doMes.get(p.id)!, bpi: calcularBpi(doMes.get(p.id)!), coaching: pilaresEmCoaching(semanaA.get(p.id)!, semanaB.get(p.id)!).map(nomePilar) }))
+      .sort((x, y) => (y.bpi ?? -1) - (x.bpi ?? -1) || x.p.nome.localeCompare(y.p.nome, "pt-BR"));
+    await q(tx, "DELETE FROM bre_bpi WHERE empresa_id = $1 AND mes = $2 AND NOT (usuario_id = ANY($3))", [tx.empresaId, m!.mes, ids]);
+    for (const [i, l] of linhas.entries()) {
+      await q(
         tx,
-        `SELECT to_char(i, 'YYYY-MM') AS mes, to_char(i, 'YYYY-MM-DD') AS inicio, to_char(i + interval '1 month', 'YYYY-MM-DD') AS fim
-         FROM (SELECT coalesce(to_date($2, 'YYYY-MM'), date_trunc('month', now() AT TIME ZONE fuso)::date) AS i FROM empresa WHERE id = $1) x`,
-        [ctx.empresaId, mes ?? null],
+        `INSERT INTO bre_bpi (empresa_id, mes, usuario_id, posicao, pilares, bpi, coaching, calculado_em) VALUES ($1, $2, $3, $4, $5, $6, $7, now())
+         ON CONFLICT (empresa_id, mes, usuario_id) DO UPDATE SET posicao = excluded.posicao, pilares = excluded.pilares, bpi = excluded.bpi,
+           coaching = excluded.coaching, calculado_em = excluded.calculado_em`,
+        [tx.empresaId, m!.mes, l.p.id, i + 1, JSON.stringify(l.pilares), l.bpi, JSON.stringify(l.coaching)],
       );
-      const pessoas = await tx.db
-        .execute<{ id: string; nome: string }>(sql`
-          SELECT u.id, u.nome FROM vinculo v JOIN usuario u ON u.id = v.usuario_id
-          WHERE v.empresa_id = ${ctx.empresaId} AND v.status = 'ativo' AND v.arquivado_em IS NULL
-            AND (${escopo === "empresa"} OR ${filtroUsuariosVisiveis(ctx, escopo, sql.raw("v.usuario_id"))})
-          ORDER BY u.nome LIMIT 500`)
+    }
+    return m!.mes;
+  }
+
+  /**
+   * Ranking do mês pelo BPI (D-14), lido do cálculo guardado. Recalcula se não houver, se estiver velho ou se
+   * pedirem (atualizar=sim). Paginado pela posição; cada um vê só as pessoas do seu escopo.
+   */
+  async function bpi(ctx: ContextoEmpresa, escopo: Escopo, f: { mes?: string; atualizar?: "sim"; cursor?: string; limite: number }): Promise<BpiRespostaDto> {
+    const depois = f.cursor ? Number.parseInt(Buffer.from(f.cursor, "base64url").toString("utf8"), 10) : 0;
+    if (!Number.isInteger(depois) || depois < 0) throw invalido("O marcador de página é inválido. Volte ao início da lista.");
+    return comEmpresa(banco, ctx.empresaId, async (tx) => {
+      const [m] = await q<{ mes: string }>(
+        tx,
+        "SELECT coalesce($2, to_char(now() AT TIME ZONE fuso, 'YYYY-MM')) AS mes FROM empresa WHERE id = $1",
+        [ctx.empresaId, f.mes ?? null],
+      );
+      const [guardado] = await q<{ quando: Date | null }>(tx, "SELECT max(calculado_em) AS quando FROM bre_bpi WHERE empresa_id = $1 AND mes = $2", [ctx.empresaId, m!.mes]);
+      // Velho = mais de 10 minutos (vendas e funil mudam fora do motor) ou marcado pelas ações do próprio motor.
+      if (f.atualizar || !guardado?.quando || !(Date.now() - new Date(guardado.quando).getTime() <= 600_000)) await calcularMes(tx, m!.mes);
+      const linhas = await tx.db
+        .execute<{ usuario_id: string; nome: string; posicao: number; pilares: NotasBpi; bpi: string | null; coaching: string[]; calculado_em: Date }>(sql`
+          SELECT b.usuario_id, u.nome, b.posicao, b.pilares, b.bpi, b.coaching, b.calculado_em
+          FROM bre_bpi b JOIN usuario u ON u.id = b.usuario_id
+          WHERE b.empresa_id = ${ctx.empresaId} AND b.mes = ${m!.mes} AND b.posicao > ${depois}
+            AND (${escopo === "empresa"} OR ${filtroUsuariosVisiveis(ctx, escopo, sql.raw("b.usuario_id"))})
+          ORDER BY b.posicao LIMIT ${f.limite + 1}`)
         .then((r) => r.rows);
-      const ids = pessoas.map((p) => p.id);
-      const cfg = await lerConfig(tx);
-      const [a, b, c] = await ultimasSemanas(tx);
-      const [doMes, semanaA, semanaB] = await Promise.all([
-        notasBpi(tx, ids, m!.inicio, m!.fim, cfg.metaReceitaCentavos),
-        notasBpi(tx, ids, a, b, cfg.metaReceitaCentavos),
-        notasBpi(tx, ids, b, c, cfg.metaReceitaCentavos),
-      ]);
-      const nomePilar = (p: PilarBpi) => PILARES_BPI.find((x) => x.codigo === p)!.nome;
-      const itens = pessoas
-        .map((p) => {
-          const pilares = doMes.get(p.id)!;
-          const valor = calcularBpi(pilares);
-          return {
-            usuarioId: p.id,
-            nome: p.nome,
-            posicao: 0,
-            pilares,
-            bpi: valor,
-            faixa: valor === null ? null : faixaBpi(valor),
-            coaching: pilaresEmCoaching(semanaA.get(p.id)!, semanaB.get(p.id)!).map(nomePilar),
-          };
-        })
-        .sort((x, y) => (y.bpi ?? -1) - (x.bpi ?? -1) || x.nome.localeCompare(y.nome, "pt-BR"))
-        .map((x, i) => ({ ...x, posicao: i + 1 }));
-      return { mes: m!.mes, itens };
+      const temMais = linhas.length > f.limite;
+      const pagina = temMais ? linhas.slice(0, f.limite) : linhas;
+      const [quando] = await q<{ quando: Date }>(tx, "SELECT max(calculado_em) AS quando FROM bre_bpi WHERE empresa_id = $1 AND mes = $2", [ctx.empresaId, m!.mes]);
+      return {
+        mes: m!.mes,
+        calculadoEm: new Date(quando?.quando ?? Date.now()).toISOString(),
+        itens: pagina.map((l) => {
+          const valor = l.bpi === null ? null : Number(l.bpi);
+          return { usuarioId: l.usuario_id, nome: l.nome, posicao: l.posicao, pilares: l.pilares, bpi: valor, faixa: valor === null ? null : faixaBpi(valor), coaching: l.coaching };
+        }),
+        proximoCursor: temMais ? Buffer.from(String(pagina.at(-1)!.posicao)).toString("base64url") : null,
+      };
     });
+  }
+
+  /** Job de hora em hora: o BPI do mês corrente fica pronto antes de alguém abrir a tela. */
+  async function rotinaHorariaBpi() {
+    const empresas = await comoSistema(banco, (tx) => q<{ id: string }>(tx, "SELECT id FROM empresa WHERE modulos ? 'bre'"));
+    for (const e of empresas) await comEmpresa(banco, e.id, (tx) => calcularMes(tx, null));
   }
 
   /** Job semanal (BR-022): pilar abaixo de 70 por 2 semanas seguidas avisa o gestor da equipe (uma vez por semana). */
@@ -379,5 +476,5 @@ export function criarServicoDesempenho(s: Servicos, ia?: ProvedorIaBre) {
     for (const e of empresas) await alertarCoaching(e.id);
   }
 
-  return { previa, confirmar, listarSq, bpi, alertarCoaching, rotinaSemanal };
+  return { previa, processarPrevia, obterSq, confirmar, listarSq, bpi, rotinaHorariaBpi, alertarCoaching, rotinaSemanal };
 }

@@ -188,7 +188,11 @@ servidor e a pessoa registra.
 - **IA × equipe** (administrador, em "Motor BRE"): quanto a IA concorda com o que a equipe registrou e com a nota
   SQ-BRE confirmada, e se a automação já estaria liberada pelo percentual e pela amostra da empresa.
 - **Privacidade com a IA**: nos limites do Motor BRE, "Esconder telefone, e-mail, CPF, CNPJ e CEP antes de enviar a
-  conversa para a IA" troca esses dados por marcadores. Desligado por padrão nos primeiros testes.
+  conversa para a IA" troca esses dados — e também o nome do cliente e endereços — por marcadores. Desligado por
+  padrão nos primeiros testes.
+- **IA sem travar a tela**: "Sugerir com IA" e a prévia do SQ-BRE vão para a fila; a tela mostra "Analisando…" e
+  preenche quando chega. Se a IA falhar, a pessoa preenche (ou o supervisor avalia) normalmente. Limite de análises
+  por hora por empresa nos limites do motor.
 - **Início**: bloco "Fila do dia (BRE)" com os primeiros da fila (padrão de quem atende, depois das metas).
 - **Automação** (administrador, em "Motor BRE"): pós-venda D+N, aniversário e reentrada do dia, com o texto da
   empresa ({nome}, {vendedor}, {empresa}) pelo canal escolhido. Só liga com o painel IA × equipe liberado; pula

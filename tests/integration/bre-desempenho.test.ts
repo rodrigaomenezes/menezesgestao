@@ -2,7 +2,7 @@
 // (AT-025), coaching por 2 semanas (AT-026), desconto antes do diagnóstico (AT-024) e escalonamento (BR-017).
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { criarServicoDesempenho } from "../../apps/api/src/modulos/bre/desempenho.servico.js";
-import { email, logado, montarTeste, semearDuasEmpresas, type AmbienteTeste, type EmpresasTeste } from "../apoio/app-teste.js";
+import { email, esperarAte, logado, montarTeste, semearDuasEmpresas, type AmbienteTeste, type EmpresasTeste } from "../apoio/app-teste.js";
 
 let t: AmbienteTeste;
 let e: EmpresasTeste;
@@ -44,20 +44,38 @@ async function conversa(contatoId: string, atribuidaA: string, mensagens: [strin
   return conv;
 }
 
+
+/** Pede a análise à IA (vai para a fila) e espera o trabalhador terminar. */
+async function analisar(cliente: Awaited<ReturnType<typeof logado>>, conversaId: string) {
+  const r = await cliente.pedir("POST", `/api/bre/conversas/${conversaId}/analisar`);
+  expect(r.statusCode, r.body).toBe(202);
+  expect(r.json().status).toBe("processando");
+  return esperarAte(
+    async () => (await cliente.get(`/api/bre/analises/${r.json().id}`)).json(),
+    (a) => a.status !== "processando",
+  );
+}
+
 describe("SQ-BRE na Qualidade (AT-019)", () => {
   it("a IA dá a prévia, o supervisor confirma outra nota e as duas ficam guardadas; o BPI usa a confirmada", async () => {
     const gestor = await logado(t.app, email(e.a, "gestor"));
     const contatoId = await cliente(pessoa("vendedor"));
     const conv = await conversa(contatoId, pessoa("vendedor"), [["saida", "Oi! Como foi com o perfume?"], ["entrada", "Gostei muito"]]);
 
-    const previa = await gestor.pedir("POST", "/api/qualidade/sq-bre", { conversaId: conv });
-    expect(previa.statusCode).toBe(200);
-    const p = previa.json();
+    const pedido = await gestor.pedir("POST", "/api/qualidade/sq-bre", { conversaId: conv });
+    expect(pedido.statusCode).toBe(200);
+    expect(pedido.json()).toMatchObject({ status: "processando", previa: null });
+    const p = await esperarAte(
+      async () => (await gestor.get(`/api/qualidade/sq-bre/${pedido.json().id}`)).json(),
+      (x) => x.status !== "processando",
+    );
     expect(p).toMatchObject({ status: "previa", provedor: "demonstracao", nota: null, avaliadoId: pessoa("vendedor") });
     expect(p.notaPrevia).toBe(p.previa.H + p.previa.D + p.previa.I + p.previa.V + p.previa.P);
     // Pedir de novo devolve a mesma prévia.
     expect((await gestor.pedir("POST", "/api/qualidade/sq-bre", { conversaId: conv })).json().id).toBe(p.id);
 
+    const donoAntes = await logado(t.app, email(e.a, "dono"));
+    expect((await donoAntes.get("/api/bre/desempenho?atualizar=sim&limite=100")).statusCode).toBe(200); // cálculo guardado antes da nota
     const notas = { H: 16, D: 12, I: 12, V: 12, P: 16 };
     const conf = await gestor.pedir("POST", `/api/qualidade/sq-bre/${p.id}/confirmar`, { notas, feedback: "Faltou diagnosticar o uso." });
     expect(conf.statusCode).toBe(200);
@@ -68,8 +86,9 @@ describe("SQ-BRE na Qualidade (AT-019)", () => {
     expect(audit.rows[0].antes.nota).toBe(p.notaPrevia);
     expect(audit.rows[0].depois.nota).toBe(68);
 
+    // O BPI guardado já existia (calculado antes): confirmar a nota marca como velho e a leitura recalcula sozinha.
     const dono = await logado(t.app, email(e.a, "dono"));
-    const bpi = (await dono.get("/api/bre/desempenho")).json();
+    const bpi = (await dono.get("/api/bre/desempenho?limite=100")).json();
     expect(bpi.itens.find((i: { usuarioId: string }) => i.usuarioId === pessoa("vendedor")).pilares.qualidade).toBe(68);
   });
 
@@ -136,7 +155,7 @@ describe("BPI com dados conhecidos (AT-025)", () => {
       );
     }
 
-    const bpi = (await dono.get("/api/bre/desempenho")).json();
+    const bpi = (await dono.get("/api/bre/desempenho?atualizar=sim&limite=100")).json();
     const linha = bpi.itens.find((i: { usuarioId: string }) => i.usuarioId === v2);
     expect(linha.pilares).toEqual({ receita: 50, pipeline: 50, inteligencia: 81.3, qualidade: null, relacionamento: 50 });
     // (30×50 + 20×50 + 20×81,3 + 10×50) / 80 = 4626 / 80 = 57,8
@@ -144,7 +163,7 @@ describe("BPI com dados conhecidos (AT-025)", () => {
     expect(bpi.itens.map((i: { posicao: number }) => i.posicao)).toEqual(bpi.itens.map((_: unknown, i: number) => i + 1));
 
     // Quem só vê o próprio vê só a própria linha.
-    const proprio = (await v2Login.get("/api/bre/desempenho")).json();
+    const proprio = (await v2Login.get("/api/bre/desempenho?atualizar=sim")).json();
     expect(proprio.itens.map((i: { usuarioId: string }) => i.usuarioId)).toEqual([v2]);
   });
 });
@@ -182,7 +201,7 @@ describe("Coaching (AT-026)", () => {
     const aviso = await sql("SELECT titulo FROM notificacao WHERE usuario_id = $1 AND titulo LIKE 'Coaching:%'", [pessoa("gestor")]);
     expect(aviso.rows[0].titulo).toBe("Coaching: Vendedor A1 está abaixo de 70 em Qualidade há 2 semanas");
 
-    const bpi = (await dono.get("/api/bre/desempenho")).json();
+    const bpi = (await dono.get("/api/bre/desempenho?atualizar=sim&limite=100")).json();
     expect(bpi.itens.find((i: { usuarioId: string }) => i.usuarioId === pessoa("vendedor")).coaching).toEqual(["Qualidade"]);
     expect(bpi.itens.find((i: { usuarioId: string }) => i.usuarioId === pessoa("consultor")).coaching).toEqual([]);
   });
@@ -194,14 +213,14 @@ describe("IA: desconto e escalonamento", () => {
     const contatoId = await cliente(pessoa("vendedor"), [200, 10]);
     await sql("UPDATE contato SET estado_bre = 'ACTIVE' WHERE id = $1", [contatoId]);
     const conv = await conversa(contatoId, pessoa("vendedor"), [["entrada", "Achei caro esse"]]);
-    const antes = (await vendedor.pedir("POST", `/api/bre/conversas/${conv}/analisar`)).json();
+    const antes = (await analisar(vendedor, conv)).sugestao;
     expect(antes.sugereDesconto).toBe(false);
     expect(antes.bloqueios).toContain("Desconto não sugerido: só depois do diagnóstico concluído.");
 
     const funil = (await sql("INSERT INTO funil (empresa_id, nome) VALUES ($1, 'Funil diag') RETURNING id", [e.a.empresaId])).rows[0].id;
     const interesse = (await sql("INSERT INTO etapa (empresa_id, funil_id, nome, marco_bre) VALUES ($1, $2, 'Interesse', 'INTEREST') RETURNING id", [e.a.empresaId, funil])).rows[0].id;
     await sql("INSERT INTO oportunidade (empresa_id, contato_id, funil_id, etapa_id, titulo, responsavel_id) VALUES ($1, $2, $3, $4, 'Op', $5)", [e.a.empresaId, contatoId, funil, interesse, pessoa("vendedor")]);
-    const depois = (await vendedor.pedir("POST", `/api/bre/conversas/${conv}/analisar`)).json();
+    const depois = (await analisar(vendedor, conv)).sugestao;
     expect(depois.sugereDesconto).toBe(true);
   });
 
@@ -209,8 +228,8 @@ describe("IA: desconto e escalonamento", () => {
     const vendedor = await logado(t.app, email(e.a, "vendedor"));
     const contatoId = await cliente(pessoa("vendedor"));
     const conv = await conversa(contatoId, pessoa("vendedor"), [["entrada", "Quero fazer uma reclamação, o pedido veio errado"]]);
-    expect((await vendedor.pedir("POST", `/api/bre/conversas/${conv}/analisar`)).json().escalonamento).toBe("COMPLAINT");
-    await vendedor.pedir("POST", `/api/bre/conversas/${conv}/analisar`);
+    expect((await analisar(vendedor, conv)).sugestao.escalonamento).toBe("COMPLAINT");
+    await analisar(vendedor, conv);
     const abertos = await sql("SELECT id, origem FROM escalonamento WHERE contato_id = $1 AND status = 'aberto'", [contatoId]);
     expect(abertos.rows).toEqual([{ id: abertos.rows[0].id, origem: "ia" }]);
     for (const quem of ["vendedor", "gestor"]) {
