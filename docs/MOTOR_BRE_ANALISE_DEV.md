@@ -1,8 +1,8 @@
 # Motor BRE — Análise para desenvolvimento
 
 Documento técnico para quem vai implementar ou portar o motor BRE. A fonte funcional é a ETR BRE-ETR-001 v0.2
-(doutrina BRE v1.0); a implementação de referência está no menezesgestao (PR #22, ADR-032 a ADR-034). Tudo abaixo descreve
-o que já roda e foi testado (fases 8.1, 8.2 e 8.3), e marca o que ainda falta.
+(doutrina BRE v1.0); a implementação de referência está no menezesgestao (PR #22, ADR-032 a ADR-035). Tudo abaixo descreve
+o que já roda e foi testado (fases 8.1 a 8.4), e marca o que ainda falta.
 
 ## 1. O que é
 
@@ -31,9 +31,10 @@ Tela (React)  ──►  API /api/bre/*  ──►  Serviço do motor (regras)  
 | Peça | Arquivo | Papel |
 | --- | --- | --- |
 | Contrato | `packages/shared/src/dto-bre.ts` | Listas fechadas, limites padrão, regras puras, DTOs e validação (Zod) |
-| Migrações | `database/migrations/0011_bre.sql` a `0014_bre_fechamento.sql` | Tabelas, CHECK das listas, RLS |
+| Migrações | `database/migrations/0011_bre.sql` a `0015_bre_automacao.sql` | Tabelas, CHECK das listas, RLS |
 | Serviço | `apps/api/src/modulos/bre/bre.servico.ts` | Regras do motor, IA e escalonamento |
 | Desempenho | `apps/api/src/modulos/bre/desempenho.servico.ts` | SQ-BRE, BPI, ranking e coaching |
+| Automação | `apps/api/src/modulos/bre/automacao.servico.ts` | Pós-venda, aniversário e reentrada por modelo de texto |
 | Rotas | `apps/api/src/modulos/bre/bre.rotas.ts` | API com permissão por rota |
 | IA | `apps/api/src/modulos/bre/ia.ts` | Interface + Claude + demonstração |
 | Funil | `apps/api/src/modulos/crm/oportunidades.servico.ts` | Bloqueio de transição pelo marco |
@@ -216,6 +217,20 @@ Decisão do analista: a conversa vai aberta para a IA nos primeiros testes. O ma
 `[CNPJ]`, `[CEP]` e `[telefone]` em todo envio à IA (sugestão do registro e prévia do SQ-BRE). Nome e endereço não são
 mascarados. Antes do uso real: ligar, base legal, aviso ao titular, contrato sem uso para treino e prazo de retenção.
 
+### 4.14 Automação (Fase 4 da ETR)
+| Tipo | Quem recebe hoje | Referência (não repete) |
+| --- | --- | --- |
+| `POS_VENDA` | Cliente com venda confirmada há exatamente N dias | A venda |
+| `ANIVERSARIO` | Cliente cujo campo de data escolhido (AAAA-MM-DD) cai no dia e mês de hoje | O ano |
+| `REENTRADA` | Cliente com reentrada `TIME` pendente vencendo hoje | A reentrada |
+
+- Texto da empresa com `{nome}` (primeiro nome), `{vendedor}` e `{empresa}`; sai pelo canal escolhido.
+- Ligar exige o painel IA × equipe liberado; cada execução confere de novo e, se não estiver, nada sai.
+- Pula, registrando o motivo: cadastro arquivado ou anonimizado, sem telefone, escalonamento aberto e qualquer trava
+  da seção 4.2 ("não contatar", recente antes de 48 h, 48 h entre tentativas, intervalo entre ciclos).
+- Um registro por automação × cliente × referência: rodar de novo não repete. Erro num cliente não para os outros.
+- Rotina diária às 09:17 (São Paulo) e "Rodar agora" para o administrador.
+
 ## 5. Banco de dados
 
 Todas com `empresa_id`, RLS (`empresa_id = app_empresa_id()`) e só INSERT/SELECT/UPDATE para o papel da aplicação.
@@ -239,6 +254,8 @@ Todas com `empresa_id`, RLS (`empresa_id = app_empresa_id()`) e só INSERT/SELEC
 | `tarefa.origem_bre` | `retorno` ou `pos_venda` | Pilar Relacionamento |
 | `campo_personalizado.inteligencia_bre` | boolean | Campo do contato que conta como inteligência |
 | `oportunidade.encerramento_bre` → DTO `encerradaBre` | critério e data | A ficha mostra "Encerrada pelo método BRE" |
+| `bre_automacao` | `tipo`, `canal_id`, `texto`, `dias` ou `campo_chave`, `ativa` | Nasce desligada |
+| `bre_automacao_execucao` | `referencia`, `status` (enviada/ignorada), `detalhe`, `mensagem_id` | Única por automação × cliente × referência |
 
 A permissão `permissao.modulo` passa a aceitar `bre`.
 
@@ -277,6 +294,9 @@ Todas exigem sessão, empresa e o módulo `bre`; erro sempre `{ error: { code, m
 | `GET /api/bre/desempenho?mes=AAAA-MM` | bre:ver | BPI por pessoa, ranking e pilares em coaching |
 | `GET /api/bre/contatos/:id/inteligencia` | bre:ver | Campos de inteligência: quantos, preenchidos, o que falta |
 | `GET /api/bre/concordancia` | bre:administrar | Concordância por campo, bloqueios e se a automação estaria liberada |
+| `GET /api/bre/automacoes` · `POST` · `PATCH /:id` | bre:administrar | Lista, cria (desligada), altera, liga (exige liberação), desliga, arquiva |
+| `GET /api/bre/automacoes/execucoes` | bre:administrar | Envios e pulos, paginado |
+| `POST /api/bre/automacoes/executar` | bre:administrar | Roda agora (mesma regra da rotina diária) |
 | `GET /api/qualidade/sq-bre?status` | qualidade:ver (+ módulo bre) | Prévias e notas confirmadas, paginado |
 | `POST /api/qualidade/sq-bre` | qualidade:criar, escopo além do próprio | Prévia da IA para a conversa |
 | `POST /api/qualidade/sq-bre/:id/confirmar` | qualidade:criar, escopo além do próprio | Nota confirmada + feedback |
@@ -324,12 +344,13 @@ e empresa seguem o filtro de escopo do sistema. Perfis padrão: dono administra,
 | Inteligência | Falta saber certo; outra carteira não acessa; completude pelos campos marcados (100 em vez de 25 pela regra antiga) |
 | Concordância | Sem amostra não libera; 100% libera; 80% (abaixo de 85%) não libera, com o motivo; sugestão barrada não libera; vendedor sem acesso |
 | Encerramento | A oportunidade passa a trazer o critério do encerramento |
+| Automação | Não liga sem liberação; envia o pós-venda com o texto preenchido; pula "não contatar", escalonamento e sem telefone com o motivo no vocabulário; não repete; aniversário; pausa se a concordância cair |
 | Mascaramento | Desligado, a IA lê o texto como está; ligado, sem telefone, e-mail e CPF (unitário cobre CNPJ, CEP e textos sem dado pessoal) |
 
 ## 10. O que falta
 
-1. Fase 4 da ETR (automação): com a concordância liberada, executar sozinho só o que é automatizável (lembretes,
-   confirmação de entrega, aniversários, lançamentos, organização da fila), de forma reversível e auditada.
+1. Automação de lançamento compatível e alerta de estoque (dependem de catálogo com estoque e de definir
+   "compatível"); mensagens modelo da API oficial para envios fora da janela de 24 h.
 2. Ligar o mascaramento antes do uso real e avaliar mascarar nomes e endereços (seção 4.13).
 3. Análise da IA pela fila de jobs (hoje é na hora) e BPI pré-calculado quando houver volume.
 

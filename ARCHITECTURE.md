@@ -143,6 +143,8 @@ tests/      integration/ (Vitest + PostgreSQL real), e2e/ (Playwright, 5 largura
   `tarefa.origem_bre`. O BPI não tem tabela: sai dessas fontes na consulta (ADR-033).
   Na 8.3: `campo_personalizado.inteligencia_bre` marca os campos de inteligência (ADR-034); a concordância IA ×
   equipe é calculada na consulta, juntando cada registro à última análise da mesma conversa.
+  Na 8.4: `bre_automacao` (modelo de texto, canal, dias ou campo) e `bre_automacao_execucao` (única por automação ×
+  cliente × referência). O envio usa o mesmo serviço de saída das conversas (fila de jobs) (ADR-035).
 - Campos personalizados: definição em `campo_personalizado`, valores em `campos jsonb` validados pelo serviço.
 - Sessões e tokens guardam só o HMAC (`SESSION_SECRET`); conteúdo sensível de jobs vai cifrado (`CRM_CHAVE`).
 

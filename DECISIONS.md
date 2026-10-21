@@ -525,3 +525,19 @@ decisão do analista, a conversa vai aberta para a IA nos primeiros testes; o en
 Reaproveitar os campos personalizados mantém "tudo é configuração" e evita um segundo cadastro de campos. Medir
 contra o que a própria equipe registrou dá um número que o gestor entende e não depende de rotular conversas à parte.
 
+# ADR-035 — Automação BRE por modelo de texto, travada pela concordância
+
+## Decisão
+A Fase 4 da ETR entra como automações por modelo de texto da empresa (`bre_automacao`): pós-venda D+N, aniversário
+(campo de data escolhido) e reentrada combinada do dia. Não usam IA. Ligar exige o painel IA × equipe liberado
+(DEC-010), e a liberação é conferida de novo a cada execução: se a concordância cair, nada sai. Cada candidato passa
+pelas mesmas travas do registro (`bloqueioDeTentativa`), por "não contatar", escalonamento aberto, cadastro arquivado
+ou anonimizado e telefone. `bre_automacao_execucao` é única por automação × cliente × referência (venda, ano ou
+reentrada) e guarda o motivo do pulo no vocabulário da empresa. Rotina diária às 09:17 (fuso de São Paulo) e "Rodar
+agora" para o administrador.
+
+## Por quê
+A doutrina só automatiza o que não exige julgamento (lembretes, aniversários, confirmação de entrega). Amarrar à
+concordância mantém a ordem que o livro pede — validar o processo antes de escalar — e a trava em cada execução
+impede que uma piora passe despercebida.
+

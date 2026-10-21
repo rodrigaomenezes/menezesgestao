@@ -102,3 +102,26 @@ test("encerramento guiado na ficha, motivos de Break e painel IA × equipe", asy
   await expect(motivos.getByText(`Frete ${info.project.name}`)).toBeVisible();
   await semRolagemLateral(page);
 });
+
+test("automação: o administrador cria, e ligar sem o painel IA × equipe liberado explica o motivo", async ({ page }, info) => {
+  const { a } = dados();
+  const pool = new pg.Pool({ connectionString: urlBancoTeste() });
+  try {
+    await pool.query("INSERT INTO canal (empresa_id, nome, provedor) VALUES ($1, $2, 'demonstracao')", [a.id, `Canal auto ${info.project.name}`]);
+  } finally {
+    await pool.end();
+  }
+  await entrar(page, pessoa(a, "dono").email);
+  await page.goto("/bre");
+  const secao = page.getByRole("region", { name: "Automação" });
+  const nome = `Chegou bem ${info.project.name}`;
+  await secao.getByLabel("Nome", { exact: true }).fill(nome);
+  await secao.getByLabel("Dias depois da venda").fill("2");
+  await secao.getByRole("button", { name: "Criar automação" }).click();
+  const item = secao.locator("li.item", { hasText: nome });
+  await expect(item).toContainText("desligada");
+  await semRolagemLateral(page);
+  await item.getByRole("button", { name: "Ligar" }).click();
+  await expect(page.getByText(/o painel IA × equipe precisa estar liberado/)).toBeVisible();
+  await expect(item).toContainText("desligada");
+});

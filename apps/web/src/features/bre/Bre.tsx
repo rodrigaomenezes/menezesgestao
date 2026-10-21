@@ -28,6 +28,7 @@ import { useSessao } from "../../app/sessao";
 import { useTempoReal } from "../../app/tempo-real";
 import { useVocabulario } from "../../app/vocabulario";
 import { Modal, useAviso } from "../../ui/sobreposicoes";
+import { AutomacaoBre } from "./Automacao";
 import { CarregarMais, Campo, Escolha, ListaVazia, Mensagem, Titulo, useEnvio, usePaginado } from "../../ui/ui";
 
 const opcoes = (l: readonly { codigo: string; nome: string }[]) => l.map((i) => ({ valor: i.codigo, texto: i.nome }));
@@ -567,6 +568,7 @@ export function Bre() {
       <Reentradas />
       <Desempenho />
       {pode("bre", "administrar") && <Concordancia />}
+      {pode("bre", "administrar") && <AutomacaoBre />}
       {pode("bre", "administrar") && <MotivosBreak />}
       {pode("bre", "administrar") && <Limites />}
     </>

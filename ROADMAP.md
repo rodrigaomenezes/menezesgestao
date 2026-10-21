@@ -56,6 +56,9 @@ Detalhes e critérios de pronto de cada fase: `ESPECIFICACAO.md` ("Roteiro de co
       do registro e na completude do BPI; painel IA × equipe com liberação pelo percentual da empresa (DEC-010); tela
       de motivos de Break; encerramento guiado na ficha do cliente; bloco "Fila do dia (BRE)" no Início; mascaramento de
       telefone, e-mail, CPF, CNPJ e CEP para a IA (desligado nos primeiros testes, por decisão do analista).
+- [x] Fase 8.4 — Automação BRE (Fase 4 da ETR, ADR-035): pós-venda D+N, aniversário e reentrada do dia por modelo de
+      texto da empresa, pelo canal de WhatsApp; só liga e só envia com o painel IA × equipe liberado; respeita "não
+      contatar", escalonamento aberto e os limites de contato; nunca repete; envios e pulos registrados com o motivo.
 
 ## Próximas fases (planejadas, não iniciadas)
 

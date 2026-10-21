@@ -499,3 +499,56 @@ export function mascararDadosPessoais(texto: string): string {
     .replace(/\b\d{5}-\d{3}\b/g, "[CEP]")
     .replace(/(\+?\(?\d[\d\s().-]{7,}\d)/g, (m) => (m.replace(/\D/g, "").length >= 8 ? "[telefone]" : m));
 }
+
+// Automação (fase 8.4, Fase 4 da ETR): só o automatizável, por modelo de texto, com a concordância liberada.
+
+export const TIPOS_AUTOMACAO_BRE = [
+  { codigo: "POS_VENDA", nome: "Pós-venda", ajuda: "Mensagem N dias depois da venda confirmada (ex.: D+2, chegou bem?)" },
+  { codigo: "ANIVERSARIO", nome: "Aniversário", ajuda: "No dia e mês do campo de data escolhido" },
+  { codigo: "REENTRADA", nome: "Reentrada do dia", ajuda: "Quando vence uma reentrada combinada por data" },
+] as const;
+export type TipoAutomacaoBre = (typeof TIPOS_AUTOMACAO_BRE)[number]["codigo"];
+export const CODIGOS_AUTOMACAO_BRE = lista(TIPOS_AUTOMACAO_BRE);
+
+export const AutomacaoBreDto = z.object({
+  id: Id,
+  tipo: z.enum(CODIGOS_AUTOMACAO_BRE),
+  nome: z.string(),
+  canalId: Id,
+  texto: z.string(),
+  dias: z.number().int().nullable(),
+  campoChave: z.string().nullable(),
+  ativa: z.boolean(),
+  arquivadoEm: DataIso.nullable(),
+});
+export type AutomacaoBreDto = z.infer<typeof AutomacaoBreDto>;
+
+const TextoModelo = z.string().trim().min(1, { error: "Texto da mensagem: preencha." }).max(1000, { error: "Texto da mensagem: no máximo 1.000 caracteres." });
+export const AutomacaoBreEntrada = z
+  .object({
+    tipo: z.enum(CODIGOS_AUTOMACAO_BRE),
+    nome: z.string().trim().min(1, { error: "Nome: preencha." }).max(80),
+    canalId: Id,
+    texto: TextoModelo,
+    dias: z.number().int().min(1, { error: "Dias: de 1 a 365." }).max(365, { error: "Dias: de 1 a 365." }).nullish(),
+    campoChave: z.string().trim().max(40).nullish(),
+  })
+  .refine((a) => a.tipo !== "POS_VENDA" || Boolean(a.dias), { error: "Diga quantos dias depois da venda.", path: ["dias"] })
+  .refine((a) => a.tipo !== "ANIVERSARIO" || Boolean(a.campoChave), { error: "Escolha o campo de data do aniversário.", path: ["campoChave"] });
+export const AtualizarAutomacaoBreEntrada = z.object({
+  nome: z.string().trim().min(1).max(80).optional(),
+  texto: TextoModelo.optional(),
+  ativa: z.boolean().optional(),
+  arquivado: z.boolean().optional(),
+});
+
+export const ExecucaoAutomacaoBreDto = z.object({
+  id: Id,
+  automacaoNome: z.string(),
+  contatoId: Id,
+  contatoNome: z.string(),
+  status: z.enum(["enviada", "ignorada"]),
+  detalhe: z.string().nullable(),
+  criadoEm: DataIso,
+});
+export type ExecucaoAutomacaoBreDto = z.infer<typeof ExecucaoAutomacaoBreDto>;

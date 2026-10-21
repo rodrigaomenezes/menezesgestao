@@ -3,6 +3,10 @@ import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import {
   AnaliseBreDto,
+  AtualizarAutomacaoBreEntrada,
+  AutomacaoBreDto,
+  AutomacaoBreEntrada,
+  ExecucaoAutomacaoBreDto,
   AtualizarMotivoBreakEntrada,
   AtualizarReentradaEntrada,
   BpiRespostaDto,
@@ -38,10 +42,13 @@ import { ErroApp } from "../../infra/erros.js";
 import { exigirEmpresa, exigirEscopo, origemDe, type ContextoEmpresa } from "../acesso/acesso.js";
 import { criarServicoBre } from "./bre.servico.js";
 import { criarServicoDesempenho } from "./desempenho.servico.js";
+import { criarServicoAutomacaoBre } from "./automacao.servico.js";
+import type { ServicoEnvio } from "../conversas/envio.servico.js";
 
 export const FILA_BRE_DIARIA = "bre.classificar";
 export const FILA_BRE_HORARIA = "bre.silencio";
 export const FILA_BRE_SEMANAL = "bre.coaching";
+export const FILA_BRE_AUTOMACAO = "bre.automacao";
 
 /** O SQ-BRE mora na Qualidade (DEC-014), mas só existe com o motor BRE ligado. */
 function exigirBre(ctx: ContextoEmpresa): ContextoEmpresa {
@@ -50,10 +57,11 @@ function exigirBre(ctx: ContextoEmpresa): ContextoEmpresa {
 }
 
 export const rotasBre =
-  (s: Servicos): FastifyPluginAsyncZod =>
+  (s: Servicos, envio: ServicoEnvio): FastifyPluginAsyncZod =>
   async (app) => {
     const bre = criarServicoBre(s);
     const desempenho = criarServicoDesempenho(s);
+    const automacao = criarServicoAutomacaoBre(s, envio);
     const tags = ["Motor BRE"];
     const acesso = (acao: "ver" | "criar" | "editar" | "administrar") => ({ acesso: { modulo: "bre" as const, acao } });
 
@@ -128,6 +136,37 @@ export const rotasBre =
       "/api/bre/concordancia",
       { config: acesso("administrar"), schema: { tags, summary: "Concordância IA × pessoa e liberação da automação (DEC-010)", response: { 200: ConcordanciaDto } } },
       async (req) => bre.concordancia(exigirEmpresa(req)),
+    );
+    app.get(
+      "/api/bre/automacoes",
+      { config: acesso("administrar"), schema: { tags, summary: "Automações do método (pós-venda, aniversário, reentrada)", response: { 200: z.object({ itens: z.array(AutomacaoBreDto) }) } } },
+      async (req) => automacao.listar(exigirEmpresa(req)),
+    );
+    app.post(
+      "/api/bre/automacoes",
+      { config: acesso("administrar"), schema: { tags, summary: "Criar automação (nasce desligada)", body: AutomacaoBreEntrada, response: { 201: AutomacaoBreDto } } },
+      async (req, reply) => reply.status(201).send(await automacao.criar(exigirEmpresa(req), origemDe(req), req.body)),
+    );
+    app.patch(
+      "/api/bre/automacoes/:id",
+      {
+        config: acesso("administrar"),
+        schema: { tags, summary: "Alterar, ligar (exige o painel IA × equipe liberado), desligar ou arquivar", params: ParamId, body: AtualizarAutomacaoBreEntrada, response: { 200: AutomacaoBreDto } },
+      },
+      async (req) => automacao.atualizar(exigirEmpresa(req), origemDe(req), req.params.id, req.body),
+    );
+    app.get(
+      "/api/bre/automacoes/execucoes",
+      { config: acesso("administrar"), schema: { tags, summary: "Envios e pulos das automações", querystring: Paginacao, response: { 200: pagina(ExecucaoAutomacaoBreDto) } } },
+      async (req) => automacao.execucoes(exigirEmpresa(req), req.query),
+    );
+    app.post(
+      "/api/bre/automacoes/executar",
+      {
+        config: acesso("administrar"),
+        schema: { tags, summary: "Rodar agora as automações ligadas (o mesmo que a rotina diária)", response: { 200: z.object({ enviadas: z.number().int(), ignoradas: z.number().int(), pausada: z.string().nullable() }) } },
+      },
+      async (req) => automacao.executar(exigirEmpresa(req).empresaId),
     );
     app.get(
       "/api/bre/desempenho",

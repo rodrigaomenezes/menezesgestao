@@ -80,6 +80,32 @@ export async function mensagensDaConversa(tx: Tx, conversaId: string): Promise<M
   return linhas.map((m) => ({ de: m.direcao === "entrada" ? "cliente" : "atendente", texto: mascararDadosIa ? mascararDadosPessoais(m.texto) : m.texto }));
 }
 
+/**
+ * Por que uma nova tentativa ativa não pode acontecer agora (BR-012, BR-013, BR-014, BR-015), ou null.
+ * Data combinada com o cliente (reentrada ou retorno vencendo hoje) prevalece sobre o limite entre ciclos.
+ */
+export async function bloqueioDeTentativa(tx: Tx, c: { id: string; nao_contatar: boolean; estado_bre: string | null; ultima_entrega_em: string | null }, cfg: ConfigBre): Promise<string | null> {
+  if (c.nao_contatar) return "{O contato} pediu para não ser contatad{o|a:contato}. Só fale de novo quando {o contato} mandar mensagem.";
+  const [r] = await q<{ cedo: boolean; espera: boolean; entre_ciclos: boolean; combinado: boolean }>(
+    tx,
+    `SELECT
+       ($2::text = 'RECENT' AND $3::date IS NOT NULL AND $3::date + make_interval(hours => $4) > now()) AS cedo,
+       EXISTS (SELECT 1 FROM ciclo_contato WHERE empresa_id = $1 AND contato_id = $5 AND encerrado_em IS NULL
+                 AND ultima_tentativa_em > now() - make_interval(hours => $6)) AS espera,
+       EXISTS (SELECT 1 FROM ciclo_contato WHERE empresa_id = $1 AND contato_id = $5 AND sem_resposta
+                 AND encerrado_em > now() - make_interval(days => $7)) AS entre_ciclos,
+       EXISTS (SELECT 1 FROM reentrada WHERE empresa_id = $1 AND contato_id = $5 AND status = 'pendente'
+                 AND prevista_para <= (now() AT TIME ZONE (SELECT fuso FROM empresa WHERE id = $1))::date)
+         OR EXISTS (SELECT 1 FROM registro_bre WHERE empresa_id = $1 AND contato_id = $5
+                 AND retorno_em = (now() AT TIME ZONE (SELECT fuso FROM empresa WHERE id = $1))::date) AS combinado`,
+    [tx.empresaId, c.estado_bre, c.ultima_entrega_em, cfg.horasAntesDoPrimeiroContato, c.id, cfg.horasEntreTentativas, cfg.diasEntreCiclos],
+  );
+  if (r!.cedo) return `{Contato} recente: o primeiro contato só ${cfg.horasAntesDoPrimeiroContato} horas depois da entrega.`;
+  if (r!.espera) return `Aguarde ${cfg.horasEntreTentativas} horas desde a última tentativa antes de abordar de novo.`;
+  if (r!.entre_ciclos && !r!.combinado) return `{Este contato} não respondeu ao último ciclo. Novo contato só ${cfg.diasEntreCiclos} dias depois, ou na data combinada com {ele|ela:contato}.`;
+  return null;
+}
+
 export function criarServicoBre(s: Servicos, ia?: ProvedorIaBre) {
   const { banco } = s;
   let provedor = ia;
@@ -155,31 +181,6 @@ export function criarServicoBre(s: Servicos, ia?: ProvedorIaBre) {
     return l.id;
   }
 
-  /**
-   * Por que uma nova tentativa ativa não pode acontecer agora (BR-012, BR-013, BR-014, BR-015), ou null.
-   * Data combinada com o cliente (reentrada ou retorno vencendo hoje) prevalece sobre o limite entre ciclos.
-   */
-  async function bloqueioDeTentativa(tx: Tx, c: { id: string; nao_contatar: boolean; estado_bre: string | null; ultima_entrega_em: string | null }, cfg: ConfigBre): Promise<string | null> {
-    if (c.nao_contatar) return "{O contato} pediu para não ser contatad{o|a:contato}. Só fale de novo quando {o contato} mandar mensagem.";
-    const [r] = await q<{ cedo: boolean; espera: boolean; entre_ciclos: boolean; combinado: boolean }>(
-      tx,
-      `SELECT
-         ($2::text = 'RECENT' AND $3::date IS NOT NULL AND $3::date + make_interval(hours => $4) > now()) AS cedo,
-         EXISTS (SELECT 1 FROM ciclo_contato WHERE empresa_id = $1 AND contato_id = $5 AND encerrado_em IS NULL
-                   AND ultima_tentativa_em > now() - make_interval(hours => $6)) AS espera,
-         EXISTS (SELECT 1 FROM ciclo_contato WHERE empresa_id = $1 AND contato_id = $5 AND sem_resposta
-                   AND encerrado_em > now() - make_interval(days => $7)) AS entre_ciclos,
-         EXISTS (SELECT 1 FROM reentrada WHERE empresa_id = $1 AND contato_id = $5 AND status = 'pendente'
-                   AND prevista_para <= (now() AT TIME ZONE (SELECT fuso FROM empresa WHERE id = $1))::date)
-           OR EXISTS (SELECT 1 FROM registro_bre WHERE empresa_id = $1 AND contato_id = $5
-                   AND retorno_em = (now() AT TIME ZONE (SELECT fuso FROM empresa WHERE id = $1))::date) AS combinado`,
-      [tx.empresaId, c.estado_bre, c.ultima_entrega_em, cfg.horasAntesDoPrimeiroContato, c.id, cfg.horasEntreTentativas, cfg.diasEntreCiclos],
-    );
-    if (r!.cedo) return `{Contato} recente: o primeiro contato só ${cfg.horasAntesDoPrimeiroContato} horas depois da entrega.`;
-    if (r!.espera) return `Aguarde ${cfg.horasEntreTentativas} horas desde a última tentativa antes de abordar de novo.`;
-    if (r!.entre_ciclos && !r!.combinado) return `{Este contato} não respondeu ao último ciclo. Novo contato só ${cfg.diasEntreCiclos} dias depois, ou na data combinada com {ele|ela:contato}.`;
-    return null;
-  }
 
   async function registrarConversa(ctx: ContextoEmpresa, escopo: Escopo, origem: Origem, e: RegistroBreEntrada) {
     return comEmpresa(banco, ctx.empresaId, async (tx) => {

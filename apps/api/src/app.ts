@@ -35,7 +35,8 @@ import { rotasPerfis } from "./modulos/permissoes/perfis.rotas.js";
 import { rotasAuditoria } from "./modulos/auditoria/auditoria.rotas.js";
 import { rotasNotificacoes } from "./modulos/notificacoes/notificacoes.rotas.js";
 import { rotasInicio } from "./modulos/inicio/inicio.rotas.js";
-import { FILA_BRE_DIARIA, FILA_BRE_HORARIA, FILA_BRE_SEMANAL, rotasBre } from "./modulos/bre/bre.rotas.js";
+import { FILA_BRE_AUTOMACAO, FILA_BRE_DIARIA, FILA_BRE_HORARIA, FILA_BRE_SEMANAL, rotasBre } from "./modulos/bre/bre.rotas.js";
+import { criarServicoAutomacaoBre } from "./modulos/bre/automacao.servico.js";
 import { criarServicoDesempenho } from "./modulos/bre/desempenho.servico.js";
 import { criarServicoBre } from "./modulos/bre/bre.servico.js";
 import { rotasSistema } from "./modulos/sistema/sistema.rotas.js";
@@ -206,7 +207,7 @@ export async function criarApp(servicos: Servicos): Promise<AppMontado> {
   await app.register(rotasReceita(servicos));
   await app.register(rotasQualidade(servicos));
   // Motor BRE: estado do cliente todo dia; silêncio dos ciclos de hora em hora.
-  await app.register(rotasBre(servicos));
+  await app.register(rotasBre(servicos, envio));
   const bre = criarServicoBre(servicos);
   await servicos.jobs.trabalhar(FILA_BRE_DIARIA, () => bre.rotinaDiaria());
   await servicos.jobs.agendar(FILA_BRE_DIARIA, "7 3 * * *");
@@ -216,6 +217,12 @@ export async function criarApp(servicos: Servicos): Promise<AppMontado> {
   const desempenhoBre = criarServicoDesempenho(servicos);
   await servicos.jobs.trabalhar(FILA_BRE_SEMANAL, () => desempenhoBre.rotinaSemanal());
   await servicos.jobs.agendar(FILA_BRE_SEMANAL, "13 7 * * 1");
+  // Automação do método (fase 8.4): uma vez por dia, de manhã, só nas empresas com automação ligada.
+  const automacaoBre = criarServicoAutomacaoBre(servicos, envio);
+  await servicos.jobs.trabalhar(FILA_BRE_AUTOMACAO, async () => {
+    await automacaoBre.rotinaDiaria();
+  });
+  await servicos.jobs.agendar(FILA_BRE_AUTOMACAO, "17 9 * * *");
   await app.register(rotasWhiteLabel(servicos, arquivos, envio));
   // Automações: varre os eventos a cada minuto. Cobrança: ciclo diário de faturas.
   const automacoes = criarServicoAutomacoes(servicos, envio);

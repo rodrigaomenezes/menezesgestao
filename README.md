@@ -190,6 +190,9 @@ servidor e a pessoa registra.
 - **Privacidade com a IA**: nos limites do Motor BRE, "Esconder telefone, e-mail, CPF, CNPJ e CEP antes de enviar a
   conversa para a IA" troca esses dados por marcadores. Desligado por padrão nos primeiros testes.
 - **Início**: bloco "Fila do dia (BRE)" com os primeiros da fila (padrão de quem atende, depois das metas).
+- **Automação** (administrador, em "Motor BRE"): pós-venda D+N, aniversário e reentrada do dia, com o texto da
+  empresa ({nome}, {vendedor}, {empresa}) pelo canal escolhido. Só liga com o painel IA × equipe liberado; pula
+  "não contatar", escalonamento aberto e quem está nos limites; nunca repete. Roda às 09:17 e tem "Rodar agora".
 - **Motivos de Break** (administrador, em "Motor BRE") e **Encerrar (BRE)** na ficha do cliente, em cada
   oportunidade em andamento: critério, temperatura, checklist e reentrada.
 
