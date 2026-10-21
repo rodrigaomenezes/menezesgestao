@@ -170,11 +170,11 @@ test("cobrança: conta de demonstração, Pix gerado e pagamento simulado confir
   await page.goto("/vendas");
   await expect(page.getByRole("region", { name: "Conta de cobrança" })).toBeVisible();
   const item = page.locator("li.item", { hasText: `Mentoria ${info.project.name}` });
+  await item.getByRole("button", { name: "Cobrança", exact: true }).click();
   await item.getByRole("button", { name: "Gerar cobrança" }).click();
   await item.getByRole("form", { name: "Gerar cobrança" }).getByRole("button", { name: "Gerar" }).click();
   await expect(item.getByRole("button", { name: "Copiar Pix" })).toBeVisible();
   await semRolagemLateral(page);
   await item.getByRole("button", { name: "Simular pagamento" }).click();
-  await expect(item).toContainText("Paga");
   await expect(item).toContainText("Confirmada");
 });

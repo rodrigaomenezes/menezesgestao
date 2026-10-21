@@ -9,9 +9,8 @@ import { registrarLog } from "../../infra/log.js";
 import { cifrar, decifrar, iguaisSeguro, novoToken } from "../../infra/seguranca/cripto.js";
 import type { ContextoEmpresa } from "../acesso/acesso.js";
 import { registrar, type Origem } from "../auditoria/registro.js";
-import { marcarBpiVelho, q } from "../bre/bre.servico.js";
 import { fusoDe, hojeNoFuso } from "../operacao/comum.js";
-import { criarServicoVendas, moverEstoque } from "../receita/vendas.servico.js";
+import { confirmarPorPagamento, criarServicoVendas } from "../receita/vendas.servico.js";
 import { provedorAsaas } from "./provedores/asaas.js";
 import { provedorRecebimentoDemonstracao } from "./provedores/demonstracao.js";
 import { ErroCobranca, type CredenciaisCobranca, type ProvedorRecebimento } from "./provedores/tipos.js";
@@ -57,6 +56,9 @@ const dtoCobranca = (c: LinhaCobranca): CobrancaDto => ({
   pagoEm: c.pago_em ? new Date(c.pago_em).toISOString() : null,
   criadoEm: new Date(c.criado_em).toISOString(),
 });
+
+const q = async <T = Record<string, unknown>>(tx: Tx, texto: string, valores: unknown[] = []): Promise<T[]> =>
+  (await tx.cliente.query(texto, valores)).rows as T[];
 
 const ORIGEM_PROVEDOR = (empresaId: string): Origem => ({ empresaId, atorId: null, ip: null, dispositivo: "cobranca" });
 
@@ -234,25 +236,7 @@ export function criarServicoRecebimentos(s: Servicos, provedores: RegistroProved
       await q(tx, "UPDATE cobranca SET status = $2, pago_em = CASE WHEN $2 = 'paga' THEN now() ELSE pago_em END, atualizado_em = now() WHERE id = $1", [cob.id, aviso.status]);
       const origem = ORIGEM_PROVEDOR(empresaId);
       await registrar(tx, origem, { acao: `cobranca.${aviso.status}`, entidade: "venda", entidadeId: cob.venda_id, depois: { cobrancaId: cob.id } });
-      if (aviso.status === "paga") {
-        const [v] = await q<{ id: string; contato_id: string; vendedor_id: string; oferta_id: string; valor_centavos: string }>(
-          tx,
-          "UPDATE venda SET status = 'confirmada', atualizado_em = now() WHERE id = $1 AND status = 'pendente' RETURNING id, contato_id, vendedor_id, oferta_id, valor_centavos",
-          [cob.venda_id],
-        );
-        if (v) {
-          await moverEstoque(tx, v.oferta_id, -1);
-          await registrar(tx, origem, {
-            acao: "venda.confirmada",
-            entidade: "venda",
-            entidadeId: v.id,
-            contatoId: v.contato_id,
-            responsavelId: v.vendedor_id,
-            dados: { valorCentavos: Number(v.valor_centavos), pagoPor: "cobranca" },
-          });
-          await marcarBpiVelho(tx);
-        }
-      }
+      if (aviso.status === "paga") await confirmarPorPagamento(tx, origem, cob.venda_id);
       return { ok: true as const };
     });
   }

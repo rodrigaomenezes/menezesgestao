@@ -89,17 +89,23 @@ export function ContaCobranca() {
   );
 }
 
-/** Cobranças de uma venda aguardando pagamento: gerar, copiar o Pix, abrir o link, cancelar, simular (demonstração). */
+/**
+ * Cobranças de uma venda aguardando pagamento: gerar, copiar o Pix, abrir o link, cancelar, simular (demonstração).
+ * Só consulta o servidor quando a pessoa abre o painel (a lista de vendas não faz uma chamada por linha).
+ */
 export function CobrancasDaVenda({ v, confere, aoMudar }: { v: VendaDto; confere: boolean; aoMudar(): void }) {
   const avisar = useAviso();
   const [itens, setItens] = useState<CobrancaDto[]>([]);
+  const [painel, setPainel] = useState(false);
   const [aberto, setAberto] = useState(false);
   const [forma, setForma] = useState("pix");
   const [documento, setDocumento] = useState("");
   const carregar = useCallback(() => {
     get<{ itens: CobrancaDto[] }>(`/vendas/${v.id}/cobrancas`).then((r) => setItens(r.itens), () => undefined);
   }, [v.id]);
-  useEffect(carregar, [carregar, v.status]);
+  useEffect(() => {
+    if (painel) carregar();
+  }, [painel, carregar, v.status]);
   const gerar = useEnvio(async () => {
     await post(`/vendas/${v.id}/cobrancas`, { forma, documento: documento || undefined });
     avisar("Cobrança gerada.");
@@ -118,7 +124,15 @@ export function CobrancasDaVenda({ v, confere, aoMudar }: { v: VendaDto; confere
   };
   const copiar = (texto: string) => void navigator.clipboard?.writeText(texto).then(() => avisar("Pix copiado."), () => avisar("Não foi possível copiar.", "erro"));
   const emAberto = itens.some((c) => c.status === "pendente" || c.status === "vencida");
-  if (!itens.length && !(confere && v.status === "pendente")) return null;
+  if (v.status !== "pendente") return null;
+  if (!painel)
+    return (
+      <div className="cobrancas">
+        <button type="button" className="botao botao-secundario" aria-expanded={false} onClick={() => setPainel(true)}>
+          Cobrança
+        </button>
+      </div>
+    );
   return (
     <div className="cobrancas">
       {itens.map((c) => (

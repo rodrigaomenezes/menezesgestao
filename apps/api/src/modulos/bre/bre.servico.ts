@@ -47,10 +47,8 @@ const EXPIRA_IA_MS = 10 * 60_000;
 export const IA_SEM_RESPOSTA = "A IA não respondeu a tempo. Tente de novo ou preencha manualmente.";
 export const expirada = (status: string, criadoEm: Date) => status === "processando" && Date.now() - new Date(criadoEm).getTime() > EXPIRA_IA_MS;
 
-/** O BPI guardado fica velho: a próxima leitura recalcula (ações do motor que mudam pilares chamam isto). */
-export async function marcarBpiVelho(tx: Tx): Promise<void> {
-  await q(tx, "UPDATE bre_bpi SET calculado_em = '-infinity' WHERE empresa_id = $1", [tx.empresaId]);
-}
+import { marcarBpiVelho } from "./bpi-cache.js";
+export { marcarBpiVelho };
 
 /** Robustez: limite de pedidos à IA por hora na empresa (sugestões + prévias do SQ-BRE). */
 export async function exigirLimiteIa(tx: Tx): Promise<void> {

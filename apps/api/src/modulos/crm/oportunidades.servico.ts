@@ -12,7 +12,7 @@ import type { Servicos } from "../../app.js";
 import type { ContextoEmpresa } from "../acesso/acesso.js";
 import { filtroUsuariosVisiveis, type QuemVe } from "../acesso/escopo.js";
 import { registrar, type Origem } from "../auditoria/registro.js";
-import { marcarBpiVelho } from "../bre/bre.servico.js";
+import { marcarBpiVelho } from "../bre/bpi-cache.js";
 import { validarCampos, type DefinicaoCampo } from "./campos.js";
 import { validarResponsavel } from "./carteira.js";
 import { buscarEtapa, definicoesDeCampos, etapaDto } from "./configuracao.servico.js";

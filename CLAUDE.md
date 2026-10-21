@@ -47,6 +47,10 @@ Mudanças de pilha: propor antes.
   `TECH_DEBT.md`. Responda ao analista no formato da seção 157 do Prompt Mestre.
 - Nunca peça senha ou token no chat: diga qual variável de ambiente criar.
 - Ambiguidade: escolha o padrão mais simples, siga e anote; pergunte só se mudar o modelo de dados.
+- **Arquitetura (diretriz do analista):** modular sem fragmentar; baixo acoplamento e alta coesão (regra de negócio
+  no módulo dono dela, sem importar módulos pesados só por um helper); sem recalcular, reconsultar ou renderizar o que
+  não mudou (sem chamada por linha de lista); menor alteração que resolve; investigar consumidores antes de mudar.
+  Ao fim, informar arquivos modificados, responsabilidades, dependências afetadas, otimizações e testes executados.
 - Antes de declarar pronto, releia o diff procurando vazamento entre empresas, rota sem permissão, duplicação por
   telefone, texto em inglês na interface e tela quebrada no celular.
 

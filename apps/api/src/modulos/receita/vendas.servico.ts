@@ -18,7 +18,7 @@ import type { Servicos } from "../../app.js";
 import type { ContextoEmpresa } from "../acesso/acesso.js";
 import { filtroUsuariosVisiveis, usuariosVisiveis } from "../acesso/escopo.js";
 import { registrar, type Origem } from "../auditoria/registro.js";
-import { marcarBpiVelho } from "../bre/bre.servico.js";
+import { marcarBpiVelho } from "../bre/bpi-cache.js";
 import * as contatos from "../crm/contatos.repositorio.js";
 import { exigirPessoa, fusoDe, hojeNoFuso, limitesPeriodo } from "../operacao/comum.js";
 import { calcularComissoes, type RegraParaComissao } from "./calculo-comissao.js";
@@ -48,6 +48,30 @@ export async function moverEstoque(tx: Tx, ofertaId: string, delta: number): Pro
     tx.empresaId,
     delta,
   ]);
+}
+
+/**
+ * Pagamento confirmado pelo provedor de cobrança: a venda aguardando pagamento vira confirmada, com os mesmos efeitos
+ * da confirmação manual (estoque, evento, BPI). Venda já confirmada ou cancelada não muda.
+ */
+export async function confirmarPorPagamento(tx: Tx, origem: Origem, vendaId: string): Promise<boolean> {
+  const { rows } = await tx.cliente.query<{ contato_id: string; vendedor_id: string; oferta_id: string; valor_centavos: string }>(
+    "UPDATE venda SET status = 'confirmada', atualizado_em = now() WHERE id = $1 AND empresa_id = $2 AND status = 'pendente' RETURNING contato_id, vendedor_id, oferta_id, valor_centavos",
+    [vendaId, tx.empresaId],
+  );
+  const v = rows[0];
+  if (!v) return false;
+  await moverEstoque(tx, v.oferta_id, -1);
+  await registrar(tx, origem, {
+    acao: "venda.confirmada",
+    entidade: "venda",
+    entidadeId: vendaId,
+    contatoId: v.contato_id,
+    responsavelId: v.vendedor_id,
+    dados: { valorCentavos: Number(v.valor_centavos), pagoPor: "cobranca" },
+  });
+  await marcarBpiVelho(tx);
+  return true;
 }
 
 export function criarServicoVendas(s: Servicos) {
