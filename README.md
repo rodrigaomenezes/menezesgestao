@@ -152,7 +152,7 @@ Menus **Empresa e marca**, **Plano e cobrança** e **Automações**; tela aberta
   próprio app (funciona offline).
 - Menu lateral com ícones, em grupos (Dia a dia, Resultados, Configurações, Sua conta). No celular e no tablet,
   barra de baixo com Início, Conversas, Funil, Agenda e Mais.
-- **Início que cada pessoa monta**: até 12 blocos (atalhos, conversas esperando, metas, agenda, tarefas,
+- **Início que cada pessoa monta**: até 13 blocos (atalhos, conversas esperando, metas, fila do dia do BRE, agenda, tarefas,
   retornos, check-list, ponto, funil, ranking, comissão, avisos). "Personalizar início" sobe, desce, tira e
   adiciona; a escolha vale no celular e no computador. Sem escolha, o perfil traz um padrão (atendimento, gestão
   ou financeiro). Só aparecem blocos de módulos que o perfil pode ver.
@@ -182,6 +182,16 @@ servidor e a pessoa registra.
 - **Desempenho (BPI)** em "Motor BRE": ranking do mês com os pilares Receita 30%, Pipeline 20%, Inteligência 20%,
   Qualidade 20% e Relacionamento 10% (pilar sem dados fica fora) e quem está em coaching. Toda segunda, quem ficou
   abaixo de 70 num pilar por 2 semanas gera aviso ao gestor. A meta de receita por pessoa fica nos limites.
+- **Campos de inteligência**: em "Configurar CRM → Campos personalizados", "Contar como inteligência" marca os
+  campos do cliente que o método quer saber. O registro mostra o que falta saber, e a completude do BPI passa a
+  contar sobre eles.
+- **IA × equipe** (administrador, em "Motor BRE"): quanto a IA concorda com o que a equipe registrou e com a nota
+  SQ-BRE confirmada, e se a automação já estaria liberada pelo percentual e pela amostra da empresa.
+- **Privacidade com a IA**: nos limites do Motor BRE, "Esconder telefone, e-mail, CPF, CNPJ e CEP antes de enviar a
+  conversa para a IA" troca esses dados por marcadores. Desligado por padrão nos primeiros testes.
+- **Início**: bloco "Fila do dia (BRE)" com os primeiros da fila (padrão de quem atende, depois das metas).
+- **Motivos de Break** (administrador, em "Motor BRE") e **Encerrar (BRE)** na ficha do cliente, em cada
+  oportunidade em andamento: critério, temperatura, checklist e reentrada.
 
 ## Testes
 

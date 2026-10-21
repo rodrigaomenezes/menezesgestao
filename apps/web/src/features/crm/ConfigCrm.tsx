@@ -294,6 +294,13 @@ function Campos() {
     await patch(`/crm/campos/${c.id}`, { obrigatorio: !c.obrigatorio });
     recarregar();
   };
+  // Motor BRE: campos do cliente que contam como inteligência (completude do CRM e "o que falta saber").
+  const { pode } = useSessao();
+  const comBre = pode("bre", "ver");
+  const alternarInteligencia = async (c: CampoPersonalizadoDto) => {
+    await patch(`/crm/campos/${c.id}`, { inteligenciaBre: !c.inteligenciaBre });
+    recarregar();
+  };
   const nomeEntidade = (e: string) => (e === "contato" ? termos.Contato : termos.Oportunidade);
   return (
     <section className="cartao" aria-labelledby="titulo-campos">
@@ -308,6 +315,7 @@ function Campos() {
               <span className="item-detalhe">
                 {nomeEntidade(c.entidade)} · {NOMES_TIPOS_CAMPO[c.tipo]}
                 {c.obrigatorio && " · obrigatório"}
+                {c.inteligenciaBre && " · inteligência (BRE)"}
                 {c.arquivadoEm && " · arquivado"}
               </span>
             </div>
@@ -315,6 +323,11 @@ function Campos() {
               {!c.arquivadoEm && (
                 <button type="button" className="botao botao-secundario" onClick={() => void alternarObrigatorio(c)}>
                   {c.obrigatorio ? "Tornar opcional" : "Tornar obrigatório"}
+                </button>
+              )}
+              {!c.arquivadoEm && comBre && c.entidade === "contato" && (
+                <button type="button" className="botao botao-secundario" onClick={() => void alternarInteligencia(c)}>
+                  {c.inteligenciaBre ? "Tirar da inteligência" : "Contar como inteligência"}
                 </button>
               )}
               <BotaoArquivo caminho={`/crm/campos/${c.id}`} arquivado={Boolean(c.arquivadoEm)} aoMudar={recarregar} />

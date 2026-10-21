@@ -37,6 +37,7 @@ const colunas = {
   criadoEm: oportunidade.criadoEm,
   atualizadoEm: oportunidade.atualizadoEm,
   arquivadoEm: oportunidade.arquivadoEm,
+  encerramentoBre: oportunidade.encerramentoBre,
 };
 
 function consulta(tx: Tx) {
@@ -48,8 +49,9 @@ function consulta(tx: Tx) {
 }
 type Linha = Awaited<ReturnType<ReturnType<typeof consulta>["execute"]>>[number];
 
-const dto = (o: Linha): OportunidadeDto => ({
+const dto = ({ encerramentoBre, ...o }: Linha): OportunidadeDto => ({
   ...o,
+  encerradaBre: encerramentoBre ? { criterio: encerramentoBre.criterio, em: encerramentoBre.em } : null,
   campos: o.campos ?? {},
   fechadaEm: iso(o.fechadaEm),
   criadoEm: iso(o.criadoEm),

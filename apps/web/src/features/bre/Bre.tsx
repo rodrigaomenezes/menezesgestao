@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   CATEGORIAS_BREAK,
+  CHECKLIST_ENCERRAMENTO,
+  CRITERIOS_ENCERRAMENTO,
   ESCALONAMENTOS,
   PILARES_BPI,
   ESTADOS_CLIENTE,
@@ -11,8 +13,11 @@ import {
   RESULTADOS_CONTATO,
   SINS,
   TEMPERATURAS,
+  TIPOS_REENTRADA,
   type AnaliseBreDto,
   type BpiDto,
+  type ConcordanciaDto,
+  type InteligenciaContatoDto,
   type EscalonamentoDto,
   type ItemFilaBreDto,
   type MotivoBreakDto,
@@ -46,11 +51,13 @@ export function BotaoRegistrarBre({ contatoId, conversaId, aoRegistrar }: { cont
   const [categoria, setCategoria] = useState("A_TIME");
   const [motivoId, setMotivoId] = useState("");
   const [comentario, setComentario] = useState("");
+  const [inteligencia, setInteligencia] = useState<InteligenciaContatoDto | null>(null);
   useEffect(() => {
     if (!aberto) return;
     setInicio(Date.now());
     get<{ itens: MotivoBreakDto[] }>("/bre/motivos").then((r) => setMotivos(r.itens.filter((m) => !m.arquivadoEm)), () => undefined);
-  }, [aberto]);
+    get<InteligenciaContatoDto>(`/bre/contatos/${contatoId}/inteligencia`).then(setInteligencia, () => setInteligencia(null));
+  }, [aberto, contatoId]);
   const [avisoIa, setAvisoIa] = useState("");
   const [escalonar, setEscalonar] = useState("");
   const daCategoria = motivos.filter((m) => m.categoria === categoria);
@@ -109,6 +116,11 @@ export function BotaoRegistrarBre({ contatoId, conversaId, aoRegistrar }: { cont
             )}
             <Mensagem tipo="erro">{sugestao.erro}</Mensagem>
             <Mensagem tipo="info">{avisoIa}</Mensagem>
+            {inteligencia && inteligencia.faltando.length > 0 && (
+              <p className="dica">
+                Falta saber ({inteligencia.preenchidos} de {inteligencia.campos}): {inteligencia.faltando.join(", ")}.
+              </p>
+            )}
             <div className="grade-campos">
               <Escolha rotulo="Resultado" nome="bre-resultado" valor={resultado} aoMudar={setResultado} opcoes={opcoes(RESULTADOS_CONTATO)} />
               <Escolha rotulo="Temperatura" nome="bre-temperatura" valor={temperatura} aoMudar={setTemperatura} opcoes={opcoes(TEMPERATURAS)} />
@@ -214,10 +226,12 @@ function Limites() {
   const avisar = useAviso();
   const [valores, setValores] = useState<Record<string, string>>({});
   const [meta, setMeta] = useState("");
+  const [mascarar, setMascarar] = useState(false);
   const carregar = useCallback(() => {
-    get<Record<string, number | null>>("/bre/config").then((c) => {
+    get<Record<string, number | boolean | null>>("/bre/config").then((c) => {
       setValores(Object.fromEntries(LIMITES.map((l) => [l.chave, String(c[l.chave])])));
-      setMeta(c.metaReceitaCentavos ? String(c.metaReceitaCentavos / 100) : "");
+      setMeta(c.metaReceitaCentavos ? String(Number(c.metaReceitaCentavos) / 100) : "");
+      setMascarar(Boolean(c.mascararDadosIa));
     }, () => undefined);
   }, []);
   useEffect(carregar, [carregar]);
@@ -227,7 +241,7 @@ function Limites() {
       envio.setErro("Meta de receita: digite um valor em reais, como 42000.");
       return;
     }
-    await put("/bre/config", { ...Object.fromEntries(LIMITES.map((l) => [l.chave, Number(valores[l.chave])])), metaReceitaCentavos: reais === null ? null : Math.round(reais * 100) });
+    await put("/bre/config", { ...Object.fromEntries(LIMITES.map((l) => [l.chave, Number(valores[l.chave])])), metaReceitaCentavos: reais === null ? null : Math.round(reais * 100), mascararDadosIa: mascarar });
     avisar("Limites salvos.");
     carregar();
   });
@@ -240,6 +254,12 @@ function Limites() {
             <Campo key={l.chave} rotulo={l.rotulo} nome={`bre-${l.chave}`} tipo="number" valor={valores[l.chave] ?? ""} aoMudar={(v) => setValores({ ...valores, [l.chave]: v })} obrigatorio />
           ))}
           <Campo rotulo="Meta de receita por pessoa no mês (R$, vazio = sem meta)" nome="bre-meta" valor={meta} aoMudar={setMeta} />
+          <label className="campo">
+            <span>
+              <input type="checkbox" checked={mascarar} onChange={(e) => setMascarar(e.target.checked)} /> Esconder telefone, e-mail, CPF, CNPJ e CEP
+              antes de enviar a conversa para a IA
+            </span>
+          </label>
         </div>
         <Mensagem tipo="erro">{envio.erro}</Mensagem>
         <button type="submit" className="botao" disabled={envio.enviando}>
@@ -335,6 +355,187 @@ function Desempenho() {
   );
 }
 
+/** BR-002: encerrar pelo método exige um dos 6 critérios e o checklist inteiro; pode programar a reentrada. */
+export function BotaoEncerrarBre({ oportunidadeId, aoEncerrar }: { oportunidadeId: string; aoEncerrar?(): void }) {
+  const { pode } = useSessao();
+  const avisar = useAviso();
+  const [aberto, setAberto] = useState(false);
+  const [criterio, setCriterio] = useState<string>(CRITERIOS_ENCERRAMENTO[0].codigo);
+  const [temperatura, setTemperatura] = useState("COLD");
+  const [marcados, setMarcados] = useState<string[]>([]);
+  const [comReentrada, setComReentrada] = useState(true);
+  const [tipo, setTipo] = useState("TIME");
+  const [data, setData] = useState(daquiA(30));
+  const [condicao, setCondicao] = useState("");
+  const [motivo, setMotivo] = useState("");
+  const envio = useEnvio(async () => {
+    await post(`/bre/oportunidades/${oportunidadeId}/encerrar`, {
+      criterio,
+      temperatura,
+      checklist: Object.fromEntries(CHECKLIST_ENCERRAMENTO.map((c) => [c.codigo, marcados.includes(c.codigo)])),
+      reentrada: comReentrada ? { tipo, previstaPara: tipo === "TIME" ? data : null, condicao: tipo === "TIME" ? null : condicao || null, motivo } : null,
+    });
+    avisar("Encerrado pelo método BRE.");
+    setAberto(false);
+    aoEncerrar?.();
+  });
+  if (!pode("bre", "editar")) return null;
+  return (
+    <>
+      <button type="button" className="botao botao-secundario" onClick={() => setAberto(true)}>
+        Encerrar (BRE)
+      </button>
+      {aberto && (
+        <Modal aberto titulo="Encerrar pelo método BRE" aoFechar={() => setAberto(false)}>
+          <form onSubmit={envio.enviar}>
+            <div className="grade-campos">
+              <Escolha rotulo="Critério" nome="enc-criterio" valor={criterio} aoMudar={setCriterio} opcoes={opcoes(CRITERIOS_ENCERRAMENTO)} />
+              <Escolha rotulo="Temperatura" nome="enc-temperatura" valor={temperatura} aoMudar={setTemperatura} opcoes={opcoes(TEMPERATURAS)} />
+            </div>
+            <fieldset className="campo grupo-marcar">
+              <legend>Checklist de encerramento</legend>
+              {CHECKLIST_ENCERRAMENTO.map((c) => (
+                <label key={c.codigo}>
+                  <input
+                    type="checkbox"
+                    checked={marcados.includes(c.codigo)}
+                    onChange={(e) => setMarcados(e.target.checked ? [...marcados, c.codigo] : marcados.filter((x) => x !== c.codigo))}
+                  />{" "}
+                  {c.nome}
+                </label>
+              ))}
+            </fieldset>
+            <label className="campo">
+              <span>
+                <input type="checkbox" checked={comReentrada} onChange={(e) => setComReentrada(e.target.checked)} /> Programar reentrada
+              </span>
+            </label>
+            {comReentrada && (
+              <div className="grade-campos">
+                <Escolha rotulo="Tipo de reentrada" nome="enc-tipo" valor={tipo} aoMudar={setTipo} opcoes={opcoes(TIPOS_REENTRADA)} />
+                {tipo === "TIME" ? (
+                  <Campo rotulo="Data" nome="enc-data" tipo="date" valor={data} aoMudar={setData} obrigatorio />
+                ) : (
+                  <Campo rotulo="Quando (evento, perfil…)" nome="enc-condicao" valor={condicao} aoMudar={setCondicao} obrigatorio />
+                )}
+                <Campo rotulo="Motivo da reentrada" nome="enc-motivo" valor={motivo} aoMudar={setMotivo} obrigatorio />
+              </div>
+            )}
+            <Mensagem tipo="erro">{envio.erro}</Mensagem>
+            <div className="modal-acoes">
+              <button type="button" className="botao botao-secundario" onClick={() => setAberto(false)}>
+                Cancelar
+              </button>
+              <button type="submit" className="botao" disabled={envio.enviando}>
+                Encerrar
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+    </>
+  );
+}
+
+/** Motivos de Break da empresa, dentro das 9 categorias fixas da doutrina. */
+function MotivosBreak() {
+  const avisar = useAviso();
+  const [itens, setItens] = useState<MotivoBreakDto[]>([]);
+  const [categoria, setCategoria] = useState<string>(CATEGORIAS_BREAK[0].codigo);
+  const [nome, setNome] = useState("");
+  const carregar = useCallback(() => {
+    get<{ itens: MotivoBreakDto[] }>("/bre/motivos").then((r) => setItens(r.itens), () => undefined);
+  }, []);
+  useEffect(carregar, [carregar]);
+  const criar = useEnvio(async () => {
+    await post("/bre/motivos", { categoria, nome });
+    setNome("");
+    avisar("Motivo criado.");
+    carregar();
+  });
+  const alternar = async (m: MotivoBreakDto) => {
+    try {
+      await patch(`/bre/motivos/${m.id}`, { arquivado: !m.arquivadoEm });
+      carregar();
+    } catch (e) {
+      avisar(e instanceof ErroApi ? e.message : "Não foi possível salvar.", "erro");
+    }
+  };
+  return (
+    <section className="cartao" aria-labelledby="titulo-motivos-break">
+      <h2 id="titulo-motivos-break">Motivos de Break</h2>
+      <p className="dica">As categorias são da doutrina; os motivos dentro delas são da sua operação.</p>
+      {CATEGORIAS_BREAK.map((c) => {
+        const daCategoria = itens.filter((m) => m.categoria === c.codigo);
+        if (!daCategoria.length) return null;
+        return (
+          <div key={c.codigo}>
+            <h3>{c.nome}</h3>
+            <ul className="lista">
+              {daCategoria.map((m) => (
+                <li key={m.id} className="item">
+                  <div className="item-principal">
+                    <span>
+                      {m.nome}
+                      {m.arquivadoEm && " · arquivado"}
+                    </span>
+                  </div>
+                  <div className="item-acoes">
+                    <button type="button" className="botao botao-secundario" onClick={() => void alternar(m)}>
+                      {m.arquivadoEm ? "Restaurar" : "Arquivar"}
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        );
+      })}
+      <form className="form-linha" onSubmit={criar.enviar} aria-label="Novo motivo de Break">
+        <Escolha rotulo="Categoria" nome="motivo-categoria" valor={categoria} aoMudar={setCategoria} opcoes={opcoes(CATEGORIAS_BREAK)} />
+        <Campo rotulo="Novo motivo" nome="motivo-nome" valor={nome} aoMudar={setNome} obrigatorio />
+        <button type="submit" className="botao" disabled={criar.enviando}>
+          Adicionar
+        </button>
+      </form>
+      <Mensagem tipo="erro">{criar.erro}</Mensagem>
+    </section>
+  );
+}
+
+/** DEC-010: quanto a IA concorda com a pessoa; a automação só se libera pelo percentual da empresa. */
+function Concordancia() {
+  const [dados, setDados] = useState<ConcordanciaDto | null>(null);
+  useEffect(() => {
+    get<ConcordanciaDto>("/bre/concordancia").then(setDados, () => undefined);
+  }, []);
+  if (!dados) return null;
+  return (
+    <section className="cartao" aria-labelledby="titulo-concordancia">
+      <h2 id="titulo-concordancia">IA × equipe</h2>
+      <p className="dica">
+        Automação liberada quando a IA concorda com a equipe em pelo menos {dados.percentualMinimo}% de {dados.amostraMinima} casos em cada campo, sem
+        nenhuma sugestão barrada pelas regras.
+      </p>
+      <ul className="lista">
+        {dados.campos.map((c) => (
+          <li key={c.campo} className="item">
+            <div className="item-principal">
+              <strong>
+                {c.nome}: {c.percentual === null ? "sem casos ainda" : `${c.percentual.toLocaleString("pt-BR")}%`}
+              </strong>
+              <span className="item-detalhe">
+                {c.iguais} de {c.pares} casos
+              </span>
+            </div>
+          </li>
+        ))}
+      </ul>
+      <Mensagem tipo={dados.liberado ? "sucesso" : "info"}>{dados.liberado ? `Liberado: ${dados.motivo}` : `Ainda não liberado. ${dados.motivo}`}</Mensagem>
+    </section>
+  );
+}
+
 export function Bre() {
   const { pode } = useSessao();
   const fila = usePaginado<ItemFilaBreDto>("/bre/fila-do-dia?limite=30");
@@ -365,6 +566,8 @@ export function Bre() {
       </section>
       <Reentradas />
       <Desempenho />
+      {pode("bre", "administrar") && <Concordancia />}
+      {pode("bre", "administrar") && <MotivosBreak />}
       {pode("bre", "administrar") && <Limites />}
     </>
   );

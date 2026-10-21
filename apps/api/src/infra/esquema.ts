@@ -231,6 +231,7 @@ export const campoPersonalizado = pgTable("campo_personalizado", {
   tipo: text("tipo").$type<"texto" | "numero" | "data" | "lista" | "sim_nao">().notNull(),
   opcoes: jsonb("opcoes").$type<string[]>().notNull().default([]),
   obrigatorio: boolean("obrigatorio").notNull().default(false),
+  inteligenciaBre: boolean("inteligencia_bre").notNull().default(false),
   ordem: integer("ordem").notNull().default(0),
   criadoPor: uuid("criado_por"),
   criadoEm: criadoEm(),
@@ -334,6 +335,7 @@ export const oportunidade = pgTable("oportunidade", {
   criadoPor: uuid("criado_por"),
   criadoEm: criadoEm(),
   atualizadoEm: atualizadoEm(),
+  encerramentoBre: jsonb("encerramento_bre").$type<{ criterio: string; em: string }>(),
   arquivadoEm: ts("arquivado_em"),
 });
 

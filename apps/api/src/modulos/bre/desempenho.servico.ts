@@ -129,6 +129,25 @@ export async function notasBpi(tx: Tx, usuarioIds: string[], inicio: string, fim
   const dias = (Date.parse(fim) - Date.parse(inicio)) / 864e5;
   const diasDoMes = new Date(Date.UTC(Number(inicio.slice(0, 4)), Number(inicio.slice(5, 7)), 0)).getUTCDate();
   const metaDoPeriodo = metaReceitaCentavos ? (metaReceitaCentavos * Math.min(dias, diasDoMes)) / diasDoMes : null;
+  // Com campos de inteligência configurados, a completude é sobre eles: média, por cliente atendido no período,
+  // dos campos preenchidos ÷ campos de inteligência (D-13).
+  const chaves = (await q<{ chave: string }>(tx, "SELECT chave FROM campo_personalizado WHERE empresa_id = $1 AND entidade = 'contato' AND inteligencia_bre AND arquivado_em IS NULL", [tx.empresaId])).map((c) => c.chave);
+  const completudeCampos = chaves.length
+    ? new Map(
+        (
+          await q<{ u: string; completude: string }>(
+            tx,
+            `SELECT r.autor_id AS u, avg(x.preenchidos::numeric / $5) AS completude
+             FROM (SELECT DISTINCT autor_id, contato_id FROM registro_bre
+                   WHERE empresa_id = $1 AND autor_id = ANY($2) AND ${dia("criado_em")} >= $3::date AND ${dia("criado_em")} < $4::date) r
+             JOIN contato c ON c.id = r.contato_id
+             CROSS JOIN LATERAL (SELECT count(*) FILTER (WHERE coalesce(c.campos->>k, '') <> '') AS preenchidos FROM unnest($6::text[]) k) x
+             GROUP BY 1`,
+            [...p, chaves.length, chaves],
+          )
+        ).map((x) => [x.u, Number(x.completude)]),
+      )
+    : null;
   const de = <T extends { u: string }>(l: T[]) => new Map(l.map((x) => [x.u, x]));
   const [mR, mP, mI, mQ, mRel] = [de(receita), de(pipeline), de(inteligencia), de(qualidade), de(relacionamento)];
   const arred = (n: number) => Math.round(n * 10) / 10;
@@ -142,7 +161,7 @@ export async function notasBpi(tx: Tx, usuarioIds: string[], inicio: string, fim
       const notas: NotasBpi = {
         receita: null,
         pipeline: pi && pi.abertas > 0 ? arred((pi.avancaram / pi.abertas) * 100) : null,
-        inteligencia: i && i.n > 0 ? arred((contraMeta(Number(i.completude) * 100, 80) + contraMeta((i.enriquecidos / i.n) * 100, 70)) / 2) : null,
+        inteligencia: i && i.n > 0 ? arred((contraMeta((completudeCampos?.get(u) ?? Number(i.completude)) * 100, 80) + contraMeta((i.enriquecidos / i.n) * 100, 70)) / 2) : null,
         qualidade: qu ? arred(Number(qu.media)) : null,
         relacionamento: rel && rel.total > 0 ? arred((rel.no_prazo / rel.total) * 100) : null,
       };

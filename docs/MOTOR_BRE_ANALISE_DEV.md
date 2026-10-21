@@ -1,8 +1,8 @@
 # Motor BRE — Análise para desenvolvimento
 
 Documento técnico para quem vai implementar ou portar o motor BRE. A fonte funcional é a ETR BRE-ETR-001 v0.2
-(doutrina BRE v1.0); a implementação de referência está no menezesgestao (PR #22, ADR-032). Tudo abaixo descreve o
-que já roda e foi testado, e marca o que ainda falta.
+(doutrina BRE v1.0); a implementação de referência está no menezesgestao (PR #22, ADR-032 a ADR-034). Tudo abaixo descreve
+o que já roda e foi testado (fases 8.1, 8.2 e 8.3), e marca o que ainda falta.
 
 ## 1. O que é
 
@@ -31,7 +31,7 @@ Tela (React)  ──►  API /api/bre/*  ──►  Serviço do motor (regras)  
 | Peça | Arquivo | Papel |
 | --- | --- | --- |
 | Contrato | `packages/shared/src/dto-bre.ts` | Listas fechadas, limites padrão, regras puras, DTOs e validação (Zod) |
-| Migrações | `database/migrations/0011_bre.sql`, `0012_bre_ia.sql`, `0013_bre_desempenho.sql` | Tabelas, CHECK das listas, RLS |
+| Migrações | `database/migrations/0011_bre.sql` a `0014_bre_fechamento.sql` | Tabelas, CHECK das listas, RLS |
 | Serviço | `apps/api/src/modulos/bre/bre.servico.ts` | Regras do motor, IA e escalonamento |
 | Desempenho | `apps/api/src/modulos/bre/desempenho.servico.ts` | SQ-BRE, BPI, ranking e coaching |
 | Rotas | `apps/api/src/modulos/bre/bre.rotas.ts` | API com permissão por rota |
@@ -190,6 +190,32 @@ Calculado na consulta, por pessoa, no mês (fuso da empresa). Cada pilar vai de 
 - Coaching (job toda segunda, 07:13): pilar abaixo de 70 nas duas últimas semanas completas (segunda a domingo)
   gera um alerta por pessoa × pilar × semana e avisa o gestor da equipe. Rodar de novo não duplica.
 
+### 4.11 Campos de inteligência (FR-006, D-13)
+- Qualquer campo personalizado do contato pode ser marcado "Contar como inteligência" (`campo_personalizado.inteligencia_bre`).
+- O registro da conversa mostra "Falta saber (x de y): …" com os campos marcados ainda vazios no cliente.
+- Completude do pilar Inteligência = média, por cliente atendido no período, de campos marcados preenchidos ÷ campos
+  marcados. Sem campos marcados, vale a regra da seção 4.10.
+
+### 4.12 Concordância IA × equipe e liberação da automação (DEC-010)
+Na amostra mais recente (`amostraParaAutomacao` casos), compara:
+
+| Campo | Par comparado | Concorda quando |
+| --- | --- | --- |
+| Resultado do contato | Última análise da IA antes do registro, na mesma conversa × registro | Iguais |
+| Temperatura | Idem | Iguais |
+| Categoria do Break | Idem (sem Break dos dois lados conta como igual) | Iguais |
+| Nota SQ-BRE | Prévia da IA × nota confirmada | Diferença de até 5 pontos |
+
+"Liberado" exige: amostra mínima em todos os campos, percentual ≥ `concordanciaParaAutomacao` em todos e nenhuma
+análise da amostra com sugestão barrada pelas regras. A tela mostra o primeiro motivo que impede. Hoje o painel só
+informa; nenhuma ação automática é executada (Fase 4 da ETR).
+
+### 4.13 LGPD e mascaramento
+Decisão do analista: a conversa vai aberta para a IA nos primeiros testes. O mascaramento já existe por empresa
+(`bre_config.mascararDadosIa`, desligado por padrão): troca e-mail, CPF, CNPJ, CEP e telefone por `[e-mail]`, `[CPF]`,
+`[CNPJ]`, `[CEP]` e `[telefone]` em todo envio à IA (sugestão do registro e prévia do SQ-BRE). Nome e endereço não são
+mascarados. Antes do uso real: ligar, base legal, aviso ao titular, contrato sem uso para treino e prazo de retenção.
+
 ## 5. Banco de dados
 
 Todas com `empresa_id`, RLS (`empresa_id = app_empresa_id()`) e só INSERT/SELECT/UPDATE para o papel da aplicação.
@@ -211,6 +237,8 @@ Todas com `empresa_id`, RLS (`empresa_id = app_empresa_id()`) e só INSERT/SELEC
 | `escalonamento` | `situacao`, `origem` (ia/manual), `observacao`, `status`, `resolvido_por/em` | Um aberto por cliente × situação |
 | `coaching_alerta` | `usuario_id`, `pilar`, `semana`, `notas` | Único por pessoa × pilar × semana |
 | `tarefa.origem_bre` | `retorno` ou `pos_venda` | Pilar Relacionamento |
+| `campo_personalizado.inteligencia_bre` | boolean | Campo do contato que conta como inteligência |
+| `oportunidade.encerramento_bre` → DTO `encerradaBre` | critério e data | A ficha mostra "Encerrada pelo método BRE" |
 
 A permissão `permissao.modulo` passa a aceitar `bre`.
 
@@ -227,6 +255,7 @@ A permissão `permissao.modulo` passa a aceitar `bre`.
 | `diasPosVenda` | [2, 5, 10, 20, 30] | Agenda de pós-venda |
 | `concordanciaParaAutomacao` / `amostraParaAutomacao` | 85% / 200 | Liberação da automação (ainda não usado) |
 | `metaReceitaCentavos` | sem meta | Pilar Receita do BPI (por pessoa, no mês) |
+| `mascararDadosIa` | desligado | Troca dados pessoais por marcadores antes de enviar à IA (seção 4.13) |
 
 ## 7. API
 
@@ -246,6 +275,8 @@ Todas exigem sessão, empresa e o módulo `bre`; erro sempre `{ error: { code, m
 | `POST /api/bre/oportunidades/:id/encerrar` | bre:editar | Encerramento guiado |
 | `GET /api/bre/escalonamentos?status` · `PATCH /:id` | bre:ver / bre:editar | Lista paginada; marca como resolvido |
 | `GET /api/bre/desempenho?mes=AAAA-MM` | bre:ver | BPI por pessoa, ranking e pilares em coaching |
+| `GET /api/bre/contatos/:id/inteligencia` | bre:ver | Campos de inteligência: quantos, preenchidos, o que falta |
+| `GET /api/bre/concordancia` | bre:administrar | Concordância por campo, bloqueios e se a automação estaria liberada |
 | `GET /api/qualidade/sq-bre?status` | qualidade:ver (+ módulo bre) | Prévias e notas confirmadas, paginado |
 | `POST /api/qualidade/sq-bre` | qualidade:criar, escopo além do próprio | Prévia da IA para a conversa |
 | `POST /api/qualidade/sq-bre/:id/confirmar` | qualidade:criar, escopo além do próprio | Nota confirmada + feedback |
@@ -261,6 +292,11 @@ e empresa seguem o filtro de escopo do sistema. Perfis padrão: dono administra,
 - **Registro** (modal, também na conversa): os campos da seção 4.5, "Precisa de uma pessoa?" e, na conversa,
   "Sugerir com IA".
 - **Conversa**: botão "SQ-BRE" para quem avalia; **Qualidade**: lista SQ-BRE com "Confirmar" nas prévias.
+- **Motor BRE (administrador)**: "IA × equipe" (concordância e liberação) e "Motivos de Break" (criar, arquivar).
+- **Ficha do cliente**: "Encerrar (BRE)" em cada oportunidade em andamento (critério, temperatura, checklist,
+  reentrada); depois, "Encerrada pelo método BRE: …".
+- **Configurar CRM → Campos personalizados**: "Contar como inteligência".
+- **Início**: bloco "Fila do dia (BRE)" (padrão de quem atende, depois das metas).
 - **Configurar CRM → etapa**: campo "Marco BRE".
 - Tudo funciona em 360 px; textos passam pelo vocabulário da empresa.
 
@@ -285,18 +321,20 @@ e empresa seguem o filtro de escopo do sistema. Perfis padrão: dono administra,
 | AT-025 | BPI com dados conhecidos: receita 50, pipeline 50, inteligência 81,3, relacionamento 50, qualidade sem dados → 57,8; pesos 30/20/20/20/10 e faixas em teste unitário |
 | AT-026 | 2 semanas abaixo de 70 → um alerta ao gestor; rodar de novo não duplica; 1 semana só → nada; dono e financeiro fora |
 | Escalonamento | Reclamação pela IA abre um só, avisa responsável e gestor; outra carteira não vê nem resolve; pela pessoa no registro |
+| Inteligência | Falta saber certo; outra carteira não acessa; completude pelos campos marcados (100 em vez de 25 pela regra antiga) |
+| Concordância | Sem amostra não libera; 100% libera; 80% (abaixo de 85%) não libera, com o motivo; sugestão barrada não libera; vendedor sem acesso |
+| Encerramento | A oportunidade passa a trazer o critério do encerramento |
+| Mascaramento | Desligado, a IA lê o texto como está; ligado, sem telefone, e-mail e CPF (unitário cobre CNPJ, CEP e textos sem dado pessoal) |
 
 ## 10. O que falta
 
-1. Painel de concordância IA × supervisor (DEC-010): comparar prévia × nota confirmada e sugestão × registro, e
-   liberar a automação pelo percentual da empresa.
-2. Telas: encerramento guiado no card da oportunidade e cadastro de motivos de Break (hoje só pela API).
-3. Campos de inteligência configuráveis por segmento (o pilar Inteligência hoje usa os campos do registro).
-4. Análise da IA pela fila de jobs (hoje é na hora) e BPI pré-calculado quando houver volume.
+1. Fase 4 da ETR (automação): com a concordância liberada, executar sozinho só o que é automatizável (lembretes,
+   confirmação de entrega, aniversários, lançamentos, organização da fila), de forma reversível e auditada.
+2. Ligar o mascaramento antes do uso real e avaliar mascarar nomes e endereços (seção 4.13).
+3. Análise da IA pela fila de jobs (hoje é na hora) e BPI pré-calculado quando houver volume.
 
-Riscos e decisões pendentes: a conversa vai inteira para a IA (DEC-009) — antes de cliente real, base legal,
-aviso ao titular, contrato sem uso para treino e prazo de retenção; data de entrega hoje = data da venda; pontos por
-item do SQ-BRE ainda são proposta (o supervisor dá a nota por pilar).
+Riscos: data de entrega hoje = data da venda; pontos por item do SQ-BRE ainda são proposta (o supervisor dá a nota
+por pilar).
 
 ## 11. Portando para outro sistema
 

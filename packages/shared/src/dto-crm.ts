@@ -30,6 +30,8 @@ export const CampoPersonalizadoDto = z.object({
   tipo: z.enum(TIPOS_CAMPO),
   opcoes: z.array(z.string()),
   obrigatorio: z.boolean(),
+  /** Conta como inteligência do método BRE (completude do CRM e "o que falta saber"). */
+  inteligenciaBre: z.boolean(),
   ordem: z.number().int(),
   arquivadoEm: DataIso.nullable(),
 });
@@ -45,6 +47,7 @@ export const CampoPersonalizadoEntrada = z.object({
   tipo: z.enum(TIPOS_CAMPO),
   opcoes: z.array(z.string().trim().min(1).max(80)).max(50).default([]),
   obrigatorio: z.boolean().default(false),
+  inteligenciaBre: z.boolean().default(false),
   ordem: z.number().int().min(0).max(1000).default(0),
 });
 export const AtualizarCampoEntrada = CampoPersonalizadoEntrada.omit({ entidade: true, chave: true, tipo: true }).partial();
@@ -193,6 +196,8 @@ export const OportunidadeDto = z.object({
   criadoEm: DataIso,
   atualizadoEm: DataIso,
   arquivadoEm: DataIso.nullable(),
+  /** Encerramento guiado pelo método BRE (critério e data), quando houve. */
+  encerradaBre: z.object({ criterio: z.string(), em: DataIso }).nullable(),
 });
 export type OportunidadeDto = z.infer<typeof OportunidadeDto>;
 

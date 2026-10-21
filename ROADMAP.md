@@ -52,6 +52,10 @@ Detalhes e critérios de pronto de cada fase: `ESPECIFICACAO.md` ("Roteiro de co
       do diagnóstico e oferta antes dos três "sim"; quem pediu "não contatar" ou foi anonimizado nunca vai para a IA;
       escalonamento (IA ou pessoa) avisando responsável e gestor e parando as automações; SQ-BRE na Qualidade com prévia
       da IA e confirmação do supervisor; BPI do mês com ranking e alerta semanal de coaching (pilar < 70 por 2 semanas).
+- [x] Fase 8.3 — Motor BRE fechado (ADR-034): campos de inteligência (campos personalizados marcados) no "falta saber"
+      do registro e na completude do BPI; painel IA × equipe com liberação pelo percentual da empresa (DEC-010); tela
+      de motivos de Break; encerramento guiado na ficha do cliente; bloco "Fila do dia (BRE)" no Início; mascaramento de
+      telefone, e-mail, CPF, CNPJ e CEP para a IA (desligado nos primeiros testes, por decisão do analista).
 
 ## Próximas fases (planejadas, não iniciadas)
 

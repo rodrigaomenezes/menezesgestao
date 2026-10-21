@@ -510,3 +510,18 @@ Reaproveitar a Qualidade mantém um lugar só para avaliar atendimento, sem mist
 com os 5 pilares × 20 da doutrina. Calcular o BPI na hora evita números duplicados que divergem dos registros; se o
 volume pedir, o caminho é a visão materializada já prevista (item 25 da dívida).
 
+# ADR-034 — Campos de inteligência, concordância IA × equipe e LGPD nos testes
+
+## Decisão
+Os campos de inteligência do método BRE são campos personalizados do contato marcados (`inteligencia_bre`): cada
+empresa escolhe os seus (perfume favorito, curso de interesse…) sem código. Eles alimentam o "falta saber" do
+registro (FR-006) e a completude do pilar Inteligência; sem campos marcados, vale a regra anterior. A concordância
+IA × equipe (DEC-010) compara, na amostra mais recente da empresa, a sugestão da IA com o que a pessoa registrou
+(resultado, temperatura, categoria do Break) e a prévia do SQ-BRE com a nota confirmada (até 5 pontos); "liberado"
+exige amostra mínima, o percentual da empresa em todos os campos e nenhuma sugestão barrada pelas regras. Por
+decisão do analista, a conversa vai aberta para a IA nos primeiros testes; o envio mascarado entra antes do uso real.
+
+## Por quê
+Reaproveitar os campos personalizados mantém "tudo é configuração" e evita um segundo cadastro de campos. Medir
+contra o que a própria equipe registrou dá um número que o gestor entende e não depende de rotular conversas à parte.
+

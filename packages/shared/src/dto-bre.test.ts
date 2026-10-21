@@ -1,7 +1,7 @@
 // Regras puras do motor BRE: estado do cliente (D-01), transições (D-02), ação do Break (D-03), faixas do SQ-BRE
 // e o BPI com os pesos do livro (AT-025: fórmulas batem com o cálculo à mão).
 import { describe, expect, it } from "vitest";
-import { CONFIG_BRE_PADRAO, SaidaIaBre, acaoPadraoBreak, calcularBpi, contraMeta, estadoCliente, faixaBpi, faixaSq, somaSq, transicaoPermitida } from "./dto-bre.js";
+import { CONFIG_BRE_PADRAO, SaidaIaBre, mascararDadosPessoais, acaoPadraoBreak, calcularBpi, contraMeta, estadoCliente, faixaBpi, faixaSq, somaSq, transicaoPermitida } from "./dto-bre.js";
 
 describe("estado do cliente (D-01)", () => {
   it("segue os limites padrão nas bordas", () => {
@@ -92,4 +92,14 @@ describe("contrato da IA (AT-018)", () => {
     expect(SaidaIaBre.safeParse({ ...valida, break: { categoria: "H_WEATHER", comentario: "x" } }).success).toBe(false);
     expect(SaidaIaBre.safeParse({ ...valida, sqBre: { ...valida.sqBre, P: 25 } }).success).toBe(false);
   });
+});
+
+describe("mascaramento para a IA (DEC-009)", () => {
+  it("troca dados pessoais por marcadores e deixa o resto da conversa", () => {
+    expect(mascararDadosPessoais("Meu e-mail é ana.souza+promo@gmail.com e o CPF 123.456.789-09")).toBe("Meu e-mail é [e-mail] e o CPF [CPF]");
+    expect(mascararDadosPessoais("Liga no (11) 98765-4321 ou +55 11 98765 4321")).toBe("Liga no [telefone] ou [telefone]");
+    expect(mascararDadosPessoais("CEP 01310-100, empresa 12.345.678/0001-95")).toBe("CEP [CEP], empresa [CNPJ]");
+    expect(mascararDadosPessoais("Quero 2 frascos de 100 ml até dia 15")).toBe("Quero 2 frascos de 100 ml até dia 15");
+  });
+  it("vem desligado no padrão (primeiros testes)", () => expect(CONFIG_BRE_PADRAO.mascararDadosIa).toBe(false));
 });

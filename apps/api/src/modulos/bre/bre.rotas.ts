@@ -7,6 +7,8 @@ import {
   AtualizarReentradaEntrada,
   BpiRespostaDto,
   BreakDto,
+  ConcordanciaDto,
+  InteligenciaContatoDto,
   ConfirmarSqBreEntrada,
   EscalonamentoDto,
   FiltroBpi,
@@ -117,6 +119,16 @@ export const rotasBre =
       async (req) => bre.concluirReentrada(exigirEmpresa(req), exigirEscopo(req), origemDe(req), req.params.id, req.body.status),
     );
 
+    app.get(
+      "/api/bre/contatos/:id/inteligencia",
+      { config: acesso("ver"), schema: { tags, summary: "O que falta saber do cliente (campos de inteligência)", params: ParamId, response: { 200: InteligenciaContatoDto } } },
+      async (req) => bre.inteligenciaDoContato(exigirEmpresa(req), exigirEscopo(req), req.params.id),
+    );
+    app.get(
+      "/api/bre/concordancia",
+      { config: acesso("administrar"), schema: { tags, summary: "Concordância IA × pessoa e liberação da automação (DEC-010)", response: { 200: ConcordanciaDto } } },
+      async (req) => bre.concordancia(exigirEmpresa(req)),
+    );
     app.get(
       "/api/bre/desempenho",
       { config: acesso("ver"), schema: { tags, summary: "BPI do mês por pessoa (ranking) e pilares em coaching", querystring: FiltroBpi, response: { 200: BpiRespostaDto } } },

@@ -9,9 +9,12 @@ import {
   MOTIVOS_BREAK_PADRAO,
   PROXIMAS_ACOES,
   acaoPadraoBreak,
+  mascararDadosPessoais,
   type CategoriaBreak,
   type Escopo,
+  type ConcordanciaDto,
   type EscalonamentoDto,
+  type InteligenciaContatoDto,
   type ItemFilaBreDto,
   type MarcoBre,
   type Pagina,
@@ -61,8 +64,12 @@ export async function lerConfig(tx: Tx): Promise<ConfigBre & { versao: number }>
   return { ...ConfigBre.parse(l?.config ?? {}), versao: l?.versao ?? 0 };
 }
 
-/** As últimas 100 mensagens de texto da conversa, em ordem, como a IA lê (cliente × atendente). */
+/**
+ * As últimas 100 mensagens de texto da conversa, em ordem, como a IA lê (cliente × atendente). Com a opção da
+ * empresa ligada (DEC-009), os dados pessoais saem trocados por marcadores.
+ */
 export async function mensagensDaConversa(tx: Tx, conversaId: string): Promise<MensagemAnalise[]> {
+  const { mascararDadosIa } = await lerConfig(tx);
   const linhas = await q<{ direcao: string; texto: string }>(
     tx,
     `SELECT direcao, texto FROM (SELECT direcao, texto, criado_em FROM mensagem
@@ -70,7 +77,7 @@ export async function mensagensDaConversa(tx: Tx, conversaId: string): Promise<M
        ORDER BY criado_em DESC LIMIT 100) m ORDER BY criado_em`,
     [conversaId, tx.empresaId],
   );
-  return linhas.map((m) => ({ de: m.direcao === "entrada" ? "cliente" : "atendente", texto: m.texto }));
+  return linhas.map((m) => ({ de: m.direcao === "entrada" ? "cliente" : "atendente", texto: mascararDadosIa ? mascararDadosPessoais(m.texto) : m.texto }));
 }
 
 export function criarServicoBre(s: Servicos, ia?: ProvedorIaBre) {
@@ -605,6 +612,82 @@ export function criarServicoBre(s: Servicos, ia?: ProvedorIaBre) {
     return { ok: true as const };
   }
 
+  /** FR-006: dos campos de inteligência da empresa, quais o cliente já tem e quais faltam. */
+  async function inteligenciaDoContato(ctx: ContextoEmpresa, escopo: Escopo, contatoId: string): Promise<InteligenciaContatoDto> {
+    return comEmpresa(banco, ctx.empresaId, async (tx) => {
+      await contatoVisivel(tx, ctx, escopo, contatoId);
+      const campos = await q<{ rotulo: string; preenchido: boolean }>(
+        tx,
+        `SELECT f.rotulo, coalesce(c.campos->>f.chave, '') <> '' AS preenchido
+         FROM campo_personalizado f JOIN contato c ON c.id = $2 AND c.empresa_id = f.empresa_id
+         WHERE f.empresa_id = $1 AND f.entidade = 'contato' AND f.inteligencia_bre AND f.arquivado_em IS NULL
+         ORDER BY f.ordem, f.rotulo`,
+        [ctx.empresaId, contatoId],
+      );
+      return { campos: campos.length, preenchidos: campos.filter((c) => c.preenchido).length, faltando: campos.filter((c) => !c.preenchido).map((c) => c.rotulo) };
+    });
+  }
+
+  /**
+   * DEC-010: na amostra mais recente, quanto a sugestão da IA bateu com o que a pessoa registrou (resultado,
+   * temperatura e categoria do Break) e com a nota SQ-BRE confirmada (até 5 pontos). A automação só se libera com
+   * amostra mínima, o percentual da empresa em todos os campos e nenhuma sugestão barrada pelas regras.
+   */
+  async function concordancia(ctx: ContextoEmpresa): Promise<ConcordanciaDto> {
+    return comEmpresa(banco, ctx.empresaId, async (tx) => {
+      const cfg = await lerConfig(tx);
+      const pares = await q<{ resultado: boolean; temperatura: boolean; categoria: boolean; bloqueio: boolean }>(
+        tx,
+        `SELECT a.saida->>'resultado' = r.resultado AS resultado, a.saida->>'temperatura' = r.temperatura AS temperatura,
+                coalesce(a.saida->'break'->>'categoria', '') = coalesce((SELECT b.categoria FROM break_bre b WHERE b.registro_id = r.id LIMIT 1), '') AS categoria,
+                jsonb_array_length(a.bloqueios) > 0 AS bloqueio
+         FROM registro_bre r
+         JOIN LATERAL (SELECT saida, bloqueios FROM analise_bre x WHERE x.empresa_id = r.empresa_id AND x.conversa_id = r.conversa_id AND x.criado_em <= r.criado_em
+                       ORDER BY x.criado_em DESC LIMIT 1) a ON true
+         WHERE r.empresa_id = $1 AND r.conversa_id IS NOT NULL
+         ORDER BY r.criado_em DESC LIMIT $2`,
+        [ctx.empresaId, cfg.amostraParaAutomacao],
+      );
+      const sq = await q<{ perto: boolean }>(
+        tx,
+        "SELECT abs(nota_previa - nota) <= 5 AS perto FROM sq_bre WHERE empresa_id = $1 AND nota IS NOT NULL ORDER BY confirmada_em DESC LIMIT $2",
+        [ctx.empresaId, cfg.amostraParaAutomacao],
+      );
+      const campo = (campoId: string, nome: string, valores: boolean[]) => ({
+        campo: campoId,
+        nome,
+        pares: valores.length,
+        iguais: valores.filter(Boolean).length,
+        percentual: valores.length ? Math.round((valores.filter(Boolean).length / valores.length) * 1000) / 10 : null,
+      });
+      const campos = [
+        campo("resultado", "Resultado do contato", pares.map((p) => p.resultado)),
+        campo("temperatura", "Temperatura", pares.map((p) => p.temperatura)),
+        campo("categoria", "Categoria do Break", pares.map((p) => p.categoria)),
+        campo("sqBre", "Nota SQ-BRE (até 5 pontos)", sq.map((s) => s.perto)),
+      ];
+      const comBloqueio = pares.filter((p) => p.bloqueio).length;
+      const curto = campos.find((c) => c.pares < cfg.amostraParaAutomacao);
+      const baixo = campos.find((c) => (c.percentual ?? 0) < cfg.concordanciaParaAutomacao);
+      const motivo = curto
+        ? `Amostra ainda pequena em "${curto.nome}": ${curto.pares} de ${cfg.amostraParaAutomacao}.`
+        : baixo
+          ? `"${baixo.nome}" está em ${baixo.percentual}%, abaixo dos ${cfg.concordanciaParaAutomacao}% definidos.`
+          : comBloqueio
+            ? `${comBloqueio} sugestão(ões) da IA foram barradas pelas regras na amostra.`
+            : "A IA atingiu a concordância definida em todos os campos.";
+      return {
+        amostraMinima: cfg.amostraParaAutomacao,
+        percentualMinimo: cfg.concordanciaParaAutomacao,
+        campos,
+        analises: pares.length,
+        analisesComBloqueio: comBloqueio,
+        liberado: !curto && !baixo && !comBloqueio,
+        motivo,
+      };
+    });
+  }
+
   // Rotinas (fila de jobs) ---------------------------------------------------------------------------
 
   const empresasComBre = () => comoSistema(banco, (tx) => q<{ id: string }>(tx, "SELECT id FROM empresa WHERE modulos ? 'bre'"));
@@ -672,6 +755,8 @@ export function criarServicoBre(s: Servicos, ia?: ProvedorIaBre) {
   }
 
   return {
+    inteligenciaDoContato,
+    concordancia,
     escalonamentos,
     resolverEscalonamento,
     analisarConversa,

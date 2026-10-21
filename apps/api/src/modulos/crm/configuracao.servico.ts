@@ -53,6 +53,7 @@ const campoDto = (c: typeof campoPersonalizado.$inferSelect): CampoPersonalizado
   tipo: c.tipo,
   opcoes: c.opcoes,
   obrigatorio: c.obrigatorio,
+  inteligenciaBre: c.inteligenciaBre,
   ordem: c.ordem,
   arquivadoEm: iso(c.arquivadoEm),
 });
@@ -273,7 +274,7 @@ export function criarServicoConfiguracaoCrm(s: Servicos) {
   async function criarCampo(
     ctx: ContextoEmpresa,
     origem: Origem,
-    dados: { entidade: "contato" | "oportunidade"; chave: string; rotulo: string; tipo: TipoCampo; opcoes: string[]; obrigatorio: boolean; ordem: number },
+    dados: { entidade: "contato" | "oportunidade"; chave: string; rotulo: string; tipo: TipoCampo; opcoes: string[]; obrigatorio: boolean; inteligenciaBre: boolean; ordem: number },
   ): Promise<CampoPersonalizadoDto> {
     if (dados.tipo === "lista" && !dados.opcoes.length) throw invalido("Campo do tipo lista precisa de pelo menos uma opção.");
     return comEmpresa(banco, ctx.empresaId, async (tx) => {
@@ -292,7 +293,7 @@ export function criarServicoConfiguracaoCrm(s: Servicos) {
     ctx: ContextoEmpresa,
     origem: Origem,
     id: string,
-    dados: Partial<{ rotulo: string; opcoes: string[]; obrigatorio: boolean; ordem: number; arquivado: boolean }>,
+    dados: Partial<{ rotulo: string; opcoes: string[]; obrigatorio: boolean; inteligenciaBre: boolean; ordem: number; arquivado: boolean }>,
   ): Promise<CampoPersonalizadoDto> {
     return comEmpresa(banco, ctx.empresaId, async (tx) => {
       const condicao = and(eq(campoPersonalizado.id, id), eq(campoPersonalizado.empresaId, ctx.empresaId));

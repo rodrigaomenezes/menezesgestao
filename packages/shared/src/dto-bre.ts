@@ -172,6 +172,8 @@ export const ConfigBre = z.object({
   /** DEC-010: concordância mínima IA × supervisor para liberar automação (fase 8.2). */
   concordanciaParaAutomacao: z.number().int().min(50).max(100).default(85),
   amostraParaAutomacao: z.number().int().min(20).max(5000).default(200),
+  /** DEC-009: troca dados pessoais por marcadores antes de enviar a conversa à IA (desligado nos primeiros testes). */
+  mascararDadosIa: z.boolean().default(false),
   /** Pilar Receita do BPI: meta mensal por pessoa, em centavos. null = sem meta (o pilar fica fora do BPI). */
   metaReceitaCentavos: z.number().int().min(0).max(100_000_000_00).nullable().default(null),
 });
@@ -462,3 +464,38 @@ export const EscalonamentoDto = z.object({
 });
 export type EscalonamentoDto = z.infer<typeof EscalonamentoDto>;
 export const FiltroEscalonamentos = Paginacao.extend({ status: z.enum(["aberto", "resolvido"]).default("aberto") });
+
+// Fase 8.3 ------------------------------------------------------------------------------------------
+
+/** FR-006: o que já se sabe e o que falta saber do cliente (campos de inteligência da empresa). */
+export const InteligenciaContatoDto = z.object({
+  campos: z.number().int(),
+  preenchidos: z.number().int(),
+  faltando: z.array(z.string()),
+});
+export type InteligenciaContatoDto = z.infer<typeof InteligenciaContatoDto>;
+
+/** DEC-010: concordância da IA com a pessoa, campo a campo, na amostra mais recente. */
+export const ConcordanciaDto = z.object({
+  amostraMinima: z.number().int(),
+  percentualMinimo: z.number().int(),
+  campos: z.array(z.object({ campo: z.string(), nome: z.string(), pares: z.number().int(), iguais: z.number().int(), percentual: z.number().nullable() })),
+  analises: z.number().int(),
+  analisesComBloqueio: z.number().int(),
+  liberado: z.boolean(),
+  motivo: z.string(),
+});
+export type ConcordanciaDto = z.infer<typeof ConcordanciaDto>;
+
+/**
+ * LGPD (DEC-009): troca e-mail, CPF, CNPJ, CEP e telefone por marcadores antes de a conversa sair para a IA.
+ * A ordem importa: documentos com pontuação antes do telefone, que pega sequências longas de dígitos.
+ */
+export function mascararDadosPessoais(texto: string): string {
+  return texto
+    .replace(/[\w.+-]+@[\w-]+(\.[\w-]+)+/g, "[e-mail]")
+    .replace(/\b\d{3}\.\d{3}\.\d{3}-\d{2}\b/g, "[CPF]")
+    .replace(/\b\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}\b/g, "[CNPJ]")
+    .replace(/\b\d{5}-\d{3}\b/g, "[CEP]")
+    .replace(/(\+?\(?\d[\d\s().-]{7,}\d)/g, (m) => (m.replace(/\D/g, "").length >= 8 ? "[telefone]" : m));
+}

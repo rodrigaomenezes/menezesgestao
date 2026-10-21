@@ -2,13 +2,14 @@
 import { Privacidade } from "./Privacidade";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import type { ContatoDto, HistoricoDto, NotaDto, OportunidadeDto, TarefaDto } from "@mg/shared";
+import { CRITERIOS_ENCERRAMENTO, type ContatoDto, type HistoricoDto, type NotaDto, type OportunidadeDto, type TarefaDto } from "@mg/shared";
 import { ErroApi, get, patch, post, put, query } from "../../app/api";
 import { useDataHora, useEu, useSessao } from "../../app/sessao";
 import { useTempoReal } from "../../app/tempo-real";
 import { useAviso, useConfirmar } from "../../ui/sobreposicoes";
 import { Campo, CarregarMais, Escolha, ListaVazia, Mensagem, Titulo, useEnvio, usePaginado } from "../../ui/ui";
 import { BotaoLigar } from "../telefonia/Telefone";
+import { BotaoEncerrarBre } from "../bre/Bre";
 import { VendasDoContato } from "../receita/Vendas";
 import {
   CamposPersonalizados,
@@ -130,11 +131,13 @@ function Oportunidades({ contato, config }: { contato: ContatoDto; config: Confi
                 {o.valorCentavos !== null && ` · ${formatarDinheiro(o.valorCentavos)}`}
               </span>
               {o.status !== "aberta" && <span className={`selo selo-${o.status}`}>{o.status === "ganha" ? "Ganha" : "Perdida"}</span>}
+              {o.encerradaBre && <span className="item-detalhe">Encerrada pelo método BRE: {CRITERIOS_ENCERRAMENTO.find((c) => c.codigo === o.encerradaBre!.criterio)?.nome}</span>}
             </div>
             <div className="item-acoes">
               <Link className="botao botao-secundario" to={`/funil?funil=${o.funilId}`}>
                 Ver no funil
               </Link>
+              {o.status === "aberta" && !o.encerradaBre && <BotaoEncerrarBre oportunidadeId={o.id} aoEncerrar={() => void lista.recarregar()} />}
             </div>
           </li>
         ))}

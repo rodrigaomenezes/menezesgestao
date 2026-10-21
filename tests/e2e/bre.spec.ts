@@ -67,3 +67,38 @@ test("SQ-BRE: o gestor pede a prévia da IA na conversa, ajusta e confirma; o de
   await expect(page.getByRole("region", { name: "Desempenho (BPI)" })).toContainText("Vendedor A1");
   await semRolagemLateral(page);
 });
+
+test("encerramento guiado na ficha, motivos de Break e painel IA × equipe", async ({ page }, info) => {
+  const { a } = dados();
+  await entrar(page, pessoa(a, "dono").email);
+  const csrf = (await page.context().cookies()).find((c) => c.name === "mg_csrf")?.value ?? "";
+  const cabecalho = { headers: { "x-csrf-token": csrf } };
+  const contato = await page.request.post("/api/contatos", { ...cabecalho, data: { nome: `Encerra ${info.project.name}` } });
+  expect(contato.ok(), await contato.text()).toBe(true);
+  const contatoId = (await contato.json()).id as string;
+  const funilId = (await (await page.request.get("/api/crm/configuracao")).json()).funis[0].id as string;
+  const op = await page.request.post("/api/oportunidades", { ...cabecalho, data: { contatoId, funilId, titulo: "Plano anual" } });
+  expect(op.ok(), await op.text()).toBe(true);
+
+  await page.goto(`/contatos/${contatoId}`);
+  await page.getByRole("button", { name: "Encerrar (BRE)" }).click();
+  const modal = page.getByRole("dialog");
+  await modal.getByLabel("Critério").selectOption({ label: "Mudança de perfil incompatível" });
+  for (const item of ["Motivo compreendido", "CRM atualizado", "Temperatura definida", "Próximo gatilho definido", "Data ou evento de reentrada", "Nenhuma informação sem registro"]) {
+    await modal.getByLabel(item).check();
+  }
+  await modal.getByLabel("Motivo da reentrada").fill("Mudou de cidade");
+  await semRolagemLateral(page);
+  await modal.getByRole("button", { name: "Encerrar", exact: true }).click();
+  await expect(page.getByText("Encerrado pelo método BRE.")).toBeVisible();
+  await expect(page.getByText("Encerrada pelo método BRE: Mudança de perfil incompatível")).toBeVisible();
+
+  await page.goto("/bre");
+  await expect(page.getByRole("heading", { name: "IA × equipe" })).toBeVisible();
+  const motivos = page.getByRole("region", { name: "Motivos de Break" });
+  await motivos.getByLabel("Categoria").selectOption({ label: "C — Financeiro" });
+  await motivos.getByLabel("Novo motivo", { exact: true }).fill(`Frete ${info.project.name}`);
+  await motivos.getByRole("button", { name: "Adicionar" }).click();
+  await expect(motivos.getByText(`Frete ${info.project.name}`)).toBeVisible();
+  await semRolagemLateral(page);
+});
