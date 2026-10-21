@@ -24,9 +24,15 @@ type LinhaAutomacao = {
   texto: string;
   dias: number | null;
   campo_chave: string | null;
+  limite_estoque: number | null;
+  modelo_nome: string | null;
+  modelo_idioma: string;
+  modelo_parametros: string[];
   ativa: boolean;
   arquivado_em: Date | null;
 };
+type Alvo = { contato_id: string; ref: string; produto?: string | null };
+type Modelo = { nome: string; idioma: string; parametros: string[] };
 
 const dto = (a: LinhaAutomacao): AutomacaoBreDto => ({
   id: a.id,
@@ -36,6 +42,8 @@ const dto = (a: LinhaAutomacao): AutomacaoBreDto => ({
   texto: a.texto,
   dias: a.dias,
   campoChave: a.campo_chave,
+  limiteEstoque: a.limite_estoque,
+  modelo: a.modelo_nome ? { nome: a.modelo_nome, idioma: a.modelo_idioma, parametros: a.modelo_parametros } : null,
   ativa: a.ativa,
   arquivadoEm: a.arquivado_em ? new Date(a.arquivado_em).toISOString() : null,
 });
@@ -60,7 +68,16 @@ export function criarServicoAutomacaoBre(s: Servicos, envio: ServicoEnvio | null
   async function criar(
     ctx: ContextoEmpresa,
     origem: Origem,
-    e: { tipo: TipoAutomacaoBre; nome: string; canalId: string; texto: string; dias?: number | null; campoChave?: string | null },
+    e: {
+      tipo: TipoAutomacaoBre;
+      nome: string;
+      canalId: string;
+      texto: string;
+      dias?: number | null;
+      campoChave?: string | null;
+      limiteEstoque?: number | null;
+      modelo?: Modelo | null;
+    },
   ): Promise<AutomacaoBreDto> {
     return comEmpresa(banco, ctx.empresaId, async (tx) => {
       await validarCanal(tx, ctx.empresaId, e.canalId);
@@ -73,9 +90,22 @@ export function criarServicoAutomacaoBre(s: Servicos, envio: ServicoEnvio | null
       }
       const [a] = await q<LinhaAutomacao>(
         tx,
-        `INSERT INTO bre_automacao (empresa_id, tipo, nome, canal_id, texto, dias, campo_chave, criado_por)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
-        [ctx.empresaId, e.tipo, e.nome, e.canalId, e.texto, e.tipo === "POS_VENDA" ? e.dias : null, e.tipo === "ANIVERSARIO" ? e.campoChave : null, ctx.usuarioId],
+        `INSERT INTO bre_automacao (empresa_id, tipo, nome, canal_id, texto, dias, campo_chave, limite_estoque, modelo_nome, modelo_idioma, modelo_parametros, criado_por)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, coalesce($10, 'pt_BR'), coalesce($11, '{}'::text[]), $12) RETURNING *`,
+        [
+          ctx.empresaId,
+          e.tipo,
+          e.nome,
+          e.canalId,
+          e.texto,
+          e.tipo === "POS_VENDA" ? e.dias : null,
+          e.tipo === "ANIVERSARIO" ? e.campoChave : null,
+          e.tipo === "ESTOQUE" ? e.limiteEstoque : null,
+          e.modelo?.nome ?? null,
+          e.modelo?.idioma ?? null,
+          e.modelo?.parametros ?? null,
+          ctx.usuarioId,
+        ],
       );
       await registrar(tx, origem, { acao: "bre.automacao_criada", entidade: "bre_automacao", entidadeId: a!.id, depois: dto(a!) });
       return dto(a!);
@@ -83,7 +113,12 @@ export function criarServicoAutomacaoBre(s: Servicos, envio: ServicoEnvio | null
   }
 
   /** Ligar exige a concordância IA × equipe liberada (DEC-010); desligar e editar, não. */
-  async function atualizar(ctx: ContextoEmpresa, origem: Origem, id: string, d: { nome?: string; texto?: string; ativa?: boolean; arquivado?: boolean }): Promise<AutomacaoBreDto> {
+  async function atualizar(
+    ctx: ContextoEmpresa,
+    origem: Origem,
+    id: string,
+    d: { nome?: string; texto?: string; modelo?: Modelo | null; ativa?: boolean; arquivado?: boolean },
+  ): Promise<AutomacaoBreDto> {
     if (d.ativa === true) {
       const c = await bre.concordancia(ctx);
       if (!c.liberado) throw invalido(`Para ligar uma automação, o painel IA × equipe precisa estar liberado. ${c.motivo}`);
@@ -97,9 +132,23 @@ export function criarServicoAutomacaoBre(s: Servicos, envio: ServicoEnvio | null
         `UPDATE bre_automacao SET nome = coalesce($3, nome), texto = coalesce($4, texto),
            ativa = CASE WHEN $6::boolean THEN false ELSE coalesce($5, ativa) END,
            arquivado_em = CASE WHEN $6::boolean IS NULL THEN arquivado_em WHEN $6 THEN coalesce(arquivado_em, now()) ELSE NULL END,
+           modelo_nome = CASE WHEN $7::boolean THEN $8 ELSE modelo_nome END,
+           modelo_idioma = CASE WHEN $7::boolean THEN coalesce($9, 'pt_BR') ELSE modelo_idioma END,
+           modelo_parametros = CASE WHEN $7::boolean THEN coalesce($10, '{}'::text[]) ELSE modelo_parametros END,
            atualizado_em = now()
          WHERE id = $1 AND empresa_id = $2 RETURNING *`,
-        [id, ctx.empresaId, d.nome ?? null, d.texto ?? null, d.ativa ?? null, d.arquivado ?? null],
+        [
+          id,
+          ctx.empresaId,
+          d.nome ?? null,
+          d.texto ?? null,
+          d.ativa ?? null,
+          d.arquivado ?? null,
+          d.modelo !== undefined,
+          d.modelo?.nome ?? null,
+          d.modelo?.idioma ?? null,
+          d.modelo?.parametros ?? null,
+        ],
       );
       await registrar(tx, origem, { acao: "bre.automacao_alterada", entidade: "bre_automacao", entidadeId: id, antes: dto(antes), depois: dto(depois!) });
       return dto(depois!);
@@ -132,14 +181,14 @@ export function criarServicoAutomacaoBre(s: Servicos, envio: ServicoEnvio | null
   }
 
   /** Quem a automação alcança hoje (contato + referência que impede repetir). */
-  async function candidatos(tx: Tx, a: LinhaAutomacao): Promise<{ contato_id: string; ref: string }[]> {
+  async function candidatos(tx: Tx, a: LinhaAutomacao): Promise<Alvo[]> {
     const hoje = "(SELECT (now() AT TIME ZONE fuso)::date FROM empresa WHERE id = $1)";
     switch (a.tipo) {
       case "POS_VENDA":
         return q(
           tx,
-          `SELECT DISTINCT ON (contato_id) contato_id, id::text AS ref FROM venda
-           WHERE empresa_id = $1 AND status = 'confirmada' AND data_venda = ${hoje} - $2::int ORDER BY contato_id, criado_em LIMIT 500`,
+          `SELECT DISTINCT ON (v.contato_id) v.contato_id, v.id::text AS ref, o.nome AS produto FROM venda v JOIN oferta o ON o.id = v.oferta_id
+           WHERE v.empresa_id = $1 AND v.status = 'confirmada' AND v.data_venda = ${hoje} - $2::int ORDER BY v.contato_id, v.criado_em LIMIT 500`,
           [tx.empresaId, a.dias],
         );
       case "ANIVERSARIO":
@@ -157,11 +206,30 @@ export function criarServicoAutomacaoBre(s: Servicos, envio: ServicoEnvio | null
            WHERE empresa_id = $1 AND status = 'pendente' AND tipo = 'TIME' AND prevista_para = ${hoje} LIMIT 500`,
           [tx.empresaId],
         );
+      case "LANCAMENTO":
+      case "ESTOQUE": {
+        // Compatível = já comprou (venda não cancelada) outro item da mesma categoria. A referência é o item: cada
+        // pessoa recebe o aviso de um lançamento (ou de um estoque baixo) uma vez só.
+        const gatilho =
+          a.tipo === "LANCAMENTO"
+            ? `o.lancamento_em BETWEEN ${hoje} - 7 AND ${hoje}`
+            : "o.estoque IS NOT NULL AND o.estoque BETWEEN 1 AND $2::int";
+        return q(
+          tx,
+          `SELECT DISTINCT ON (o.id, v.contato_id) v.contato_id, 'oferta:' || o.id AS ref, o.nome AS produto
+           FROM oferta o
+           JOIN oferta irma ON irma.empresa_id = o.empresa_id AND irma.id <> o.id AND lower(irma.categoria) = lower(o.categoria)
+           JOIN venda v ON v.empresa_id = o.empresa_id AND v.oferta_id = irma.id AND v.status <> 'cancelada'
+           WHERE o.empresa_id = $1 AND o.arquivado_em IS NULL AND o.categoria IS NOT NULL AND ${gatilho}
+           ORDER BY o.id, v.contato_id LIMIT 500`,
+          a.tipo === "LANCAMENTO" ? [tx.empresaId] : [tx.empresaId, a.limite_estoque],
+        );
+      }
     }
   }
 
   /** Um cliente: envia ou registra por que pulou. Transação própria: um erro não derruba os outros. */
-  async function processar(empresaId: string, a: LinhaAutomacao, alvo: { contato_id: string; ref: string }): Promise<"enviada" | "ignorada" | "repetida"> {
+  async function processar(empresaId: string, a: LinhaAutomacao, alvo: Alvo): Promise<"enviada" | "ignorada" | "repetida"> {
     return comEmpresa(banco, empresaId, async (tx) => {
       const [ja] = await q(tx, "SELECT 1 FROM bre_automacao_execucao WHERE automacao_id = $1 AND contato_id = $2 AND referencia = $3", [a.id, alvo.contato_id, alvo.ref]);
       if (ja) return "repetida";
@@ -212,8 +280,11 @@ export function criarServicoAutomacaoBre(s: Servicos, envio: ServicoEnvio | null
             .returning();
         }
         const primeiroNome = c.nome.split(" ")[0] ?? c.nome;
-        const texto = preencherVariaveis(a.texto, { nome: primeiroNome, vendedor: c.responsavel_nome ?? "", produto: "", empresa: c.empresa_nome });
-        const m = await envio.criarSaida(tx, ORIGEM_AUTOMACAO(empresaId), conv!, { tipo: "texto", texto, autorId: null });
+        const valores: Record<string, string> = { nome: primeiroNome, vendedor: c.responsavel_nome ?? "", produto: alvo.produto ?? "", empresa: c.empresa_nome };
+        const texto = preencherVariaveis(a.texto, valores);
+        // Com modelo aprovado na Meta, sai como modelo (alcança quem está fora da janela de 24 h); o texto vira a prévia.
+        const modelo = a.modelo_nome ? { nome: a.modelo_nome, idioma: a.modelo_idioma, parametros: a.modelo_parametros.map((p) => valores[p] ?? "") } : null;
+        const m = await envio.criarSaida(tx, ORIGEM_AUTOMACAO(empresaId), conv!, { tipo: "texto", texto, autorId: null, modelo });
         mensagemId = m.id;
       }
       const status = motivo ? "ignorada" : "enviada";

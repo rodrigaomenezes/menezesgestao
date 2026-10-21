@@ -30,7 +30,9 @@ export type ConteudoSaida =
   | { tipo: "texto"; texto: string }
   | { tipo: "imagem" | "video" | "documento"; midia: Midia; legenda?: string | null }
   /** voz = mensagem de voz (Ogg/Opus, aparece como gravada no app). */
-  | { tipo: "audio"; midia: Midia; voz: boolean };
+  | { tipo: "audio"; midia: Midia; voz: boolean }
+  /** Mensagem modelo aprovada na Meta: parâmetros na ordem de {{1}}, {{2}}…; `texto` é a prévia (QR e demonstração mandam ela). */
+  | { tipo: "modelo"; nome: string; idioma: string; parametros: string[]; texto: string };
 
 /** Destino: o telefone (E.164) ou, quando o cliente só tem id do provedor, esse id. */
 export interface Destino {

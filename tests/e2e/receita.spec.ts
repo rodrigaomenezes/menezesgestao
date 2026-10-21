@@ -140,3 +140,20 @@ test("telas de vendas, comissões, catálogo, qualidade e pesquisas cabem na lar
     await semRolagemLateral(page);
   }
 });
+
+test("catálogo: item com categoria, estoque e lançamento aparece na lista", async ({ page }, info) => {
+  const { a } = dados();
+  await entrar(page, pessoa(a, "dono").email);
+  await page.goto("/catalogo");
+  await page.getByRole("button", { name: "Cadastrar oferta" }).click();
+  const form = page.getByRole("form", { name: "Cadastrar oferta" });
+  const nome = `Kit ${info.project.name}`;
+  await form.getByLabel("Nome").fill(nome);
+  await form.getByLabel("Categoria (opcional)").fill("Perfumaria");
+  await form.getByLabel("Estoque (opcional)").fill("5");
+  await form.getByLabel("Lançamento em (opcional)").fill("2026-12-01");
+  await form.getByRole("button", { name: "Criar" }).click();
+  const item = page.locator("li.item", { hasText: nome });
+  await expect(item).toContainText("Perfumaria · 5 em estoque · lança em 01/12/2026");
+  await semRolagemLateral(page);
+});

@@ -16,6 +16,11 @@ export const OfertaDto = z.object({
   nome: z.string(),
   descricao: z.string().nullable(),
   precoCentavos: z.number().int().nullable(),
+  /** Linha do produto: o "lançamento compatível" do BRE avisa quem já comprou da mesma categoria. */
+  categoria: z.string().nullable(),
+  /** Unidades disponíveis; vazio = não controla estoque. A venda confirmada baixa uma unidade. */
+  estoque: z.number().int().nullable(),
+  lancamentoEm: DataDia.nullable(),
   arquivadoEm: DataIso.nullable(),
 });
 export type OfertaDto = z.infer<typeof OfertaDto>;
@@ -23,6 +28,9 @@ export const OfertaEntrada = z.object({
   nome: texto(120, "Nome"),
   descricao: textoOpcional(2000, "Descrição"),
   precoCentavos: Centavos.nullish(),
+  categoria: textoOpcional(60, "Categoria"),
+  estoque: z.number().int().min(0, { error: "Estoque: use 0 ou mais." }).max(1_000_000).nullish(),
+  lancamentoEm: DataDia.nullish(),
 });
 export const AtualizarOfertaEntrada = OfertaEntrada.partial().extend({ arquivar: z.boolean().optional() });
 export const FiltroOfertas = Paginacao.extend({

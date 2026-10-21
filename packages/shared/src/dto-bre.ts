@@ -527,6 +527,12 @@ export const TIPOS_AUTOMACAO_BRE = [
   { codigo: "POS_VENDA", nome: "Pós-venda", ajuda: "Mensagem N dias depois da venda confirmada (ex.: D+2, chegou bem?)" },
   { codigo: "ANIVERSARIO", nome: "Aniversário", ajuda: "No dia e mês do campo de data escolhido" },
   { codigo: "REENTRADA", nome: "Reentrada do dia", ajuda: "Quando vence uma reentrada combinada por data" },
+  {
+    codigo: "LANCAMENTO",
+    nome: "Lançamento compatível",
+    ajuda: "Na data de lançamento de um item do catálogo, avisa quem já comprou da mesma categoria (até 7 dias depois, se o envio atrasar)",
+  },
+  { codigo: "ESTOQUE", nome: "Alerta de estoque", ajuda: "Quando o estoque de um item fica no limite ou abaixo, avisa quem já comprou da mesma categoria" },
 ] as const;
 export type TipoAutomacaoBre = (typeof TIPOS_AUTOMACAO_BRE)[number]["codigo"];
 export const CODIGOS_AUTOMACAO_BRE = lista(TIPOS_AUTOMACAO_BRE);
@@ -539,10 +545,29 @@ export const AutomacaoBreDto = z.object({
   texto: z.string(),
   dias: z.number().int().nullable(),
   campoChave: z.string().nullable(),
+  limiteEstoque: z.number().int().nullable(),
+  modelo: z.object({ nome: z.string(), idioma: z.string(), parametros: z.array(z.string()) }).nullable(),
   ativa: z.boolean(),
   arquivadoEm: DataIso.nullable(),
 });
 export type AutomacaoBreDto = z.infer<typeof AutomacaoBreDto>;
+
+/** Variáveis que uma mensagem automática pode usar (no texto como {nome}; no modelo da Meta, na ordem de {{1}}, {{2}}…). */
+export const VARIAVEIS_AUTOMACAO = ["nome", "vendedor", "produto", "empresa"] as const;
+/**
+ * Mensagem modelo aprovada na Meta (API oficial do WhatsApp): o único jeito de escrever para quem não falou com a
+ * empresa nas últimas 24 horas. O texto da automação vira a prévia que aparece na conversa.
+ */
+export const ModeloMensagem = z.object({
+  nome: z.string().trim().regex(/^[a-z0-9_]{1,512}$/, { error: "Nome do modelo: use o nome exato aprovado na Meta (letras minúsculas, números e _)." }),
+  idioma: z
+    .string()
+    .trim()
+    .regex(/^[a-z]{2,3}(_[A-Z]{2})?$/, { error: "Idioma do modelo: use o código da Meta, como pt_BR." })
+    .default("pt_BR"),
+  parametros: z.array(z.enum(VARIAVEIS_AUTOMACAO, { error: "Variável do modelo: use nome, vendedor, produto ou empresa." })).max(10).default([]),
+});
+export type ModeloMensagem = z.infer<typeof ModeloMensagem>;
 
 const TextoModelo = z.string().trim().min(1, { error: "Texto da mensagem: preencha." }).max(1000, { error: "Texto da mensagem: no máximo 1.000 caracteres." });
 export const AutomacaoBreEntrada = z
@@ -553,12 +578,16 @@ export const AutomacaoBreEntrada = z
     texto: TextoModelo,
     dias: z.number().int().min(1, { error: "Dias: de 1 a 365." }).max(365, { error: "Dias: de 1 a 365." }).nullish(),
     campoChave: z.string().trim().max(40).nullish(),
+    limiteEstoque: z.number().int().min(1, { error: "Limite de estoque: de 1 a 100.000." }).max(100_000, { error: "Limite de estoque: de 1 a 100.000." }).nullish(),
+    modelo: ModeloMensagem.nullish(),
   })
   .refine((a) => a.tipo !== "POS_VENDA" || Boolean(a.dias), { error: "Diga quantos dias depois da venda.", path: ["dias"] })
-  .refine((a) => a.tipo !== "ANIVERSARIO" || Boolean(a.campoChave), { error: "Escolha o campo de data do aniversário.", path: ["campoChave"] });
+  .refine((a) => a.tipo !== "ANIVERSARIO" || Boolean(a.campoChave), { error: "Escolha o campo de data do aniversário.", path: ["campoChave"] })
+  .refine((a) => a.tipo !== "ESTOQUE" || Boolean(a.limiteEstoque), { error: "Diga a partir de quantas unidades avisar.", path: ["limiteEstoque"] });
 export const AtualizarAutomacaoBreEntrada = z.object({
   nome: z.string().trim().min(1).max(80).optional(),
   texto: TextoModelo.optional(),
+  modelo: ModeloMensagem.nullish(),
   ativa: z.boolean().optional(),
   arquivado: z.boolean().optional(),
 });

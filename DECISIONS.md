@@ -559,3 +559,18 @@ Uma chamada de IA pode levar segundos ou falhar; segurar a requisição HTTP e a
 experiência e o banco. O cache do BPI é descartável (sempre recalculável das fontes) e tira o cálculo pesado do
 caminho de cada abertura de tela.
 
+# ADR-037 — Catálogo com categoria e estoque; mensagem modelo nas automações
+
+## Decisão
+O item do catálogo (`oferta`) ganha `categoria`, `estoque` (vazio = não controla) e `lancamento_em`. A venda
+confirmada baixa uma unidade e o cancelamento de uma venda confirmada devolve (nunca abaixo de zero). As automações
+do BRE ganham "lançamento compatível" e "alerta de estoque", em que **compatível = já comprou outro item da mesma
+categoria** (comparação sem maiúsculas). A automação pode sair como **mensagem modelo** aprovada na Meta: guarda o
+nome, o idioma e a ordem das variáveis; cada mensagem grava `mensagem.modelo` com os parâmetros já preenchidos e o
+texto como prévia. O provedor recebe o conteúdo `modelo`: a API oficial manda `template`; QR e demonstração mandam o
+texto. Venda e troca de etapa marcam o BPI guardado para recalcular.
+
+## Por quê
+Categoria é configuração da empresa (sem regra de cliente no código) e basta para o "compatível" do livro sem criar
+cadastro de preferências agora. Mensagem modelo é o único caminho da API oficial fora da janela de 24 h; guardar a
+prévia mantém a conversa legível em qualquer provedor.

@@ -83,7 +83,9 @@ function erroGraph(status: number, corpo: unknown): ErroProvedor {
   const e = (corpo as { error?: { code?: number; message?: string } })?.error;
   const codigo = e?.code;
   if (codigo === 131047)
-    return new ErroProvedor("Fora da janela de 24 horas: {o contato} precisa escrever primeiro (mensagens modelo chegam numa próxima versão).", false);
+    return new ErroProvedor("Fora da janela de 24 horas: {o contato} precisa escrever primeiro, ou envie por uma mensagem modelo aprovada na Meta.", false);
+  if (codigo === 132001) return new ErroProvedor("A Meta não encontrou esse modelo aprovado. Confira o nome e o idioma do modelo na automação.", false);
+  if (codigo === 132000) return new ErroProvedor("O número de variáveis não bate com o modelo aprovado na Meta. Ajuste as variáveis do modelo na automação.", false);
   if (codigo === 190) return new ErroProvedor("O token da Meta expirou ou foi revogado. Cadastre um token novo no canal.", false);
   if (codigo === 131026) return new ErroProvedor("O número não pode receber mensagens no WhatsApp.", false);
   if (codigo === 100) return new ErroProvedor("A Meta recusou os dados enviados (confira o Phone number ID e o número).", false);
@@ -147,7 +149,13 @@ export function provedorCloudApi(opcoes: OpcoesCloud = {}): ProvedorMensagens {
       if (!para) throw new ErroProvedor("Conversa sem telefone: não há para quem enviar.", false);
       let corpo: Record<string, unknown>;
       if (conteudo.tipo === "texto") corpo = { type: "text", text: { body: conteudo.texto, preview_url: true } };
-      else {
+      else if (conteudo.tipo === "modelo") {
+        const parametros = conteudo.parametros.map((text) => ({ type: "text", text: text || "-" })); // a Meta recusa parâmetro vazio
+        corpo = {
+          type: "template",
+          template: { name: conteudo.nome, language: { code: conteudo.idioma }, components: parametros.length ? [{ type: "body", parameters: parametros }] : [] },
+        };
+      } else {
         const id = await subirMidia(phoneNumberId, token, conteudo.midia);
         const tipo = { imagem: "image", video: "video", documento: "document", audio: "audio" }[conteudo.tipo];
         const objeto: Record<string, unknown> = { id };

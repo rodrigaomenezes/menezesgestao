@@ -18,6 +18,7 @@ import type { Servicos } from "../../app.js";
 import type { ContextoEmpresa } from "../acesso/acesso.js";
 import { filtroUsuariosVisiveis, usuariosVisiveis } from "../acesso/escopo.js";
 import { registrar, type Origem } from "../auditoria/registro.js";
+import { marcarBpiVelho } from "../bre/bre.servico.js";
 import * as contatos from "../crm/contatos.repositorio.js";
 import { exigirPessoa, fusoDe, hojeNoFuso, limitesPeriodo } from "../operacao/comum.js";
 import { calcularComissoes, type RegraParaComissao } from "./calculo-comissao.js";
@@ -39,6 +40,15 @@ type DadosVenda = {
   status: "pendente" | "confirmada";
   observacao: string | null;
 };
+
+/** Venda confirmada baixa uma unidade da oferta que controla estoque; cancelar a confirmada devolve. Nunca fica negativo. */
+async function moverEstoque(tx: Tx, ofertaId: string, delta: number): Promise<void> {
+  await tx.cliente.query("UPDATE oferta SET estoque = greatest(estoque + $3, 0), atualizado_em = now() WHERE id = $1 AND empresa_id = $2 AND estoque IS NOT NULL", [
+    ofertaId,
+    tx.empresaId,
+    delta,
+  ]);
+}
 
 export function criarServicoVendas(s: Servicos) {
   const { banco } = s;
@@ -167,6 +177,8 @@ export function criarServicoVendas(s: Servicos) {
       const dados = { valorCentavos: d.valorCentavos, oferta: o.nome, titulo: `Venda: ${o.nome}` };
       await registrar(tx, origem, { acao: "venda.registrada", entidade: "venda", entidadeId: id, contatoId: d.contatoId, responsavelId: vendedorId, depois: { ...d, vendedorId, dataVenda }, dados });
       if (d.status === "confirmada") await registrar(tx, origem, { acao: "venda.confirmada", entidade: "venda", entidadeId: id, contatoId: d.contatoId, responsavelId: vendedorId, dados });
+      if (d.status === "confirmada") await moverEstoque(tx, d.ofertaId, -1);
+      await marcarBpiVelho(tx); // a receita entra no BPI do vendedor
       return dto(await carregar(tx, ctx, "empresa", id));
     });
   }
@@ -202,6 +214,9 @@ export function criarServicoVendas(s: Servicos) {
         await tx.db.update(entregaParticipante).set({ status: "cancelado", atualizadoEm: new Date() }).where(and(eq(entregaParticipante.vendaId, id), eq(entregaParticipante.status, "ativo")));
       }
       const mudouStatus = d.status !== undefined && d.status !== antes.status;
+      if (mudouStatus && d.status === "confirmada") await moverEstoque(tx, antes.ofertaId, -1);
+      if (mudouStatus && antes.status === "confirmada" && d.status === "cancelada") await moverEstoque(tx, antes.ofertaId, 1);
+      await marcarBpiVelho(tx);
       const acao = mudouStatus ? (d.status === "confirmada" ? "venda.confirmada" : d.status === "cancelada" ? "venda.cancelada" : "venda.atualizada") : "venda.atualizada";
       await registrar(tx, origem, {
         acao,

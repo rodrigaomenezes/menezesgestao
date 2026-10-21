@@ -223,8 +223,15 @@ mascarados. Antes do uso real: ligar, base legal, aviso ao titular, contrato sem
 | `POS_VENDA` | Cliente com venda confirmada há exatamente N dias | A venda |
 | `ANIVERSARIO` | Cliente cujo campo de data escolhido (AAAA-MM-DD) cai no dia e mês de hoje | O ano |
 | `REENTRADA` | Cliente com reentrada `TIME` pendente vencendo hoje | A reentrada |
+| `LANCAMENTO` | Quem já comprou (venda não cancelada) outro item da mesma categoria de um item com lançamento entre hoje e 7 dias atrás | O item lançado |
+| `ESTOQUE` | Quem já comprou outro item da mesma categoria de um item com estoque entre 1 e o limite da automação | O item |
 
-- Texto da empresa com `{nome}` (primeiro nome), `{vendedor}` e `{empresa}`; sai pelo canal escolhido.
+- Texto da empresa com `{nome}` (primeiro nome), `{vendedor}`, `{produto}` (item da venda, do lançamento ou do
+  estoque) e `{empresa}`; sai pelo canal escolhido.
+- **Mensagem modelo (opcional):** nome do modelo aprovado na Meta, idioma (`pt_BR`) e a ordem das variáveis que
+  preenchem `{{1}}`, `{{2}}`… Na API oficial sai como `template` (alcança quem está fora da janela de 24 h); no QR e
+  na demonstração sai o texto, que também é a prévia gravada na conversa. Erros da Meta de modelo inexistente
+  (132001) ou de variáveis (132000) viram mensagem clara e não são repetidos.
 - Ligar exige o painel IA × equipe liberado; cada execução confere de novo e, se não estiver, nada sai.
 - Pula, registrando o motivo: cadastro arquivado ou anonimizado, sem telefone, escalonamento aberto e qualquer trava
   da seção 4.2 ("não contatar", recente antes de 48 h, 48 h entre tentativas, intervalo entre ciclos).
@@ -241,7 +248,8 @@ mascarados. Antes do uso real: ligar, base legal, aviso ao titular, contrato sem
   supervisor confirma a nota por pilar mesmo assim; enquanto processa, a confirmação espera.
 - **Limite por hora** de pedidos à IA por empresa (`limiteIaPorHora`, padrão 300).
 - **BPI guardado** em `bre_bpi` (empresa × mês × pessoa, com a posição na empresa): recalcula de hora em hora, quando
-  tem mais de 10 min, a pedido (`atualizar=sim`) ou logo após registro BRE e nota SQ-BRE. Leitura paginada pela
+  tem mais de 10 min, a pedido (`atualizar=sim`) ou logo após registro BRE, nota SQ-BRE, venda (criar, confirmar,
+  cancelar) e troca de etapa. Leitura paginada pela
   posição (`cursor`, `limite`) e filtrada pelo escopo; a resposta traz `calculadoEm`.
 - **Mascaramento** também do nome do cliente (partes com 3 letras ou mais) e de endereços (rua, avenida, travessa…).
 
@@ -370,10 +378,9 @@ e empresa seguem o filtro de escopo do sistema. Perfis padrão: dono administra,
 
 ## 10. O que falta
 
-1. Automação de lançamento compatível e alerta de estoque (dependem de catálogo com estoque e de definir
-   "compatível"); mensagens modelo da API oficial para envios fora da janela de 24 h.
-2. Ligar o mascaramento antes do uso real e avaliar mascarar nomes e endereços (seção 4.13).
-3. Mudanças de vendas e funil chegam ao BPI guardado em até 10 minutos (as do próprio motor, na hora).
+1. "Compatível" hoje é só "comprou da mesma categoria"; interesse declarado ou preferência ainda não entram.
+2. Ligar o mascaramento antes do uso real (seção 4.13).
+3. Mensagem modelo só pela automação; o chat ainda não escolhe modelo quando a janela de 24 h fechou.
 
 Riscos: data de entrega hoje = data da venda; pontos por item do SQ-BRE ainda são proposta (o supervisor dá a nota
 por pilar).

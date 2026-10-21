@@ -30,6 +30,8 @@ export interface NovaSaida {
   automacao?: TipoAutomacao | null;
   /** Áudio gravado na tela: vai como mensagem de voz. */
   voz?: boolean;
+  /** Mensagem modelo aprovada na Meta (fora da janela de 24 h); o texto é a prévia já preenchida. */
+  modelo?: { nome: string; idioma: string; parametros: string[] } | null;
 }
 
 const resumo = (s: NovaSaida) =>
@@ -77,6 +79,7 @@ export function criarServicoEnvio(s: Servicos, provedores: RegistroProvedores, a
         status: nota ? "enviada" : "pendente",
         autorId: saida.autorId,
         automacao: saida.automacao ?? null,
+        modelo: saida.modelo ?? null,
       })
       .returning();
     if (!nota) {
@@ -150,7 +153,8 @@ export function criarServicoEnvio(s: Servicos, provedores: RegistroProvedores, a
 
     try {
       let conteudo: ConteudoSaida;
-      if (m.tipo === "texto" || !m.arquivoId) conteudo = { tipo: "texto", texto: m.texto ?? "" };
+      if (m.modelo) conteudo = { tipo: "modelo", ...m.modelo, texto: m.texto ?? "" };
+      else if (m.tipo === "texto" || !m.arquivoId) conteudo = { tipo: "texto", texto: m.texto ?? "" };
       else {
         const arq = await arquivos.ler(dados.empresaId, m.arquivoId);
         const midia = { nome: m.midiaNome ?? arq.nome, mime: m.midiaMime ?? arq.tipoMime, conteudo: arq.conteudo };

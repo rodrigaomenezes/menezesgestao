@@ -477,6 +477,7 @@ export const mensagem = pgTable("mensagem", {
   idExterno: text("id_externo"),
   autorId: uuid("autor_id"),
   automacao: text("automacao"),
+  modelo: jsonb("modelo").$type<{ nome: string; idioma: string; parametros: string[] } | null>(),
   criadoEm: criadoEm(),
   atualizadoEm: atualizadoEm(),
 });
@@ -775,6 +776,9 @@ export const oferta = pgTable("oferta", {
   nome: text("nome").notNull(),
   descricao: text("descricao"),
   precoCentavos: bigint("preco_centavos", { mode: "number" }),
+  categoria: text("categoria"),
+  estoque: integer("estoque"),
+  lancamentoEm: date("lancamento_em"),
   criadoPor: uuid("criado_por"),
   criadoEm: criadoEm(),
   atualizadoEm: atualizadoEm(),

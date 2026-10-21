@@ -62,6 +62,9 @@ Detalhes e critérios de pronto de cada fase: `ESPECIFICACAO.md` ("Roteiro de co
 - [x] Fase 8.5 — Robustez do motor BRE (ADR-036): IA pela fila de jobs (status, nova tentativa, expiração, aviso em
       tempo real, limite por hora, tempo e tokens guardados); prévia do SQ-BRE que falha não trava a avaliação; BPI
       guardado com paginação e "Recalcular agora"; mascaramento também de nome e endereço.
+- [x] Pendências do motor BRE (ADR-037): catálogo com categoria, estoque e lançamento; automações de lançamento
+      compatível e alerta de estoque; mensagem modelo da API oficial nas automações; BPI marcado para recalcular na
+      venda e na troca de etapa.
 
 ## Próximas fases (planejadas, não iniciadas)
 

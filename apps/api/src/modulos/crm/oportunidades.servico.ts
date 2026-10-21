@@ -12,6 +12,7 @@ import type { Servicos } from "../../app.js";
 import type { ContextoEmpresa } from "../acesso/acesso.js";
 import { filtroUsuariosVisiveis, type QuemVe } from "../acesso/escopo.js";
 import { registrar, type Origem } from "../auditoria/registro.js";
+import { marcarBpiVelho } from "../bre/bre.servico.js";
 import { validarCampos, type DefinicaoCampo } from "./campos.js";
 import { validarResponsavel } from "./carteira.js";
 import { buscarEtapa, definicoesDeCampos, etapaDto } from "./configuracao.servico.js";
@@ -263,6 +264,7 @@ export function criarServicoOportunidades(s: Servicos) {
         })
         .where(and(eq(oportunidade.id, id), eq(oportunidade.empresaId, ctx.empresaId)));
 
+      await marcarBpiVelho(tx); // a mudança de etapa conta no BPI
       const resumo = { titulo: o.titulo, etapaAnterior: anterior?.nome ?? null, etapaNova: nova.nome, valorCentavos: o.valorCentavos };
       await registrar(tx, origem, {
         acao: "oportunidade.etapa_alterada",

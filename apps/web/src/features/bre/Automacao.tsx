@@ -1,7 +1,7 @@
 // Automação do método BRE (fase 8.4): pós-venda, aniversário e reentrada do dia por modelo de texto. Ligar exige o
 // painel IA × equipe liberado; o servidor confere e explica quando ainda não pode.
 import { useCallback, useEffect, useState } from "react";
-import { TIPOS_AUTOMACAO_BRE, type AutomacaoBreDto, type CampoPersonalizadoDto, type ExecucaoAutomacaoBreDto } from "@mg/shared";
+import { TIPOS_AUTOMACAO_BRE, VARIAVEIS_AUTOMACAO, type AutomacaoBreDto, type CampoPersonalizadoDto, type ExecucaoAutomacaoBreDto } from "@mg/shared";
 import { ErroApi, get, patch, post } from "../../app/api";
 import { useDataHora } from "../../app/sessao";
 import { useAviso } from "../../ui/sobreposicoes";
@@ -21,6 +21,10 @@ function NovaAutomacao({ canais, camposData, aoCriar }: { canais: CanalResumo[];
   const [texto, setTexto] = useState("Oi {nome}, tudo certo com a sua compra?");
   const [dias, setDias] = useState("2");
   const [campo, setCampo] = useState("");
+  const [limite, setLimite] = useState("5");
+  const [modeloNome, setModeloNome] = useState("");
+  const [modeloIdioma, setModeloIdioma] = useState("pt_BR");
+  const [modeloVariaveis, setModeloVariaveis] = useState("");
   const envio = useEnvio(async () => {
     await post("/bre/automacoes", {
       tipo,
@@ -29,6 +33,17 @@ function NovaAutomacao({ canais, camposData, aoCriar }: { canais: CanalResumo[];
       texto,
       dias: tipo === "POS_VENDA" ? Number(dias) : null,
       campoChave: tipo === "ANIVERSARIO" ? campo || camposData[0]?.chave : null,
+      limiteEstoque: tipo === "ESTOQUE" ? Number(limite) : null,
+      modelo: modeloNome.trim()
+        ? {
+            nome: modeloNome.trim(),
+            idioma: modeloIdioma.trim() || "pt_BR",
+            parametros: modeloVariaveis
+              .split(/[,\s]+/)
+              .map((v) => v.replace(/[{}]/g, "").trim())
+              .filter(Boolean),
+          }
+        : null,
     });
     setNome("");
     aoCriar();
@@ -48,13 +63,28 @@ function NovaAutomacao({ canais, camposData, aoCriar }: { canais: CanalResumo[];
           ) : (
             <p className="dica">Crie um campo de data no cadastro (Configurar CRM → Campos personalizados).</p>
           ))}
+        {tipo === "ESTOQUE" && <Campo rotulo="Avisar com estoque até" nome="auto-limite" tipo="number" valor={limite} aoMudar={setLimite} obrigatorio />}
       </div>
       {ajuda && <p className="dica">{ajuda}</p>}
       <div className="campo">
         <label htmlFor="auto-texto">Mensagem</label>
         <textarea id="auto-texto" rows={3} maxLength={1000} required value={texto} onChange={(e) => setTexto(e.target.value)} />
-        <span className="item-detalhe">Use {"{nome}"}, {"{vendedor}"} e {"{empresa}"}. Nasce desligada.</span>
+        <span className="item-detalhe">
+          Use {VARIAVEIS_AUTOMACAO.map((v) => `{${v}}`).join(", ")}. Nasce desligada.
+        </span>
       </div>
+      <details>
+        <summary>Mensagem modelo da Meta (opcional)</summary>
+        <p className="dica">
+          Na API oficial do WhatsApp, só uma mensagem modelo aprovada na Meta alcança quem não escreveu nas últimas 24 horas. Informe o nome exato do modelo; o
+          texto acima vira a prévia que aparece na conversa.
+        </p>
+        <div className="grade-campos">
+          <Campo rotulo="Nome do modelo" nome="auto-modelo" valor={modeloNome} aoMudar={setModeloNome} />
+          <Campo rotulo="Idioma do modelo" nome="auto-modelo-idioma" valor={modeloIdioma} aoMudar={setModeloIdioma} />
+          <Campo rotulo="Variáveis do modelo, em ordem" nome="auto-modelo-variaveis" valor={modeloVariaveis} aoMudar={setModeloVariaveis} dica="Ex.: nome, produto — preenchem {{1}}, {{2}}…" />
+        </div>
+      </details>
       <Mensagem tipo="erro">{envio.erro}</Mensagem>
       <button type="submit" className="botao" disabled={envio.enviando}>
         Criar automação
@@ -110,7 +140,9 @@ export function AutomacaoBre() {
               </strong>
               <span className="item-detalhe">
                 {nomeTipo(a.tipo)}
-                {a.dias !== null && ` D+${a.dias}`} · {nomeCanal(a.canalId)}
+                {a.dias !== null && ` D+${a.dias}`}
+                {a.limiteEstoque !== null && ` até ${a.limiteEstoque} un.`} · {nomeCanal(a.canalId)}
+                {a.modelo && ` · modelo ${a.modelo.nome}`}
               </span>
               <span className="item-detalhe">{a.texto}</span>
             </div>

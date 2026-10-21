@@ -194,9 +194,14 @@ servidor e a pessoa registra.
   preenche quando chega. Se a IA falhar, a pessoa preenche (ou o supervisor avalia) normalmente. Limite de análises
   por hora por empresa nos limites do motor.
 - **Início**: bloco "Fila do dia (BRE)" com os primeiros da fila (padrão de quem atende, depois das metas).
-- **Automação** (administrador, em "Motor BRE"): pós-venda D+N, aniversário e reentrada do dia, com o texto da
-  empresa ({nome}, {vendedor}, {empresa}) pelo canal escolhido. Só liga com o painel IA × equipe liberado; pula
-  "não contatar", escalonamento aberto e quem está nos limites; nunca repete. Roda às 09:17 e tem "Rodar agora".
+- **Automação** (administrador, em "Motor BRE"): pós-venda D+N, aniversário, reentrada do dia, lançamento compatível
+  e alerta de estoque, com o texto da empresa ({nome}, {vendedor}, {produto}, {empresa}) pelo canal escolhido.
+  "Compatível" = já comprou da mesma categoria do catálogo. Opcionalmente sai como **mensagem modelo** aprovada na
+  Meta (nome, idioma e a ordem das variáveis), o que alcança quem está fora da janela de 24 h da API oficial; pelo QR
+  e na demonstração vai o texto. Só liga com o painel IA × equipe liberado; pula "não contatar", escalonamento aberto
+  e quem está nos limites; nunca repete. Roda às 09:17 e tem "Rodar agora".
+- **Catálogo**: cada item pode ter categoria, estoque (a venda confirmada baixa uma unidade; o cancelamento devolve)
+  e data de lançamento.
 - **Motivos de Break** (administrador, em "Motor BRE") e **Encerrar (BRE)** na ficha do cliente, em cada
   oportunidade em andamento: critério, temperatura, checklist e reentrada.
 

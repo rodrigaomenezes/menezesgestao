@@ -147,6 +147,10 @@ tests/      integration/ (Vitest + PostgreSQL real), e2e/ (Playwright, 5 largura
   cliente × referência). O envio usa o mesmo serviço de saída das conversas (fila de jobs) (ADR-035).
   Na 8.5: pedidos à IA pela fila `bre.ia` (`analise_bre.status` processando/pronta/falhou, `ms`, `tokens_*`; `sq_bre`
   com prévia que pode faltar) e o BPI guardado em `bre_bpi` (cache por empresa × mês × pessoa) (ADR-036).
+  Depois da 8.5: `oferta.categoria/estoque/lancamento_em`; `bre_automacao` com `LANCAMENTO`/`ESTOQUE`,
+  `limite_estoque` e `modelo_*`; `mensagem.modelo` (nome, idioma, parâmetros já preenchidos) vira o conteúdo
+  `modelo` do provedor — template na API oficial, texto no QR e na demonstração (ADR-037). Venda e troca de etapa
+  também marcam o BPI guardado para recalcular.
 - Campos personalizados: definição em `campo_personalizado`, valores em `campos jsonb` validados pelo serviço.
 - Sessões e tokens guardam só o HMAC (`SESSION_SECRET`); conteúdo sensível de jobs vai cifrado (`CRM_CHAVE`).
 
