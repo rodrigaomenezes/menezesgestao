@@ -44,6 +44,7 @@ const MENU: { grupo: string; itens: ItemMenu[] }[] = [
       { para: "/comissoes", texto: "Comissões", icone: "comissoes", exige: ["vendas", "ver"] },
       { para: "/catalogo", texto: "Catálogo", icone: "catalogo", exige: ["servicos", "ver"] },
       { para: "/qualidade", texto: "Qualidade", icone: "qualidade", exige: ["qualidade", "ver"] },
+      { para: "/bre", texto: "Motor BRE", icone: "desempenho", exige: ["bre", "ver"] },
       { para: "/pesquisas", texto: "Pesquisas", icone: "pesquisas", exige: ["pesquisa", "ver"] },
     ],
   },

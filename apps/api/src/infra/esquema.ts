@@ -1,5 +1,6 @@
 // Espelho em Drizzle das tabelas criadas em migracoes/*.sql (as migrações SQL são a fonte da verdade).
 import { bigint, boolean, customType, date, integer, jsonb, numeric, pgTable, primaryKey, smallint, text, time, timestamp, uuid } from "drizzle-orm/pg-core";
+import type { MarcoBre } from "@mg/shared";
 
 const ts = (nome: string) => timestamp(nome, { withTimezone: true, precision: 3 });
 const criadoEm = () => ts("criado_em").notNull().defaultNow();
@@ -269,6 +270,7 @@ export const etapa = pgTable("etapa", {
   probabilidade: integer("probabilidade").notNull().default(0),
   tipo: text("tipo").$type<"aberta" | "ganha" | "perdida">().notNull().default("aberta"),
   camposObrigatorios: jsonb("campos_obrigatorios").$type<string[]>().notNull().default([]),
+  marcoBre: text("marco_bre").$type<MarcoBre>(),
   criadoEm: criadoEm(),
   atualizadoEm: atualizadoEm(),
   arquivadoEm: ts("arquivado_em"),

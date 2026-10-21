@@ -18,6 +18,7 @@ export const MODULOS = [
   { id: "vendas", nome: "Vendas e comissões", nucleo: false },
   { id: "servicos", nome: "Serviços e {entregas}", nucleo: false },
   { id: "pesquisa", nome: "Pesquisa de mercado", nucleo: false },
+  { id: "bre", nome: "Motor BRE", nucleo: false },
 ] as const;
 
 export type Modulo = (typeof MODULOS)[number]["id"];
@@ -78,6 +79,7 @@ const MATRIZ: Record<Modulo, [Nivel, Nivel, Nivel, Nivel, Nivel]> = {
   vendas: ["A", "E", "P", "-", "E"],
   servicos: ["A", "E", "V", "P", "V"],
   pesquisa: ["A", "E", "V", "-", "-"],
+  bre: ["A", "E", "P", "-", "-"],
   auditoria: ["A", "V", "-", "-", "V"],
 };
 

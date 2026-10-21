@@ -2,6 +2,7 @@
 // Tudo o que muda de uma empresa para outra fica aqui — nunca no código.
 import { useCallback, useEffect, useState } from "react";
 import {
+  MARCOS_BRE,
   NOMES_TIPOS_CAMPO,
   NOMES_TIPOS_ETAPA,
   TIPOS_CAMPO,
@@ -13,6 +14,7 @@ import {
   type MotivoPerdaDto,
 } from "@mg/shared";
 import { ErroApi, get, patch, post } from "../../app/api";
+import { useSessao } from "../../app/sessao";
 import { useAviso } from "../../ui/sobreposicoes";
 import { Campo, Escolha, ListaVazia, Mensagem, Titulo, useEnvio } from "../../ui/ui";
 import { useVocabulario } from "../../app/vocabulario";
@@ -52,8 +54,10 @@ function EditarEtapa({ e, camposOportunidade, aoSalvar }: { e: EtapaDto; camposO
   const [ordem, setOrdem] = useState(String(e.ordem));
   const [probabilidade, setProbabilidade] = useState(String(e.probabilidade));
   const [exigidos, setExigidos] = useState<string[]>(e.camposObrigatorios);
+  const [marco, setMarco] = useState<string>(e.marcoBre ?? "");
+  const { pode } = useSessao();
   const { enviando, erro, enviar } = useEnvio(async () => {
-    await patch(`/crm/etapas/${e.id}`, { nome, tipo, cor, ordem: Number(ordem), probabilidade: Number(probabilidade), camposObrigatorios: exigidos });
+    await patch(`/crm/etapas/${e.id}`, { nome, tipo, cor, ordem: Number(ordem), probabilidade: Number(probabilidade), camposObrigatorios: exigidos, marcoBre: marco || null });
     aoSalvar();
   });
   const opcoes = [
@@ -69,6 +73,9 @@ function EditarEtapa({ e, camposOportunidade, aoSalvar }: { e: EtapaDto; camposO
         <Campo rotulo="Ordem" nome={`etapa-ordem-${e.id}`} tipo="number" valor={ordem} aoMudar={setOrdem} />
         <Campo rotulo="Probabilidade (%)" nome={`etapa-prob-${e.id}`} tipo="number" valor={probabilidade} aoMudar={setProbabilidade} />
         <Campo rotulo="Cor" nome={`etapa-cor-${e.id}`} tipo="color" valor={cor} aoMudar={setCor} />
+        {pode("bre", "ver") && (
+          <Escolha rotulo="Marco BRE" nome={`etapa-marco-${e.id}`} valor={marco} aoMudar={setMarco} vazio="Sem marco" opcoes={MARCOS_BRE.map((m) => ({ valor: m.codigo, texto: m.nome }))} />
+        )}
       </div>
       <fieldset className="campo grupo-marcar">
         <legend>Para entrar nesta etapa, exigir</legend>

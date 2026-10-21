@@ -2,6 +2,7 @@
 // campos personalizados, histórico e importação.
 import { z } from "zod";
 import { DataIso, FiltroLista, Id, IdOpcional, Paginacao } from "./dto.js";
+import { CODIGOS_MARCOS } from "./dto-bre.js";
 
 const texto = (max: number, rotulo: string) =>
   z.string().trim().min(1, { error: `${rotulo}: preencha.` }).max(max, { error: `${rotulo}: no máximo ${max} caracteres.` });
@@ -70,6 +71,8 @@ export const EtapaDto = z.object({
   probabilidade: z.number().int(),
   tipo: z.enum(TIPOS_ETAPA),
   camposObrigatorios: z.array(z.string()),
+  /** Marco BRE da etapa (DEC-012); null = o motor BRE ignora a etapa. */
+  marcoBre: z.enum(CODIGOS_MARCOS).nullable(),
   arquivadoEm: DataIso.nullable(),
 });
 export type EtapaDto = z.infer<typeof EtapaDto>;
@@ -81,6 +84,7 @@ export const EtapaEntrada = z.object({
   probabilidade: z.number().int().min(0, { error: "A probabilidade vai de 0 a 100." }).max(100, { error: "A probabilidade vai de 0 a 100." }).default(0),
   tipo: z.enum(TIPOS_ETAPA).default("aberta"),
   camposObrigatorios: z.array(z.string().max(40)).max(30).default([]),
+  marcoBre: z.enum(CODIGOS_MARCOS).nullable().default(null),
 });
 export const AtualizarEtapaEntrada = EtapaEntrada.omit({ funilId: true }).partial();
 

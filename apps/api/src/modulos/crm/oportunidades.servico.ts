@@ -3,6 +3,7 @@
 import { and, asc, count, desc, eq, ilike, inArray, isNotNull, isNull, sql, sum } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import type { Escopo, KanbanDto, OportunidadeDto, Pagina } from "@mg/shared";
+import { TRANSICOES_BRE, nomeMarco, transicaoPermitida } from "@mg/shared";
 import { comEmpresa, type Tx } from "../../infra/banco.js";
 import { contato, etapa, funil, motivoPerda, oportunidade, usuario } from "../../infra/esquema.js";
 import { invalido, naoEncontrado } from "../../infra/erros.js";
@@ -231,6 +232,11 @@ export function criarServicoOportunidades(s: Servicos) {
       const nova = await buscarEtapa(tx, ctx.empresaId, dados.etapaId);
       if (!nova || nova.funilId !== o.funilId || nova.arquivadoEm) throw invalido("Escolha uma etapa ativa do mesmo funil.");
       await exigirCompleta(tx, ctx.empresaId, nova, o);
+      // DEC-012: com o motor BRE ligado, etapas com marco só seguem as transições da doutrina (BRE-FR-007).
+      if (ctx.modulos.includes("bre") && anterior?.marcoBre && nova.marcoBre && !transicaoPermitida(anterior.marcoBre, nova.marcoBre)) {
+        const destinos = TRANSICOES_BRE[anterior.marcoBre].map(nomeMarco).join(", ");
+        throw invalido(`Pelo método BRE, de ${nomeMarco(anterior.marcoBre)} só se vai para: ${destinos}.`);
+      }
 
       let motivoPerdaId: string | null = null;
       let motivoNome: string | null = null;

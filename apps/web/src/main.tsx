@@ -41,6 +41,7 @@ import { Vendas } from "./features/receita/Vendas";
 import { Comissoes } from "./features/receita/Comissoes";
 import { Catalogo, Entrega } from "./features/receita/Catalogo";
 import { Qualidade } from "./features/qualidade/Qualidade";
+import { Bre } from "./features/bre/Bre";
 import { Pesquisas, ResultadoPesquisa } from "./features/pesquisa/Pesquisas";
 import { PesquisaPublica } from "./features/pesquisa/PesquisaPublica";
 import { Cadastro } from "./features/whitelabel/Cadastro";
@@ -119,6 +120,7 @@ function App() {
               <Route path="/catalogo" element={<Catalogo />} />
               <Route path="/entregas/:id" element={<Entrega />} />
               <Route path="/qualidade" element={<Qualidade />} />
+              <Route path="/bre" element={<Bre />} />
               <Route path="/pesquisas" element={<Pesquisas />} />
               <Route path="/pesquisas/:id" element={<ResultadoPesquisa />} />
               <Route path="/primeiros-passos" element={<PrimeirosPassos />} />

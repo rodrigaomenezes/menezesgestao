@@ -6,6 +6,7 @@ import type {
   CampoPersonalizadoDto,
   ConfiguracaoCrmDto,
   EtapaDto,
+  MarcoBre,
   EtiquetaDto,
   FunilDto,
   MotivoPerdaDto,
@@ -32,6 +33,7 @@ export const etapaDto = (e: LinhaEtapa): EtapaDto => ({
   probabilidade: e.probabilidade,
   tipo: e.tipo,
   camposObrigatorios: e.camposObrigatorios,
+  marcoBre: e.marcoBre ?? null,
   arquivadoEm: iso(e.arquivadoEm),
 });
 const funilDto = (f: LinhaFunil, etapas: LinhaEtapa[]): FunilDto => ({
@@ -187,7 +189,7 @@ export function criarServicoConfiguracaoCrm(s: Servicos) {
   async function criarEtapa(
     ctx: ContextoEmpresa,
     origem: Origem,
-    dados: { funilId: string; nome: string; cor: string; ordem: number; probabilidade: number; tipo: "aberta" | "ganha" | "perdida"; camposObrigatorios: string[] },
+    dados: { funilId: string; nome: string; cor: string; ordem: number; probabilidade: number; tipo: "aberta" | "ganha" | "perdida"; camposObrigatorios: string[]; marcoBre: MarcoBre | null },
   ): Promise<EtapaDto> {
     return comEmpresa(banco, ctx.empresaId, async (tx) => {
       const [f] = await tx.db.select({ id: funil.id }).from(funil).where(and(eq(funil.id, dados.funilId), eq(funil.empresaId, ctx.empresaId)));
@@ -203,7 +205,7 @@ export function criarServicoConfiguracaoCrm(s: Servicos) {
     ctx: ContextoEmpresa,
     origem: Origem,
     id: string,
-    dados: Partial<{ nome: string; cor: string; ordem: number; probabilidade: number; tipo: "aberta" | "ganha" | "perdida"; camposObrigatorios: string[]; arquivado: boolean }>,
+    dados: Partial<{ nome: string; cor: string; ordem: number; probabilidade: number; tipo: "aberta" | "ganha" | "perdida"; camposObrigatorios: string[]; marcoBre: MarcoBre | null; arquivado: boolean }>,
   ): Promise<EtapaDto> {
     return comEmpresa(banco, ctx.empresaId, async (tx) => {
       const antes = await buscarEtapa(tx, ctx.empresaId, id);
