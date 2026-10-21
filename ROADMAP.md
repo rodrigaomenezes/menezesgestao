@@ -54,7 +54,8 @@ semanas (estimativa de ordem de grandeza, com um desenvolvedor: ~21 sprints, cer
 de `TECH_DEBT.md` que viram funcionalidade e os temas novos levantados no documento comercial estão abaixo.
 Marcos: **primeiro cliente pagante** ao fim da Fase 9 · **venda em escala** ao fim da 11 · **produto completo** ao fim da 15.
 
-- [ ] Fase 8.2 — Motor BRE com IA (2 a 3 sprints): provedor de IA atrás de interface (demonstração e Claude, chave em
+- [ ] Fase 8.2 — Motor BRE com IA (2 a 3 sprints; 1ª sprint feita: provedor atrás de interface, "Sugerir com IA" no
+      registro, filtros de desconto/oferta/"não contatar" e análises guardadas): provedor de IA atrás de interface (demonstração e Claude, chave em
       `ANTHROPIC_API_KEY`); análise da conversa com saída validada pelo contrato da ETR; próximo passo filtrado pelas
       regras (desconto, três "sim", limites); escalonamento; SQ-BRE dentro da Qualidade (nota prévia e confirmação);
       BPI, ranking, coaching e concordância IA × supervisor.

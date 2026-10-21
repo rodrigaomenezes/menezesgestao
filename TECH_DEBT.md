@@ -50,3 +50,4 @@ histórico do git.
 | 50 | Escalonamento (4 situações) ficou para a 8.2, junto com a detecção pela IA | MÉDIA | `modulos/bre` | Tabela `escalonamento` + aviso ao responsável na 8.2 |
 | 51 | Fila do dia ordena por cadastro do cliente, não por prioridade (reentrada vencida, estado) | BAIXA | `modulos/bre/bre.servico.ts` | Cursor por prioridade quando houver volume |
 | 52 | Encerramento guiado só pela API: a tela de encerramento no funil fica para a 8.2 | BAIXA | `apps/web/src/features/crm` | Modal "Encerrar pelo método BRE" no card da oportunidade |
+| 53 | Análise da IA roda na hora (a pessoa espera a resposta); com volume, deve ir para a fila de jobs | BAIXA | `modulos/bre/bre.servico.ts` | Job `bre.analisar` + aviso em tempo real quando terminar |

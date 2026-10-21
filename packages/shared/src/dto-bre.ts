@@ -307,3 +307,30 @@ export const ItemFilaBreDto = z.object({
   id: Id,
 });
 export type ItemFilaBreDto = z.infer<typeof ItemFilaBreDto>;
+
+// Análise da conversa pela IA (fase 8.2, ETR seção 8). A IA só sugere; o motor filtra pelas regras e a pessoa
+// confirma no registro. Os campos usam as mesmas listas fechadas: código fora da lista invalida a saída.
+
+export const SaidaIaBre = z.object({
+  resumo: z.string().max(1000),
+  resultado: z.enum(lista(RESULTADOS_CONTATO)),
+  temperatura: z.enum(lista(TEMPERATURAS)),
+  estadoEmocional: z.enum(lista(ESTADOS_EMOCIONAIS)).nullable(),
+  sins: z.array(z.enum(lista(SINS))),
+  break: z.object({ categoria: z.enum(CODIGOS_CATEGORIAS), comentario: z.string().max(1000) }).nullable(),
+  proximaAcao: z.enum(lista(PROXIMAS_ACOES)),
+  retornoEmDias: z.number().int().min(0).max(365).nullable(),
+  sugereOferta: z.boolean(),
+  sugereDesconto: z.boolean(),
+  escalonamento: z.enum(["READY_TO_BUY", "TECHNICAL_HELP", "VIP", "COMPLAINT"]).nullable(),
+  incertezas: z.array(z.string().max(300)).max(10),
+});
+export type SaidaIaBre = z.infer<typeof SaidaIaBre>;
+
+export const AnaliseBreDto = SaidaIaBre.extend({
+  id: Id,
+  provedor: z.string(),
+  /** Sugestões que o motor descartou e por quê (BRE-BR-007, BR-014, BR-016). */
+  bloqueios: z.array(z.string()),
+});
+export type AnaliseBreDto = z.infer<typeof AnaliseBreDto>;

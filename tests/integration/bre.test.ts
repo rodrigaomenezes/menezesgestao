@@ -219,3 +219,45 @@ describe("Motor BRE — configuração e isolamento", () => {
     expect((await outro.pedir("POST", "/api/bre/registros", registro(contatoA))).statusCode).toBe(404);
   });
 });
+
+describe("Motor BRE — análise da conversa pela IA (8.2)", () => {
+  /** Conversa do contato com as mensagens dadas (entrada = cliente). */
+  async function conversa(contatoId: string, mensagens: [string, string][]): Promise<string> {
+    const canal = (await t.banco.pool.query("INSERT INTO canal (empresa_id, nome, provedor) VALUES ($1, 'Demo', 'demonstracao') RETURNING id", [e.a.empresaId])).rows[0].id;
+    const conv = (await t.banco.pool.query("INSERT INTO conversa (empresa_id, canal_id, contato_id) VALUES ($1, $2, $3) RETURNING id", [e.a.empresaId, canal, contatoId])).rows[0].id;
+    for (const [i, [direcao, texto]] of mensagens.entries()) {
+      await t.banco.pool.query(
+        "INSERT INTO mensagem (empresa_id, conversa_id, canal_id, direcao, tipo, status, texto, criado_em) VALUES ($1, $2, $3, $4, 'texto', 'recebida', $5, now() + make_interval(secs => $6))",
+        [e.a.empresaId, conv, canal, direcao, texto, i],
+      );
+    }
+    return conv;
+  }
+
+  it("a IA de demonstração sugere o registro; o motor tira desconto do recente e oferta antes dos três sim", async () => {
+    const vendedor = await logado(t.app, email(e.a, "vendedor"));
+    const contatoId = await cliente([5]);
+    await bre.classificar(e.a.empresaId);
+    const conv = await conversa(contatoId, [["saida", "Oi! Chegou bem o perfume?"], ["entrada", "Chegou, gostei, mas o próximo está caro demais"]]);
+    const r = await vendedor.pedir("POST", `/api/bre/conversas/${conv}/analisar`);
+    expect(r.statusCode).toBe(200);
+    const a = r.json();
+    expect(a).toMatchObject({ provedor: "demonstracao", resultado: "REPLIED_NO_ADVANCE", sugereDesconto: false, sugereOferta: false, break: { categoria: "C_FINANCIAL" } });
+    expect(a.bloqueios).toEqual([
+      "Desconto não sugerido: cliente recente nunca recebe desconto.",
+      'Oferta não sugerida: faltam os três "sim" (confirmação, concordância e visualização).',
+    ]);
+    const { rows } = await t.banco.pool.query("SELECT provedor, doutrina FROM analise_bre WHERE id = $1", [a.id]);
+    expect(rows[0]).toEqual({ provedor: "demonstracao", doutrina: "BRE-v1.0 / ETR 0.2" });
+  });
+
+  it("quem pediu para não ser contatado nunca vai para a IA", async () => {
+    const vendedor = await logado(t.app, email(e.a, "vendedor"));
+    const contatoId = await cliente([5]);
+    await t.banco.pool.query("UPDATE contato SET nao_contatar = true WHERE id = $1", [contatoId]);
+    const conv = await conversa(contatoId, [["entrada", "Oi"]]);
+    const r = await vendedor.pedir("POST", `/api/bre/conversas/${conv}/analisar`);
+    expect(r.json().error.message).toBe("Este cliente pediu para não ser contatado ou foi anonimizado: a conversa não vai para a IA.");
+    expect((await t.banco.pool.query("SELECT 1 FROM analise_bre WHERE conversa_id = $1", [conv])).rowCount).toBe(0);
+  });
+});

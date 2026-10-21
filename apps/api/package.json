@@ -8,6 +8,7 @@
     "dev": "node --conditions=development --import tsx --watch src/server.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.137.0",
     "@fastify/cookie": "^11.1.2",
     "@fastify/helmet": "^13.1.1",
     "@fastify/multipart": "^9.4.0",

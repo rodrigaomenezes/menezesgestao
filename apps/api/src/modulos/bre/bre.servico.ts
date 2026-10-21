@@ -26,7 +26,11 @@ import { lerCursor } from "../../infra/paginacao.js";
 import type { ContextoEmpresa } from "../acesso/acesso.js";
 import { filtroUsuariosVisiveis } from "../acesso/escopo.js";
 import { registrar, type Origem } from "../auditoria/registro.js";
-import type { EncerramentoBreEntrada, ReentradaEntrada } from "@mg/shared";
+import type { AnaliseBreDto, EncerramentoBreEntrada, ReentradaEntrada, SaidaIaBre } from "@mg/shared";
+import { criarProvedorIaBre, IaIndisponivel, type MensagemAnalise, type ProvedorIaBre } from "./ia.js";
+
+/** Versão da doutrina aplicada nas análises (BRE-FR-017). */
+export const VERSAO_DOUTRINA = "BRE-v1.0 / ETR 0.2";
 
 type Linha = Record<string, unknown>;
 const ORIGEM_SISTEMA = (empresaId: string): Origem => ({ empresaId, atorId: null, ip: null, dispositivo: "motor-bre" });
@@ -53,8 +57,9 @@ export async function lerConfig(tx: Tx): Promise<ConfigBre & { versao: number }>
   return { ...ConfigBre.parse(l?.config ?? {}), versao: l?.versao ?? 0 };
 }
 
-export function criarServicoBre(s: Servicos) {
+export function criarServicoBre(s: Servicos, ia?: ProvedorIaBre) {
   const { banco } = s;
+  let provedor = ia;
 
   async function contatoVisivel(tx: Tx, ctx: ContextoEmpresa, escopo: Escopo, contatoId: string) {
     const [c] = await tx.db.execute<{ id: string; nome: string; nao_contatar: boolean; estado_bre: string | null; ultima_entrega_em: string | null; responsavel_id: string | null }>(sql`
@@ -442,6 +447,73 @@ export function criarServicoBre(s: Servicos) {
     });
   }
 
+  /**
+   * Análise da conversa pela IA (fase 8.2). Quem pediu "não contatar" ou foi anonimizado nunca vai para a IA.
+   * O motor descarta o que as regras proíbem (BR-007 desconto, BR-016 oferta antes dos três "sim") e guarda tudo.
+   */
+  async function analisarConversa(ctx: ContextoEmpresa, escopo: Escopo, origem: Origem, conversaId: string): Promise<AnaliseBreDto> {
+    const dados = await comEmpresa(banco, ctx.empresaId, async (tx) => {
+      const [conv] = await q<{ contato_id: string | null }>(tx, "SELECT contato_id FROM conversa WHERE id = $1 AND empresa_id = $2", [conversaId, ctx.empresaId]);
+      if (!conv?.contato_id) throw naoEncontrado("Conversa");
+      const c = await contatoVisivel(tx, ctx, escopo, conv.contato_id);
+      const [extra] = await q<{ anonimizado: boolean; diagnostico: boolean }>(
+        tx,
+        `SELECT (SELECT anonimizado_em IS NOT NULL FROM contato WHERE id = $2) AS anonimizado,
+                EXISTS (SELECT 1 FROM oportunidade o JOIN etapa e ON e.id = o.etapa_id
+                        WHERE o.empresa_id = $1 AND o.contato_id = $2 AND e.marco_bre IN ('INTEREST','PROPOSAL','NEGOTIATION','SALE')) AS diagnostico`,
+        [ctx.empresaId, c.id],
+      );
+      if (c.nao_contatar || extra!.anonimizado) throw invalido("Este cliente pediu para não ser contatado ou foi anonimizado: a conversa não vai para a IA.");
+      const mensagens = (
+        await q<{ direcao: string; texto: string }>(
+          tx,
+          `SELECT direcao, texto FROM (SELECT direcao, texto, criado_em FROM mensagem
+             WHERE conversa_id = $1 AND empresa_id = $2 AND tipo = 'texto' AND direcao IN ('entrada','saida') AND texto IS NOT NULL
+             ORDER BY criado_em DESC LIMIT 100) m ORDER BY criado_em`,
+          [conversaId, ctx.empresaId],
+        )
+      ).map((m): MensagemAnalise => ({ de: m.direcao === "entrada" ? "cliente" : "atendente", texto: m.texto }));
+      return { c, diagnostico: extra!.diagnostico, mensagens };
+    });
+
+    provedor ??= criarProvedorIaBre(s.config);
+    let saida: SaidaIaBre;
+    try {
+      saida = await provedor.analisar(dados.mensagens);
+    } catch (err) {
+      throw invalido(err instanceof IaIndisponivel ? err.message : "Não foi possível analisar agora. Tente de novo em instantes ou preencha o registro manualmente.");
+    }
+
+    const bloqueios: string[] = [];
+    if (saida.sugereDesconto && dados.c.estado_bre === "RECENT") {
+      saida = { ...saida, sugereDesconto: false };
+      bloqueios.push("Desconto não sugerido: cliente recente nunca recebe desconto.");
+    } else if (saida.sugereDesconto && !dados.diagnostico) {
+      saida = { ...saida, sugereDesconto: false };
+      bloqueios.push("Desconto não sugerido: só depois do diagnóstico concluído.");
+    }
+    if (saida.sugereOferta && saida.sins.length < 3) {
+      saida = { ...saida, sugereOferta: false };
+      bloqueios.push("Oferta não sugerida: faltam os três \"sim\" (confirmação, concordância e visualização).");
+    }
+
+    return comEmpresa(banco, ctx.empresaId, async (tx) => {
+      const [l] = await q<{ id: string }>(
+        tx,
+        "INSERT INTO analise_bre (empresa_id, conversa_id, contato_id, provedor, doutrina, saida, bloqueios, autor_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id",
+        [ctx.empresaId, conversaId, dados.c.id, provedor!.nome, VERSAO_DOUTRINA, JSON.stringify(saida), JSON.stringify(bloqueios), ctx.usuarioId],
+      );
+      await registrar(tx, origem, {
+        acao: "bre.conversa_analisada",
+        entidade: "contato",
+        entidadeId: dados.c.id,
+        contatoId: dados.c.id,
+        depois: { conversaId, provedor: provedor!.nome, resultado: saida.resultado, bloqueios },
+      });
+      return { ...saida, id: l!.id, provedor: provedor!.nome, bloqueios };
+    });
+  }
+
   // Rotinas (fila de jobs) ---------------------------------------------------------------------------
 
   const empresasComBre = () => comoSistema(banco, (tx) => q<{ id: string }>(tx, "SELECT id FROM empresa WHERE modulos ? 'bre'"));
@@ -509,6 +581,7 @@ export function criarServicoBre(s: Servicos) {
   }
 
   return {
+    analisarConversa,
     registrarConversa,
     config,
     salvarConfig,

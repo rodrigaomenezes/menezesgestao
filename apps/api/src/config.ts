@@ -29,6 +29,8 @@ export interface Config {
   cadastroAberto: boolean;
   /** Web Push (avisos no celular): par de chaves VAPID. Sem elas, o push fica no modo demonstração. */
   vapid: { publica: string; privada: string; contato: string } | null;
+  /** IA do motor BRE (Claude). Sem ANTHROPIC_API_KEY, o motor usa a IA de demonstração (regras por palavras). */
+  iaBre: { chave: string; modelo: string } | null;
 }
 
 export class ErroConfig extends Error {}
@@ -86,6 +88,7 @@ export function carregarConfig(env: NodeJS.ProcessEnv = process.env): Config {
     whatsappQrAtivo: env.WHATSAPP_QR_ATIVO?.trim() !== "nao",
     dominioBase: env.DOMINIO_BASE?.trim().toLowerCase().replace(/^\.+|\.+$/g, "") || null,
     cadastroAberto: env.CADASTRO_ABERTO?.trim() !== "nao",
+    iaBre: env.ANTHROPIC_API_KEY?.trim() ? { chave: env.ANTHROPIC_API_KEY.trim(), modelo: env.BRE_IA_MODELO?.trim() || "claude-opus-5-5" } : null,
     vapid: vapidPublica && vapidPrivada ? { publica: vapidPublica, privada: vapidPrivada, contato: env.VAPID_CONTATO?.trim() || `mailto:${env.EMAIL_REMETENTE?.trim() || "nao-responda@localhost"}` } : null,
   };
 }

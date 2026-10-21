@@ -9,6 +9,7 @@ import {
   RESULTADOS_CONTATO,
   SINS,
   TEMPERATURAS,
+  type AnaliseBreDto,
   type ItemFilaBreDto,
   type MotivoBreakDto,
   type ReentradaDto,
@@ -44,7 +45,25 @@ export function BotaoRegistrarBre({ contatoId, conversaId, aoRegistrar }: { cont
     setInicio(Date.now());
     get<{ itens: MotivoBreakDto[] }>("/bre/motivos").then((r) => setMotivos(r.itens.filter((m) => !m.arquivadoEm)), () => undefined);
   }, [aberto]);
+  const [avisoIa, setAvisoIa] = useState("");
   const daCategoria = motivos.filter((m) => m.categoria === categoria);
+  // A IA só pré-preenche: a pessoa confere e salva (BRE-P-010).
+  const sugestao = useEnvio(async () => {
+    const a = await post<AnaliseBreDto>(`/bre/conversas/${conversaId}/analisar`);
+    setResultado(a.resultado);
+    setTemperatura(a.temperatura);
+    setEmocao(a.estadoEmocional ?? "");
+    setSins(a.sins);
+    setProximaAcao(a.proximaAcao);
+    if (a.retornoEmDias !== null) setRetornoEm(daquiA(a.retornoEmDias));
+    setComBreak(Boolean(a.break));
+    if (a.break) {
+      setCategoria(a.break.categoria);
+      setMotivoId("");
+      setComentario(a.break.comentario);
+    }
+    setAvisoIa([a.resumo, ...a.bloqueios, ...a.incertezas].join(" "));
+  });
   const semRetorno = proximaAcao === "CLOSE_NO_INTEREST" || resultado === "OPTED_OUT";
   const envio = useEnvio(async () => {
     const r = await post<{ cicloEncerrado: boolean; tarefas: number }>("/bre/registros", {
@@ -72,6 +91,15 @@ export function BotaoRegistrarBre({ contatoId, conversaId, aoRegistrar }: { cont
       {aberto && (
         <Modal aberto titulo="Registrar conversa" aoFechar={() => setAberto(false)}>
           <form onSubmit={envio.enviar}>
+            {conversaId && (
+              <p>
+                <button type="button" className="botao botao-secundario" disabled={sugestao.enviando} onClick={() => void sugestao.enviar()}>
+                  {sugestao.enviando ? "Analisando…" : "Sugerir com IA"}
+                </button>
+              </p>
+            )}
+            <Mensagem tipo="erro">{sugestao.erro}</Mensagem>
+            <Mensagem tipo="info">{avisoIa}</Mensagem>
             <div className="grade-campos">
               <Escolha rotulo="Resultado" nome="bre-resultado" valor={resultado} aoMudar={setResultado} opcoes={opcoes(RESULTADOS_CONTATO)} />
               <Escolha rotulo="Temperatura" nome="bre-temperatura" valor={temperatura} aoMudar={setTemperatura} opcoes={opcoes(TEMPERATURAS)} />

@@ -2,6 +2,7 @@
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import {
+  AnaliseBreDto,
   AtualizarMotivoBreakEntrada,
   AtualizarReentradaEntrada,
   BreakDto,
@@ -65,6 +66,11 @@ export const rotasBre =
       "/api/bre/registros",
       { config: acesso("criar"), schema: { tags, summary: "Registrar a conversa (8 campos, Break e próximo passo)", body: RegistroBreEntrada, response: { 201: RegistroBreDto } } },
       async (req, reply) => reply.status(201).send(await bre.registrarConversa(exigirEmpresa(req), exigirEscopo(req), origemDe(req), req.body)),
+    );
+    app.post(
+      "/api/bre/conversas/:id/analisar",
+      { config: acesso("criar"), schema: { tags, summary: "Analisar a conversa com a IA (sugere; a pessoa confirma no registro)", params: ParamId, response: { 200: AnaliseBreDto } } },
+      async (req) => bre.analisarConversa(exigirEmpresa(req), exigirEscopo(req), origemDe(req), req.params.id),
     );
     app.get(
       "/api/bre/breaks",

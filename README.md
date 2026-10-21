@@ -170,6 +170,10 @@ servidor e a pessoa registra.
   próxima ação e data do retorno; com Break, categoria, motivo e o que o cliente disse. Gera o retorno, a
   reentrada da categoria e, na venda, o pós-venda D+2, 5, 10, 20 e 30.
 - **Limites da empresa** em "Motor BRE" (administrador); motivos de Break pela API (`/api/bre/motivos`).
+- **Sugerir com IA** (fase 8.2, no registro aberto pela conversa): a IA lê a conversa e pré-preenche o registro;
+  a pessoa confere e salva. O motor descarta desconto para cliente recente ou antes do diagnóstico e oferta antes
+  dos três "sim", e diz por quê. Quem pediu "não contatar" ou foi anonimizado nunca vai para a IA. Cada análise
+  fica guardada com o provedor e a versão da doutrina.
 
 ## Testes
 
@@ -202,6 +206,8 @@ npm run build && npm run test:e2e   # Playwright em 360, 390, 768, 1024 e 1440 p
 | `DATABASE_URL_TESTE` | só testes | Banco descartável dos testes |
 | `SENHA_EXEMPLO` | só `db:seed` | Senha das pessoas de exemplo |
 | `WHATSAPP_QR_ATIVO` | não | `nao` desliga as conexões por QR nesta instância (só **uma** instância pode segurar cada número) |
+| `ANTHROPIC_API_KEY` | não | IA do motor BRE (Claude). Sem ela, "Sugerir com IA" usa a demonstração por palavras |
+| `BRE_IA_MODELO` | não | Modelo da IA do motor BRE (padrão `claude-opus-5-5`) |
 | `WHATSAPP_GRAPH_URL` | não | Endereço da Graph API da Meta (padrão `https://graph.facebook.com/v21.0`; troque só em testes) |
 
 ## Publicar no Railway
