@@ -110,3 +110,9 @@ describe("mascaramento para a IA (DEC-009)", () => {
   });
   it("vem desligado no padrão (primeiros testes)", () => expect(CONFIG_BRE_PADRAO.mascararDadosIa).toBe(false));
 });
+
+describe("mascaramento: e-mail com o nome do cliente", () => {
+  it("não deixa o domínio vazar quando o e-mail começa com o nome", () => {
+    expect(mascararDadosPessoais("Meu e-mail é ana@empresa.com.br", ["Ana Souza"])).toBe("Meu e-mail é [e-mail]");
+  });
+});

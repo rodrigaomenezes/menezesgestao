@@ -511,10 +511,11 @@ export type ConcordanciaDto = z.infer<typeof ConcordanciaDto>;
 export function mascararDadosPessoais(texto: string, nomes: readonly string[] = []): string {
   // Partes do nome do cliente (3 letras ou mais), sem distinguir maiúsculas; letras acentuadas contam como letra.
   const partes = [...new Set(nomes.flatMap((n) => n.split(/\s+/)).filter((p) => p.length >= 3))].map((p) => p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
-  const semNome = partes.length ? texto.replace(new RegExp(`(?<!\\p{L})(${partes.join("|")})(?!\\p{L})`, "giu"), "[nome]") : texto;
+  // E-mail antes do nome: senão "ana@x.com" viraria "[nome]@x.com" e o domínio vazaria.
+  const semEmail = texto.replace(/[\w.+-]+@[\w-]+(\.[\w-]+)+/g, "[e-mail]");
+  const semNome = partes.length ? semEmail.replace(new RegExp(`(?<!\\p{L})(${partes.join("|")})(?!\\p{L})`, "giu"), "[nome]") : semEmail;
   return semNome
     .replace(/\b(rua|r\.|avenida|av\.?|travessa|tv\.|alameda|al\.|rodovia|estrada|praça|largo)\s+[^,\n]{2,60}(,\s*(n[ºo°.]?\s*)?\d+[a-z]?)?/giu, "[endereço]")
-    .replace(/[\w.+-]+@[\w-]+(\.[\w-]+)+/g, "[e-mail]")
     .replace(/\b\d{3}\.\d{3}\.\d{3}-\d{2}\b/g, "[CPF]")
     .replace(/\b\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}\b/g, "[CNPJ]")
     .replace(/\b\d{5}-\d{3}\b/g, "[CEP]")
