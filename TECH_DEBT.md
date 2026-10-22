@@ -58,3 +58,5 @@ histórico do git.
 | 65 | Assinatura da plataforma ainda no provedor de demonstração; sem webhook de pagamento real | ALTA | `modulos/cobranca` | Ligar o provedor escolhido pelo analista (o conector Asaas da 8.6 pode ser reaproveitado) |
 | 66 | Domínio próprio da empresa ainda manual (DNS e Railway) | MÉDIA | — | Cadastro do domínio na tela + API do Railway |
 | 67 | Aceite de termos é exigido na tela, não em cada rota da API | BAIXA | `apps/web/src/main.tsx` | Exigir no servidor se houver integração externa usando sessão de pessoa |
+| 68 | Dados de exemplo envelhecem: o "hoje" (agenda, tarefas, retornos, ponto) é o dia da geração | BAIXA | `modulos/demonstracao/gerador.ts` | "Gerar de novo" antes de apresentar; se incomodar, deslocar as datas na hora de entrar |
+| 69 | Gerador insere direto no banco: tabela nova que precise de dados de exemplo exige ajuste no gerador | BAIXA | `modulos/demonstracao/gerador.ts` | Teste de integração confere os números principais; ampliar quando entrar módulo novo |

@@ -21,6 +21,9 @@ const hash = await gerarHashSenha(senha);
 const { a, b } = descricoesTeste();
 const empresaA = await semearEmpresa(banco, a, hash);
 const empresaB = await semearEmpresa(banco, b, hash);
+// As cinco larguras de tela criam canais e pessoas na mesma empresa A: ela representa um cliente grande, sem limite
+// de plano (os limites têm teste próprio na integração).
+await banco.pool.query("UPDATE empresa SET plano = 'sob_medida' WHERE id = $1", [empresaA.empresaId]);
 await banco.pool.end();
 
 await mkdir("test-results", { recursive: true });
@@ -38,6 +41,7 @@ Object.assign(process.env, {
   LIMITE_LOGIN_MINUTO: "1000",
   LIMITE_REQ_MINUTO: "100000",
   // Equipe da plataforma nos testes: uma pessoa por largura de tela (plataforma.spec.ts).
+  DEMONSTRACAO_CHAVE: "chave-da-demonstracao-e2e",
   PLATAFORMA_ADMINS: ["celular-360", "celular-390", "tablet-768", "notebook-1024", "computador-1440"].map((p) => `plataforma.${p}@teste.example.com`).join(","),
 });
 await import("../../apps/api/src/server.js");

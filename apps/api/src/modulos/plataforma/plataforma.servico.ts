@@ -81,7 +81,7 @@ export function criarServicoPlataforma(s: Servicos) {
     const linhas = await comoSistema(banco, async (tx) => {
       const { rows } = await tx.cliente.query<Linha>(
         `${CONSULTA}
-          WHERE e.arquivado_em IS NULL
+          WHERE e.arquivado_em IS NULL AND NOT e.demonstracao
             AND ($1::text IS NULL OR e.nome ILIKE '%' || $1 || '%' OR e.slug ILIKE '%' || $1 || '%')
             AND ($2::timestamptz IS NULL OR (e.criado_em, e.id) < ($2::timestamptz, $3::uuid))
           ORDER BY e.criado_em DESC, e.id DESC LIMIT $4`,

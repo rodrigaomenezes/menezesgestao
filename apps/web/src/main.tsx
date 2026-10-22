@@ -55,6 +55,7 @@ import { ConfirmarDuasEtapas, Documento, StatusServico } from "./features/plataf
 import { AceitarTermos } from "./features/plataforma/AceitarTermos";
 import { Ajuda } from "./features/plataforma/Ajuda";
 import { PainelPlataforma } from "./features/plataforma/PainelPlataforma";
+import { Demonstracao } from "./features/plataforma/Demonstracao";
 
 function App() {
   const { eu, carregando } = useSessao();
@@ -70,6 +71,7 @@ function App() {
     <Route key="contrato" path="/contrato-de-dados" element={<Documento id="contrato" />} />,
     <Route key="status" path="/status" element={<StatusServico />} />,
     <Route key="duas-etapas" path="/confirmar-duas-etapas" element={<ConfirmarDuasEtapas />} />,
+    <Route key="demonstracao" path="/demonstracao" element={<Demonstracao />} />,
   ];
 
   if (!eu) {

@@ -161,6 +161,10 @@ tests/      integration/ (Vitest + PostgreSQL real), e2e/ (Playwright, 5 largura
   `modulos/plataforma` (painel, só `PLATAFORMA_ADMINS`), `modulos/termos` (documentos, aceite em `termo_aceite`,
   suporte e status públicos). Na tela: faixa `AvisoAssinatura` na casca, portão de aceite em `main.tsx`, ajuda em
   `@mg/shared/ajuda.ts`.
+- Demonstração (migração 0020, ADR-040): `modulos/demonstracao` — `roteiros.ts` (conteúdo por segmento),
+  `aleatorio.ts` (sorteio com semente), `gerador.ts` (empresa + segmento pela função do assistente + 90 dias de
+  movimento numa transação, com os eventos que alimentam metas, mapa, ranking e BPI), fila `demonstracao.gerar`,
+  tabela `demonstracao` (pedidos) e `empresa.demonstracao`. Acesso por cookie httpOnly assinado com a chave.
 - Campos personalizados: definição em `campo_personalizado`, valores em `campos jsonb` validados pelo serviço.
 - Sessões e tokens guardam só o HMAC (`SESSION_SECRET`); conteúdo sensível de jobs vai cifrado (`CRM_CHAVE`).
 

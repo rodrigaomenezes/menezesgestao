@@ -37,6 +37,8 @@ export interface Config {
   suporte: { whatsapp: string | null; email: string | null };
   /** Encarregado de dados (DPO), publicado na política de privacidade (ENCARREGADO_DADOS: nome e contato). */
   encarregadoDados: string | null;
+  /** Chave da tela /demonstracao (empresas de exemplo). Sem ela, a tela não existe (404). */
+  demonstracaoChave: string | null;
 }
 
 export class ErroConfig extends Error {}
@@ -68,6 +70,11 @@ export function carregarConfig(env: NodeJS.ProcessEnv = process.env): Config {
     appUrl = `http://localhost:${env.PORT || 3000}`;
   }
   appUrl = appUrl.replace(/\/+$/, "");
+
+  const demonstracaoChave = env.DEMONSTRACAO_CHAVE?.trim() || null;
+  if (demonstracaoChave && demonstracaoChave.length < 16) {
+    problemas.push("DEMONSTRACAO_CHAVE precisa de pelo menos 16 caracteres (gere com: openssl rand -hex 16)");
+  }
 
   const vapidPublica = env.VAPID_PUBLICA?.trim();
   const vapidPrivada = env.VAPID_PRIVADA?.trim();
@@ -101,6 +108,7 @@ export function carregarConfig(env: NodeJS.ProcessEnv = process.env): Config {
       .filter(Boolean),
     suporte: { whatsapp: env.SUPORTE_WHATSAPP?.replace(/\D/g, "") || null, email: env.SUPORTE_EMAIL?.trim() || null },
     encarregadoDados: env.ENCARREGADO_DADOS?.trim() || null,
+    demonstracaoChave,
     vapid: vapidPublica && vapidPrivada ? { publica: vapidPublica, privada: vapidPrivada, contato: env.VAPID_CONTATO?.trim() || `mailto:${env.EMAIL_REMETENTE?.trim() || "nao-responda@localhost"}` } : null,
   };
 }

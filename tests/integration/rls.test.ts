@@ -40,7 +40,7 @@ async function comoApp<T>(empresaId: string | null, fn: (c: pg.PoolClient) => Pr
 }
 
 /** Tabelas só do sistema (login, sessões, desafios): sem política e sem leitura para a aplicação. */
-const SO_SISTEMA = ["sessao", "token_acesso", "desafio_login", "termo_aceite"];
+const SO_SISTEMA = ["sessao", "token_acesso", "desafio_login", "termo_aceite", "demonstracao"];
 
 describe("Row Level Security", () => {
   it("toda tabela com empresa_id tem RLS ligado e política", async () => {

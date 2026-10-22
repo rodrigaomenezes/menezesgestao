@@ -69,6 +69,9 @@ Detalhes e critérios de pronto de cada fase: `ESPECIFICACAO.md` ("Roteiro de co
       cifrada, testada, nunca devolvida), Pix/boleto/link a partir da venda, aviso do provedor com token e
       idempotência confirmando a venda sozinho; demonstração sem conta e conector Asaas (testado contra servidor falso).
 
+- [x] Demonstração (ADR-040): tela `/demonstracao` antes do login, com chave do servidor; empresas de exemplo dos cinco
+      segmentos com 90 dias de dados fictícios coerentes; entrada com um clique por papel, só em empresa de exemplo.
+
 ## Próximas fases (planejadas, não iniciadas)
 
 Plano aprovado só como documentação; cada fase começa com um plano detalhado e o ok do analista. Sprints de 2

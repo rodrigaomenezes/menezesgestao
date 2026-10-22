@@ -286,7 +286,17 @@ export function criarServicoAuth(s: Servicos) {
     });
   }
 
+  /** Entrada sem senha, só para empresas de demonstração (a rota confere a chave e a marca da empresa). */
+  async function entrarComo(cliente: Cliente, usuarioId: string, empresaId: string): Promise<{ token: string }> {
+    return comoSistema(banco, async (tx) => {
+      const token = await abrirSessao(tx, cliente, usuarioId, empresaId);
+      await auditar(tx, origem(cliente, empresaId, usuarioId), { acao: "demonstracao.entrou", entidade: "usuario", entidadeId: usuarioId });
+      return { token };
+    });
+  }
+
   return {
+    entrarComo,
     entrar,
     confirmarDuasEtapas,
     reenviarCodigo: duasEtapas.reenviarLogin,

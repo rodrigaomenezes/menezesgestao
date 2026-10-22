@@ -19,6 +19,7 @@ export const empresa = pgTable("empresa", {
   onboarding: jsonb("onboarding").$type<{ passo?: number; segmento?: string; concluidoEm?: string }>().notNull().default({}),
   exigirDuasEtapas: text("exigir_duas_etapas").$type<"nao" | "admins" | "todos">().notNull().default("nao"),
   retencao: jsonb("retencao").$type<{ mensagensMeses?: number | null; arquivadosMeses?: number | null }>().notNull().default({}),
+  demonstracao: boolean("demonstracao").notNull().default(false),
   criadoEm: criadoEm(),
   atualizadoEm: atualizadoEm(),
   arquivadoEm: ts("arquivado_em"),

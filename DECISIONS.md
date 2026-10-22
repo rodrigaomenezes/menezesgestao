@@ -615,3 +615,20 @@ reenviam avisos.
 ## Por quê
 Vender exige cobrar sem perder o cliente por atraso curto e sem apagar dados; limites e painel dão controle comercial
 sem regra de cliente no código; termos versionados dão prova de aceite exigida pela LGPD.
+
+# ADR-040 — Demonstração com empresas de exemplo geradas, antes do login
+
+## Decisão
+Uma tela aberta (`/demonstracao`), ligada só quando o servidor tem `DEMONSTRACAO_CHAVE` (sem a variável: 404; vale
+também em produção, por decisão do analista). A chave digitada vira um cookie httpOnly com validade e HMAC da própria
+chave (trocar a chave derruba os acessos; nada de segredo no navegador). Cada segmento gera, pela fila de jobs, uma
+**empresa separada** marcada `empresa.demonstracao`: o segmento é aplicado pela mesma função do assistente e o
+movimento (90 dias, ~300 contatos) é inserido direto em lote numa transação, gravando também os **eventos** que o
+sistema gravaria — os painéis leem eventos, então metas, mapa, ranking e BPI aparecem cheios sem código especial.
+O sorteio tem semente por segmento (o mesmo exemplo sai igual), datas no fuso de São Paulo e em horário comercial.
+Entrar com um clique (dono, gestor, vendedor, financeiro) só existe para empresa marcada como demonstração; elas ficam
+fora do painel da plataforma e sem assinatura (sem cobrança e sem bloqueio).
+
+## Por quê
+Apresentar o produto com telas vivas e coerentes por ramo, sem tocar em dados reais e sem senha de exemplo no código.
+Gerar pelo banco (em vez de chamar cada serviço) leva ~2 s por empresa; os eventos mantêm a mesma fonte da verdade.

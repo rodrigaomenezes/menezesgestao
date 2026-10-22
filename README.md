@@ -228,6 +228,18 @@ servidor e a pessoa registra.
 - **Redefinir duas etapas** (Usuários): o administrador pede, a pessoa confirma pelo link do e-mail; só então as duas
   etapas são desligadas e as sessões encerradas.
 
+### Demonstração (empresas de exemplo)
+
+Tela **antes do login** em `/demonstracao`, só para quem tem a chave do servidor (`DEMONSTRACAO_CHAVE`; sem ela a
+tela não existe). Para cada segmento — escola, clínica, consultoria, imobiliária e varejo — "Carregar exemplo" cria
+uma empresa separada, configurada pelo pacote do segmento e com **90 dias de dados fictícios**: 11 pessoas, 300
+contatos, cerca de 210 oportunidades andando pelo funil, 180 conversas com 1.300 mensagens do ramo, 3.400 ligações,
+fila com retornos, tarefas, agenda, ponto, check-list, metas, vendas e comissões, avaliações de qualidade, pesquisa
+respondida, registros do motor BRE e avisos. Gera em cerca de 2 segundos (fila de tarefas). Depois é só "Entrar como
+dono, gestor, vendedor ou financeiro", com um clique, para mostrar cada visão. A entrada sem senha só funciona em
+empresa marcada como demonstração; nomes, telefones e e-mails são fictícios (`.example`). "Gerar de novo" cria um
+exemplo novo (o "hoje" dos dados é o dia da geração); "Arquivar" tira da lista.
+
 ## Testes
 
 ```bash
@@ -261,6 +273,7 @@ npm run build && npm run test:e2e   # Playwright em 360, 390, 768, 1024 e 1440 p
 | `WHATSAPP_QR_ATIVO` | não | `nao` desliga as conexões por QR nesta instância (só **uma** instância pode segurar cada número) |
 | `ANTHROPIC_API_KEY` | não | IA do motor BRE (Claude). Sem ela, "Sugerir com IA" usa a demonstração por palavras |
 | `BRE_IA_MODELO` | não | Modelo da IA do motor BRE (padrão `claude-opus-5-5`) |
+| `DEMONSTRACAO_CHAVE` | não | Liga a tela `/demonstracao` (empresas de exemplo); pelo menos 16 caracteres (`openssl rand -hex 16`) |
 | `PLATAFORMA_ADMINS` | não | E-mails da equipe da plataforma, separados por vírgula: veem o painel de todas as empresas |
 | `SUPORTE_WHATSAPP`, `SUPORTE_EMAIL` | não | Canais de suporte mostrados na central de ajuda |
 | `ENCARREGADO_DADOS` | não | Encarregado de dados (DPO): nome e contato, publicado na política de privacidade |

@@ -1675,6 +1675,11 @@ audio.gravacao {
   gap: 0.75rem;
 }
 
+.checklist {
+  list-style: none;
+  padding-left: 0;
+}
+
 .checklist li {
   padding: 0.25rem 0;
 }
