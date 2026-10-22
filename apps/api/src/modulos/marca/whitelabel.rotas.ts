@@ -188,12 +188,12 @@ export const rotasWhiteLabel =
       );
       app.put(
         "/api/assinatura/plano",
-        { config: config("administrar"), schema: { tags, summary: "Trocar de plano (desligar módulo esconde, não apaga)", body: TrocarPlanoEntrada, response: { 200: AssinaturaDto } } },
+        { config: { ...config("administrar"), liberadaNoBloqueio: true }, schema: { tags, summary: "Trocar de plano (desligar módulo esconde, não apaga)", body: TrocarPlanoEntrada, response: { 200: AssinaturaDto } } },
         async (req) => cobranca.trocarPlano(exigirEmpresa(req), origemDe(req), req.body.plano),
       );
       app.post(
         "/api/faturas/:id/pagar-simulado",
-        { config: config("administrar"), schema: { tags, summary: "Pagar fatura (só no provedor de demonstração)", params: ParamId, response: { 200: AssinaturaDto } } },
+        { config: { ...config("administrar"), liberadaNoBloqueio: true }, schema: { tags, summary: "Pagar fatura (só no provedor de demonstração)", params: ParamId, response: { 200: AssinaturaDto } } },
         async (req) => cobranca.pagarDemonstracao(exigirEmpresa(req), origemDe(req), req.params.id),
       );
     }

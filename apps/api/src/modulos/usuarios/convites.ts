@@ -10,6 +10,7 @@ import { hashToken, novoToken } from "../../infra/seguranca/cripto.js";
 import { conflito, invalido, semPermissao } from "../../infra/erros.js";
 import { registrar, type Origem } from "../auditoria/registro.js";
 import { lerPermissoes } from "../permissoes/permissoes.repositorio.js";
+import { exigirLimite } from "../cobranca/limites.js";
 
 export const VALIDADE_CONVITE_DIAS = 7;
 
@@ -70,6 +71,8 @@ export async function convidar(
     .from(vinculo)
     .where(and(eq(vinculo.empresaId, empresaId), eq(vinculo.usuarioId, usuarioId)));
 
+  // Pessoa nova (ou convite pendente que já conta) — só o vínculo novo ocupa vaga do plano.
+  if (!existente) await exigirLimite(tx, empresaId, "usuarios");
   let vinculoId: string;
   if (existente) {
     if (existente.arquivadoEm) {

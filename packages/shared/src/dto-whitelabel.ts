@@ -5,6 +5,7 @@ import { DataIso, Email, Id, SenhaNova } from "./dto.js";
 import { DataDia } from "./dto-operacao.js";
 import { COR_HEX, contraste, corDoTextoSobre } from "./marca.js";
 import { CHAVES_TERMOS, type ChaveTermo } from "./vocabulario.js";
+import { UsoPlanoDto } from "./dto-plataforma.js";
 
 const texto = (max: number, rotulo: string) =>
   z.string().trim().min(1, { error: `${rotulo}: preencha.` }).max(max, { error: `${rotulo}: no máximo ${max} caracteres.` });
@@ -338,7 +339,7 @@ export const PRECOS_PLANOS: Record<"essencial" | "comercial" | "completo", numbe
   completo: 39_900,
 };
 export const DIAS_TESTE = 14;
-export const NOMES_STATUS_ASSINATURA = { teste: "Em teste", ativa: "Ativa", atrasada: "Pagamento atrasado", cancelada: "Cancelada" } as const;
+export const NOMES_STATUS_ASSINATURA = { teste: "Em teste", ativa: "Ativa", atrasada: "Pagamento atrasado", cancelada: "Cancelada", suspensa: "Suspensa" } as const;
 export const NOMES_STATUS_FATURA = { pendente: "Em aberto", paga: "Paga", vencida: "Vencida", cancelada: "Cancelada" } as const;
 
 export const FaturaDto = z.object({
@@ -353,9 +354,11 @@ export const FaturaDto = z.object({
 export type FaturaDto = z.infer<typeof FaturaDto>;
 export const AssinaturaDto = z.object({
   plano: z.string(),
-  status: z.enum(["teste", "ativa", "atrasada", "cancelada"]),
+  status: z.enum(["teste", "ativa", "atrasada", "cancelada", "suspensa"]),
   valorCentavos: z.number().int(),
   provedor: z.string(),
+  /** Uso de pessoas, canais e armazenamento contra o limite do plano (limite null = sem limite). */
+  uso: z.array(UsoPlanoDto),
   testeAte: DataDia.nullable(),
   proximaCobranca: DataDia.nullable(),
   modulos: z.array(z.string()),

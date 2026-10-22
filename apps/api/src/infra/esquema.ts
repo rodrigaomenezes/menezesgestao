@@ -117,7 +117,7 @@ export const sessao = pgTable("sessao", {
 
 export const tokenAcesso = pgTable("token_acesso", {
   id: uuid("id").primaryKey().defaultRandom(),
-  tipo: text("tipo").$type<"convite" | "recuperacao">().notNull(),
+  tipo: text("tipo").$type<"convite" | "recuperacao" | "duas_etapas">().notNull(),
   tokenHash: text("token_hash").notNull(),
   usuarioId: uuid("usuario_id").notNull(),
   empresaId: uuid("empresa_id"),
@@ -973,7 +973,7 @@ export const automacaoExecucao = pgTable("automacao_execucao", {
   criadoEm: criadoEm(),
 });
 
-export type StatusAssinatura = "teste" | "ativa" | "atrasada" | "cancelada";
+export type StatusAssinatura = "teste" | "ativa" | "atrasada" | "cancelada" | "suspensa";
 
 export const assinatura = pgTable("assinatura", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -985,6 +985,7 @@ export const assinatura = pgTable("assinatura", {
   idExterno: text("id_externo"),
   testeAte: date("teste_ate", { mode: "string" }),
   proximaCobranca: date("proxima_cobranca", { mode: "string" }),
+  motivoSuspensao: text("motivo_suspensao"),
   criadoEm: criadoEm(),
   atualizadoEm: atualizadoEm(),
 });

@@ -10,6 +10,7 @@ import {
   ACOES,
   ESCOPOS,
   IDS_MODULOS,
+  ficaSomenteLeitura,
   lerMarca,
   moduloAtivo,
   temPermissao,
@@ -18,7 +19,10 @@ import {
   type Marca,
   type Modulo,
   type Permissoes,
+  type SituacaoAssinaturaDto,
 } from "@mg/shared";
+
+type SituacaoAssinatura = SituacaoAssinaturaDto;
 import type { Banco } from "../../infra/banco.js";
 import type { Config } from "../../config.js";
 import { hashToken, iguaisSeguro } from "../../infra/seguranca/cripto.js";
@@ -56,6 +60,7 @@ export interface Contexto {
   /** A pessoa usa duas etapas; a empresa ativa exige (pelo perfil). Exigida e não ativa = só a configuração fica liberada. */
   duasEtapasAtiva: boolean;
   duasEtapasObrigatoria: boolean;
+  assinatura: SituacaoAssinatura | null;
 }
 
 export type ContextoEmpresa = Contexto & { empresaId: string; vinculoId: string };
@@ -63,6 +68,8 @@ export type ContextoEmpresa = Contexto & { empresaId: string; vinculoId: string 
 declare module "fastify" {
   interface FastifyContextConfig {
     acesso?: Acesso;
+    /** Rota que continua aberta com a empresa só para consulta (pagar a fatura, trocar de plano). */
+    liberadaNoBloqueio?: boolean;
   }
   interface FastifyRequest {
     ctx: Contexto | null;
@@ -108,6 +115,9 @@ interface LinhaContexto {
   permissoes: { modulo: string; acao: string; escopo: string }[] | null;
   duas_etapas_metodo: string | null;
   exigir_duas_etapas: string | null;
+  assinatura_status: SituacaoAssinatura["status"] | null;
+  teste_ate: string | null;
+  dias_atraso: number | null;
 }
 
 /** Linhas da tabela permissao → objeto { modulo: { acao: escopo } }, descartando valores desconhecidos. */
@@ -137,11 +147,19 @@ function lerVocabulario(bruto: Record<string, unknown> | null): Record<string, s
   return r;
 }
 
+/** Empresa sem assinatura (criada pela linha de comando, "sob medida") nunca fica só para consulta. */
+function situacao(status: SituacaoAssinatura["status"], testeAte: string | null, diasAtraso: number): SituacaoAssinatura {
+  return { status, testeAte, diasAtraso: Math.max(diasAtraso, 0), somenteLeitura: ficaSomenteLeitura(status, diasAtraso) };
+}
+
 async function carregarContexto(banco: Banco, config: Config, token: string): Promise<Contexto | null> {
   const { rows } = await banco.pool.query<LinhaContexto>(
     `SELECT s.id AS sessao_id, s.usuario_id, u.nome, u.email, s.ultimo_uso, u.duas_etapas_metodo, e.exigir_duas_etapas,
             e.id AS empresa_id, e.nome AS empresa_nome, e.slug, e.fuso, e.marca, e.vocabulario, e.plano, e.modulos,
             v.id AS vinculo_id, p.id AS perfil_id, p.nome AS perfil_nome, v.unidade_id, v.equipe_id,
+            a.status AS assinatura_status, to_char(a.teste_ate, 'YYYY-MM-DD') AS teste_ate,
+            ((now() AT TIME ZONE e.fuso)::date
+              - (SELECT min(f.vencimento) FROM fatura f WHERE f.assinatura_id = a.id AND f.status = 'vencida'))::int AS dias_atraso,
             (SELECT json_agg(json_build_object('modulo', pm.modulo, 'acao', pm.acao, 'escopo', pm.escopo))
                FROM permissao pm WHERE pm.perfil_id = p.id) AS permissoes
        FROM sessao s
@@ -150,6 +168,7 @@ async function carregarContexto(banco: Banco, config: Config, token: string): Pr
                           AND v.status = 'ativo' AND v.arquivado_em IS NULL
        LEFT JOIN empresa e ON e.id = v.empresa_id AND e.arquivado_em IS NULL
        LEFT JOIN perfil p ON p.id = v.perfil_id
+       LEFT JOIN assinatura a ON a.empresa_id = e.id
       WHERE s.token_hash = $1 AND s.encerrada_em IS NULL AND s.expira_em > now()`,
     [hashToken(config.sessionSecret, token)],
   );
@@ -181,12 +200,24 @@ async function carregarContexto(banco: Banco, config: Config, token: string): Pr
     permissoes,
     duasEtapasAtiva: Boolean(l.duas_etapas_metodo),
     duasEtapasObrigatoria: temEmpresa && duasEtapasObrigatoria(l.exigir_duas_etapas, permissoes),
+    assinatura: temEmpresa && l.assinatura_status ? situacao(l.assinatura_status, l.teste_ate, l.dias_atraso ?? 0) : null,
   };
 }
 
 export function exigirContexto(req: FastifyRequest): Contexto {
   if (!req.ctx) throw naoAutenticado();
   return req.ctx;
+}
+
+/** Equipe da plataforma (PLATAFORMA_ADMINS): vê e administra todas as empresas pelo painel da plataforma. */
+export function ehPlataformaAdmin(config: Config, email: string): boolean {
+  return config.plataformaAdmins.includes(email.trim().toLowerCase());
+}
+
+export function exigirPlataforma(req: FastifyRequest, config: Config): Contexto {
+  const ctx = exigirContexto(req);
+  if (!ehPlataformaAdmin(config, ctx.email)) throw semPermissao();
+  return ctx;
 }
 
 export function exigirEmpresa(req: FastifyRequest): ContextoEmpresa {
@@ -296,6 +327,16 @@ export function registrarAcesso(app: FastifyInstance, banco: Banco, config: Conf
     }
     const escopo = temPermissao(ctx.permissoes, acesso.modulo, acesso.acao);
     if (!escopo) throw semPermissao();
+    // Atraso além da tolerância, cancelada ou suspensa: consulta liberada, gravação recusada. Nada é apagado.
+    if (ctx.assinatura?.somenteLeitura && !METODOS_SEGUROS.has(req.method) && !req.routeOptions.config?.liberadaNoBloqueio) {
+      throw new ErroApp(
+        403,
+        "ASSINATURA_SO_LEITURA",
+        ctx.assinatura.status === "suspensa"
+          ? "A empresa está suspensa e só pode consultar os dados. Fale com o suporte."
+          : "A empresa está só para consulta por causa do pagamento. Quem administra pode regularizar em “Plano e cobrança”; ao pagar, tudo volta na hora.",
+      );
+    }
     req.escopo = escopo;
   });
 

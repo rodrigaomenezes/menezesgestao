@@ -1,5 +1,6 @@
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import {
+  PedirRedefinicaoDuasEtapasEntrada,
   AtualizarUsuarioEntrada,
   ConvidarEntrada,
   ConviteCriadoDto,
@@ -51,6 +52,18 @@ export const rotasUsuarios =
       "/api/usuarios/:id",
       { config: acesso("editar"), schema: { tags, summary: "Trocar perfil, unidade ou equipe", params: ParamId, body: AtualizarUsuarioEntrada, response: { 200: UsuarioDto } } },
       async (req) => usuarios.atualizar(exigirEmpresa(req), exigirEscopo(req), origemDe(req), req.params.id, req.body),
+    );
+
+    app.post(
+      "/api/usuarios/:id/redefinir-duas-etapas",
+      {
+        config: acesso("editar"),
+        schema: { tags, summary: "Pedir a redefinição das duas etapas (a pessoa confirma pelo e-mail)", params: ParamId, body: PedirRedefinicaoDuasEtapasEntrada, response: { 200: Ok } },
+      },
+      async (req) => {
+        await usuarios.pedirRedefinicaoDuasEtapas(exigirEmpresa(req), exigirEscopo(req), origemDe(req), req.params.id, req.body.motivo);
+        return { ok: true as const };
+      },
     );
 
     for (const [rota, arquivar] of [

@@ -56,6 +56,8 @@ import { criarServicoTelefonia, rotasTelefonia } from "./modulos/telefonia/telef
 import { rotasOperacao } from "./modulos/operacao/operacao.rotas.js";
 import { rotasReceita } from "./modulos/receita/receita.rotas.js";
 import { rotasRecebimentos } from "./modulos/recebimentos/recebimentos.rotas.js";
+import { rotasTermos } from "./modulos/termos/termos.rotas.js";
+import { rotasPlataforma } from "./modulos/plataforma/plataforma.rotas.js";
 import { rotasQualidade } from "./modulos/qualidade/qualidade.rotas.js";
 import { rotasWhiteLabel } from "./modulos/marca/whitelabel.rotas.js";
 import { resolvedorDominio } from "./modulos/marca/dominio.js";
@@ -208,6 +210,8 @@ export async function criarApp(servicos: Servicos): Promise<AppMontado> {
   await app.register(rotasOperacao(servicos));
   await app.register(rotasReceita(servicos));
   await app.register(rotasRecebimentos(servicos));
+  await app.register(rotasTermos(servicos));
+  await app.register(rotasPlataforma(servicos));
   await app.register(rotasQualidade(servicos));
   // Motor BRE: estado do cliente todo dia; silêncio dos ciclos de hora em hora.
   await app.register(rotasBre(servicos, envio));

@@ -7,6 +7,7 @@ import { comoSistema, type Banco } from "../../infra/banco.js";
 import { equipe, unidade, vinculo } from "../../infra/esquema.js";
 import { criarEmpresa } from "./criar-empresa.js";
 import { semearCrm, type DescricaoCrm } from "../crm/semear-crm.js";
+import { aceitarNoCadastro } from "../termos/termos.servico.js";
 
 export interface DescricaoEmpresa {
   nome: string;
@@ -90,6 +91,8 @@ export async function semearEmpresa(banco: Banco, d: DescricaoEmpresa, senhaHash
     }
 
     if (d.crm) await semearCrm(tx, empresaId, d.crm, pessoas);
+    // Empresa de exemplo (demonstração e testes): os documentos já vêm aceitos, para abrir direto no sistema.
+    for (const p of Object.values(pessoas)) await aceitarNoCadastro(tx, p.usuarioId, empresaId, null);
 
     return { empresaId, perfis: criada.perfis, unidades, equipes, pessoas };
   });

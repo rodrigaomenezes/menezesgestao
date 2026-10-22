@@ -90,6 +90,19 @@ export const EuDto = z.object({
   empresas: z.array(z.object({ id: Id, nome: z.string() })),
   /** Duas etapas: pendente = a empresa exige e a pessoa ainda não configurou (só a configuração fica liberada). */
   duasEtapas: z.object({ ativa: z.boolean(), obrigatoria: z.boolean(), pendente: z.boolean() }),
+  /** Situação da assinatura da empresa ativa (null sem empresa). Regra em `ficaSomenteLeitura`. */
+  assinatura: z
+    .object({
+      status: z.enum(["teste", "ativa", "atrasada", "cancelada", "suspensa"]),
+      testeAte: z.string().nullable(),
+      diasAtraso: z.number().int(),
+      somenteLeitura: z.boolean(),
+    })
+    .nullable(),
+  /** Documentos legais com versão nova ainda não aceita por esta pessoa (ou pela empresa, para quem administra). */
+  termosPendentes: z.array(z.enum(["termos", "privacidade", "contrato"])),
+  /** Equipe da plataforma (lista em PLATAFORMA_ADMINS): vê o painel de todas as empresas. */
+  plataformaAdmin: z.boolean(),
 });
 export type EuDto = z.infer<typeof EuDto>;
 

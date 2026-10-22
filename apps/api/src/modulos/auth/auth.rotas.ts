@@ -191,6 +191,16 @@ export const rotasAuth =
       },
     );
 
+    app.post(
+      "/api/auth/duas-etapas/confirmar-redefinicao",
+      { config: publicaLimitada, schema: { tags, summary: "Confirmar, pelo link do e-mail, a redefinição das duas etapas", body: ConviteConsulta, response: { 200: Ok } } },
+      async (req) => {
+        const c = cliente(req);
+        await duasEtapas.confirmarRedefinicao({ empresaId: null, atorId: null, ip: c.ip, dispositivo: c.dispositivo }, req.body.token);
+        return { ok: true as const };
+      },
+    );
+
     app.get(
       "/api/auth/convite",
       { config: publica, schema: { tags, summary: "Dados do convite", querystring: ConviteConsulta, response: { 200: ConviteInfoDto } } },
