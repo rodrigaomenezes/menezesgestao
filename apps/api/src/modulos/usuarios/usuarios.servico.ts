@@ -18,6 +18,8 @@ import { registrar, type Origem } from "../auditoria/registro.js";
 import { lerPermissoes } from "../permissoes/permissoes.repositorio.js";
 import { convidar, validarLotacao, type DadosConvite } from "./convites.js";
 import * as repo from "./usuarios.repositorio.js";
+import { exigirLimite } from "../cobranca/limites.js";
+import { criarServicoDuasEtapas } from "../auth/duas-etapas.servico.js";
 
 const usuarioDto = (u: repo.LinhaUsuario): UsuarioDto => ({ ...u, criadoEm: iso(u.criadoEm), arquivadoEm: iso(u.arquivadoEm) });
 const equipeDto = (e: repo.LinhaEquipe): EquipeDto => ({ ...e, criadoEm: iso(e.criadoEm), arquivadoEm: iso(e.arquivadoEm) });
@@ -34,6 +36,7 @@ async function garantirOutroDono(tx: Tx, empresaId: string, alvo: repo.LinhaUsua
 
 export function criarServicoUsuarios(s: Servicos) {
   const { banco } = s;
+  const duasEtapas = criarServicoDuasEtapas(s);
 
   async function visivel(tx: Tx, ctx: ContextoEmpresa, escopo: Escopo, id: string) {
     const u = await repo.buscarUsuarioVisivel(tx, ctx.empresaId, ctx, escopo, id);
@@ -97,12 +100,21 @@ export function criarServicoUsuarios(s: Servicos) {
     });
   }
 
+  /** O administrador pede; a pessoa confirma pelo e-mail (ninguém desliga a segurança de outro sozinho). */
+  async function pedirRedefinicaoDuasEtapas(ctx: ContextoEmpresa, escopo: Escopo, origem: Origem, id: string, motivo: string): Promise<void> {
+    const alvo = await comEmpresa(banco, ctx.empresaId, (tx) => visivel(tx, ctx, escopo, id));
+    if (alvo.usuarioId === ctx.usuarioId) throw conflito("Para a sua própria conta, use “Segurança da conta” ou os códigos de recuperação.");
+    await duasEtapas.pedirRedefinicao({ ...origem, empresaId: ctx.empresaId }, alvo, motivo);
+  }
+
   async function alternarArquivo(ctx: ContextoEmpresa, escopo: Escopo, origem: Origem, id: string, arquivar: boolean) {
     await comEmpresa(banco, ctx.empresaId, async (tx) => {
       const alvo = await visivel(tx, ctx, escopo, id);
       if (arquivar) {
         if (id === ctx.vinculoId) throw conflito("Você não pode arquivar o próprio cadastro.");
         await garantirOutroDono(tx, ctx.empresaId, alvo);
+      } else {
+        await exigirLimite(tx, ctx.empresaId, "usuarios");
       }
       await repo.atualizarVinculo(tx, ctx.empresaId, id, { arquivadoEm: arquivar ? new Date() : null });
       await registrar(tx, origem, {
@@ -182,6 +194,7 @@ export function criarServicoUsuarios(s: Servicos) {
   }
 
   return {
+    pedirRedefinicaoDuasEtapas,
     listar,
     obter,
     opcoes,

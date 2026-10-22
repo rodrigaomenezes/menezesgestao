@@ -21,6 +21,7 @@ export function AceitarConvite() {
   const [problema, setProblema] = useState("");
   const [nome, setNome] = useState("");
   const [senha, setSenha] = useState("");
+  const [aceite, setAceite] = useState(false);
 
   useEffect(() => {
     get<Convite>(`/auth/convite?token=${encodeURIComponent(token)}`)
@@ -32,7 +33,7 @@ export function AceitarConvite() {
   }, [token]);
 
   const { enviando, erro, enviar } = useEnvio(async () => {
-    await post("/auth/aceitar-convite", convite?.precisaSenha ? { token, nome, senha } : { token });
+    await post("/auth/aceitar-convite", convite?.precisaSenha ? { token, nome, senha, aceite } : { token, aceite });
     await recarregar();
     navegar("/", { replace: true });
   });
@@ -65,6 +66,20 @@ export function AceitarConvite() {
             ) : (
               <p>Você já tem cadastro: é só aceitar e continuar usando a mesma senha.</p>
             )}
+            <label className="marcar">
+              <input type="checkbox" checked={aceite} required onChange={(e) => setAceite(e.target.checked)} />
+              <span>
+                Li e aceito os{" "}
+                <Link to="/termos" target="_blank" rel="noreferrer">
+                  termos de uso
+                </Link>{" "}
+                e a{" "}
+                <Link to="/privacidade" target="_blank" rel="noreferrer">
+                  política de privacidade
+                </Link>
+                .
+              </span>
+            </label>
             <Mensagem tipo="erro">{erro}</Mensagem>
             <button type="submit" className="botao botao-largo" disabled={enviando}>
               {enviando ? "Entrando…" : "Aceitar e entrar"}

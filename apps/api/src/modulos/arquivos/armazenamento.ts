@@ -6,6 +6,7 @@ import { and, eq } from "drizzle-orm";
 import { comEmpresa, type Banco } from "../../infra/banco.js";
 import { arquivo } from "../../infra/esquema.js";
 import { naoEncontrado } from "../../infra/erros.js";
+import { exigirLimite } from "../cobranca/limites.js";
 
 export interface NovoArquivo {
   nome: string;
@@ -25,8 +26,10 @@ export function provedorArquivosBanco(banco: Banco): ProvedorArquivos {
     id: "banco",
     async gravar(empresaId, a) {
       const id = randomUUID();
-      await comEmpresa(banco, empresaId, (tx) =>
-        tx.db.insert(arquivo).values({
+      await comEmpresa(banco, empresaId, async (tx) => {
+        // Só o que alguém da equipe envia conta contra o limite; mídia recebida do cliente nunca é recusada.
+        if (a.criadoPor) await exigirLimite(tx, empresaId, "armazenamento", a.conteudo.length);
+        await tx.db.insert(arquivo).values({
           id,
           empresaId,
           nome: a.nome,
@@ -35,8 +38,8 @@ export function provedorArquivosBanco(banco: Banco): ProvedorArquivos {
           provedor: "banco",
           conteudo: a.conteudo,
           criadoPor: a.criadoPor,
-        }),
-      );
+        });
+      });
       return { id };
     },
     async ler(empresaId, id) {

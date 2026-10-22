@@ -18,8 +18,18 @@ function FormOferta({ inicial, aoSalvar, aoCancelar }: { inicial?: OfertaDto; ao
   const [nome, setNome] = useState(inicial?.nome ?? "");
   const [preco, setPreco] = useState(paraReais(inicial?.precoCentavos));
   const [descricao, setDescricao] = useState(inicial?.descricao ?? "");
+  const [categoria, setCategoria] = useState(inicial?.categoria ?? "");
+  const [estoque, setEstoque] = useState(inicial?.estoque != null ? String(inicial.estoque) : "");
+  const [lancamento, setLancamento] = useState(inicial?.lancamentoEm ?? "");
   const envio = useEnvio(async () => {
-    const corpo = { nome, descricao: descricao || null, precoCentavos: preco ? paraCentavos(preco) : null };
+    const corpo = {
+      nome,
+      descricao: descricao || null,
+      precoCentavos: preco ? paraCentavos(preco) : null,
+      categoria: categoria || null,
+      estoque: estoque === "" ? null : Number(estoque),
+      lancamentoEm: lancamento || null,
+    };
     if (inicial) await patch(`/ofertas/${inicial.id}`, corpo);
     else await post("/ofertas", corpo);
     avisar(inicial ? "Alterações salvas." : "Cadastro salvo.");
@@ -27,6 +37,9 @@ function FormOferta({ inicial, aoSalvar, aoCancelar }: { inicial?: OfertaDto; ao
       setNome("");
       setPreco("");
       setDescricao("");
+      setCategoria("");
+      setEstoque("");
+      setLancamento("");
     }
     aoSalvar();
   });
@@ -36,7 +49,11 @@ function FormOferta({ inicial, aoSalvar, aoCancelar }: { inicial?: OfertaDto; ao
         <Campo rotulo="Nome" nome={`oferta-nome-${sufixo}`} valor={nome} aoMudar={setNome} obrigatorio />
         <Campo rotulo="Preço (R$, opcional)" nome={`oferta-preco-${sufixo}`} valor={preco} aoMudar={setPreco} />
         <Campo rotulo="Descrição (opcional)" nome={`oferta-desc-${sufixo}`} valor={descricao} aoMudar={setDescricao} />
+        <Campo rotulo="Categoria (opcional)" nome={`oferta-categoria-${sufixo}`} valor={categoria} aoMudar={setCategoria} />
+        <Campo rotulo="Estoque (opcional)" nome={`oferta-estoque-${sufixo}`} tipo="number" valor={estoque} aoMudar={setEstoque} />
+        <Campo rotulo="Lançamento em (opcional)" nome={`oferta-lancamento-${sufixo}`} tipo="date" valor={lancamento} aoMudar={setLancamento} />
       </div>
+      <p className="dica">A categoria liga itens parecidos (avisos de lançamento e de estoque). Com estoque, cada venda confirmada baixa uma unidade.</p>
       <Mensagem tipo="erro">{envio.erro}</Mensagem>
       <div className="form-linha">
         <button type="submit" className="botao" disabled={envio.enviando}>
@@ -136,6 +153,13 @@ export function Catalogo() {
                     {o.precoCentavos != null ? formatarDinheiro(o.precoCentavos) : "Sem preço fixo"}
                     {o.descricao && ` · ${o.descricao}`}
                   </span>
+                  {(o.categoria || o.estoque != null || o.lancamentoEm) && (
+                    <span className="item-detalhe">
+                      {[o.categoria, o.estoque != null && `${o.estoque} em estoque`, o.lancamentoEm && `lança em ${o.lancamentoEm.split("-").reverse().join("/")}`]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </span>
+                  )}
                 </div>
                 {pode("servicos", "editar") && (
                   <div className="item-acoes">

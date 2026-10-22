@@ -11,6 +11,7 @@ import {
   type DesempenhoDto,
   type InicioDto,
   type KanbanDto,
+  type ItemFilaBreDto,
   type NotificacaoDto,
   type Pagina,
   type RotinaDto,
@@ -38,6 +39,7 @@ const LINKS: Partial<Record<BlocoInicioId, [string, string]>> = {
   ranking: ["/desempenho", "Ver desempenho"],
   comissao: ["/comissoes", "Ver comissões"],
   avisos: ["/notificacoes", "Ver todas"],
+  bre: ["/bre", "Abrir a fila"],
 };
 
 function saudacao(fuso: string): string {
@@ -183,6 +185,32 @@ function BlocoAvisos() {
   );
 }
 
+/** Os primeiros da fila do dia do método BRE (já sem quem os limites bloqueiam). */
+function BlocoFilaBre() {
+  const [p, setP] = useState<Pagina<ItemFilaBreDto> | null>(null);
+  const carregar = useCallback(() => {
+    get<Pagina<ItemFilaBreDto>>("/bre/fila-do-dia?limite=5").then(setP, () => undefined);
+  }, []);
+  useEffect(carregar, [carregar]);
+  useTempoReal(["bre."], carregar);
+  if (!p) return <p className="carregando">Carregando…</p>;
+  if (!p.itens.length) return <ListaVazia>Ninguém para contatar hoje.</ListaVazia>;
+  return (
+    <ul className="lista">
+      {p.itens.map((i) => (
+        <li key={i.id} className="item">
+          <div className="item-principal">
+            <Link to={`/contatos/${i.contatoId}`}>
+              <strong>{i.nome}</strong>
+            </Link>
+            <span className="item-detalhe">{i.motivo}</span>
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function ConteudoBloco({ id, rotina }: { id: BlocoInicioId; rotina: ReturnType<typeof useRotina> }) {
   if (id === "atalhos") return <BlocoAtalhos />;
   if (id === "ponto") return <Ponto />;
@@ -190,6 +218,7 @@ function ConteudoBloco({ id, rotina }: { id: BlocoInicioId; rotina: ReturnType<t
   if (id === "ranking") return <BlocoRanking />;
   if (id === "comissao") return <BlocoComissao />;
   if (id === "avisos") return <BlocoAvisos />;
+  if (id === "bre") return <BlocoFilaBre />;
   if (rotina.erro) return <Mensagem tipo="erro">{rotina.erro}</Mensagem>;
   const r: RotinaDto | null = rotina.r;
   if (!r) return <p className="carregando">Carregando…</p>;

@@ -3,6 +3,7 @@
 import { and, asc, count, desc, eq, ilike, inArray, isNotNull, isNull, sql, sum } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import type { Escopo, KanbanDto, OportunidadeDto, Pagina } from "@mg/shared";
+import { TRANSICOES_BRE, nomeMarco, transicaoPermitida } from "@mg/shared";
 import { comEmpresa, type Tx } from "../../infra/banco.js";
 import { contato, etapa, funil, motivoPerda, oportunidade, usuario } from "../../infra/esquema.js";
 import { invalido, naoEncontrado } from "../../infra/erros.js";
@@ -11,6 +12,7 @@ import type { Servicos } from "../../app.js";
 import type { ContextoEmpresa } from "../acesso/acesso.js";
 import { filtroUsuariosVisiveis, type QuemVe } from "../acesso/escopo.js";
 import { registrar, type Origem } from "../auditoria/registro.js";
+import { marcarBpiVelho } from "../bre/bpi-cache.js";
 import { validarCampos, type DefinicaoCampo } from "./campos.js";
 import { validarResponsavel } from "./carteira.js";
 import { buscarEtapa, definicoesDeCampos, etapaDto } from "./configuracao.servico.js";
@@ -36,6 +38,7 @@ const colunas = {
   criadoEm: oportunidade.criadoEm,
   atualizadoEm: oportunidade.atualizadoEm,
   arquivadoEm: oportunidade.arquivadoEm,
+  encerramentoBre: oportunidade.encerramentoBre,
 };
 
 function consulta(tx: Tx) {
@@ -47,8 +50,9 @@ function consulta(tx: Tx) {
 }
 type Linha = Awaited<ReturnType<ReturnType<typeof consulta>["execute"]>>[number];
 
-const dto = (o: Linha): OportunidadeDto => ({
+const dto = ({ encerramentoBre, ...o }: Linha): OportunidadeDto => ({
   ...o,
+  encerradaBre: encerramentoBre ? { criterio: encerramentoBre.criterio, em: encerramentoBre.em } : null,
   campos: o.campos ?? {},
   fechadaEm: iso(o.fechadaEm),
   criadoEm: iso(o.criadoEm),
@@ -231,6 +235,11 @@ export function criarServicoOportunidades(s: Servicos) {
       const nova = await buscarEtapa(tx, ctx.empresaId, dados.etapaId);
       if (!nova || nova.funilId !== o.funilId || nova.arquivadoEm) throw invalido("Escolha uma etapa ativa do mesmo funil.");
       await exigirCompleta(tx, ctx.empresaId, nova, o);
+      // DEC-012: com o motor BRE ligado, etapas com marco só seguem as transições da doutrina (BRE-FR-007).
+      if (ctx.modulos.includes("bre") && anterior?.marcoBre && nova.marcoBre && !transicaoPermitida(anterior.marcoBre, nova.marcoBre)) {
+        const destinos = TRANSICOES_BRE[anterior.marcoBre].map(nomeMarco).join(", ");
+        throw invalido(`Pelo método BRE, de ${nomeMarco(anterior.marcoBre)} só se vai para: ${destinos}.`);
+      }
 
       let motivoPerdaId: string | null = null;
       let motivoNome: string | null = null;
@@ -255,6 +264,7 @@ export function criarServicoOportunidades(s: Servicos) {
         })
         .where(and(eq(oportunidade.id, id), eq(oportunidade.empresaId, ctx.empresaId)));
 
+      await marcarBpiVelho(tx); // a mudança de etapa conta no BPI
       const resumo = { titulo: o.titulo, etapaAnterior: anterior?.nome ?? null, etapaNova: nova.nome, valorCentavos: o.valorCentavos };
       await registrar(tx, origem, {
         acao: "oportunidade.etapa_alterada",

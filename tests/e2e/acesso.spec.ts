@@ -66,6 +66,7 @@ test("convite: a pessoa cria a senha pelo link e entra; quem convidou é avisado
   await convidada.goto(await linkDoEmail(novo));
   await expect(convidada.getByText(a.nome)).toBeVisible();
   await convidada.getByLabel("Crie uma senha").fill("minha senha nova e longa");
+  await convidada.getByRole("checkbox", { name: /Li e aceito/ }).check();
   await convidada.getByRole("button", { name: "Aceitar e entrar" }).click();
   await expect(convidada.getByRole("heading", { name: /^(Bom dia|Boa tarde|Boa noite), Pessoa$/ })).toBeVisible();
   await expect(convidada.getByRole("main").getByText("Vendedor / Atendente")).toBeVisible();

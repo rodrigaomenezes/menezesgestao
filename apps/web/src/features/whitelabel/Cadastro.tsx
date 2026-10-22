@@ -48,7 +48,21 @@ export function Cadastro() {
         <Campo rotulo="Crie uma senha" nome="cad-senha" tipo="password" valor={senha} aoMudar={setSenha} obrigatorio minimo={SENHA_MINIMO} autoComplete="new-password" dica={`Pelo menos ${SENHA_MINIMO} caracteres.`} />
         <label className="marcar">
           <input type="checkbox" checked={aceite} required onChange={(e) => setAceite(e.target.checked)} />
-          Li e aceito os termos de uso e a política de privacidade.
+          <span>
+            Li e aceito os{" "}
+            <Link to="/termos" target="_blank" rel="noreferrer">
+              termos de uso
+            </Link>
+            , a{" "}
+            <Link to="/privacidade" target="_blank" rel="noreferrer">
+              política de privacidade
+            </Link>{" "}
+            e o{" "}
+            <Link to="/contrato-de-dados" target="_blank" rel="noreferrer">
+              contrato de dados
+            </Link>
+            .
+          </span>
         </label>
         <Mensagem tipo="erro">{envio.erro}</Mensagem>
         <button type="submit" className="botao botao-largo" disabled={envio.enviando}>

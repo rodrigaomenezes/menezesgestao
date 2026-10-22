@@ -30,6 +30,18 @@ import * as repo from "./auth.repositorio.js";
 
 export const COOKIE_DESAFIO = "mg_desafio";
 export const VALIDADE_DESAFIO_MIN = 10;
+const VALIDADE_REDEFINICAO_H = 24;
+
+/** Desliga as duas etapas de alguém e encerra as sessões (suporte pelo terminal e redefinição confirmada pela pessoa). */
+export async function desligarDuasEtapasDe(tx: Tx, usuarioId: string): Promise<void> {
+  await tx.cliente.query(
+    `UPDATE usuario SET duas_etapas_metodo = NULL, duas_etapas_segredo = NULL, duas_etapas_ultimo_passo = NULL,
+            duas_etapas_recuperacao = '{}', duas_etapas_ativada_em = NULL, atualizado_em = now()
+      WHERE id = $1`,
+    [usuarioId],
+  );
+  await tx.cliente.query("UPDATE sessao SET encerrada_em = now() WHERE usuario_id = $1 AND encerrada_em IS NULL", [usuarioId]);
+}
 const MAX_TENTATIVAS = 5;
 const MAX_ENVIOS = 5;
 
@@ -300,6 +312,50 @@ export function criarServicoDuasEtapas(s: Servicos) {
     });
   }
 
+  // Redefinição pelo administrador ---------------------------------------------------------------------------
+  // Quem perdeu o celular e os códigos: o administrador pede, a pessoa confirma pelo link no e-mail (prova de que é
+  // ela). Só então as duas etapas são desligadas e as sessões encerradas; ela configura de novo no próximo acesso.
+
+  async function pedirRedefinicao(origem: Origem & { empresaId: string }, alvo: { usuarioId: string }, motivo: string): Promise<void> {
+    await comoSistema(banco, async (tx) => {
+      const [u] = await tx.db.select({ id: usuario.id, nome: usuario.nome, email: usuario.email, metodo: usuario.duasEtapasMetodo }).from(usuario).where(eq(usuario.id, alvo.usuarioId));
+      if (!u?.metodo) throw invalido("Esta pessoa não usa o login em duas etapas: não há o que redefinir.");
+      const token = novoToken();
+      await repo.inserirToken(tx, {
+        tipo: "duas_etapas",
+        tokenHash: hashToken(config.sessionSecret, token),
+        usuarioId: u.id,
+        empresaId: origem.empresaId,
+        expiraEm: new Date(Date.now() + VALIDADE_REDEFINICAO_H * 3_600_000),
+      });
+      await s.jobs.enviarEmail(tx, {
+        para: u.email,
+        assunto: `Redefinir o login em duas etapas no ${config.produtoNome}`,
+        texto: [
+          `Olá, ${u.nome}!`,
+          "",
+          "O administrador da sua empresa pediu para redefinir o seu login em duas etapas (por exemplo, se você perdeu o celular).",
+          `Para confirmar que foi você quem pediu ajuda, abra o link abaixo (vale por ${VALIDADE_REDEFINICAO_H} horas):`,
+          "",
+          `${config.appUrl}/confirmar-duas-etapas?token=${token}`,
+          "",
+          "Se você não pediu isso, ignore este e-mail e avise o administrador: nada muda sem a sua confirmação.",
+        ].join("\n"),
+      });
+      await auditar(tx, origem, { acao: "duas_etapas.redefinicao_pedida", entidade: "usuario", entidadeId: u.id, depois: { motivo } });
+    });
+  }
+
+  async function confirmarRedefinicao(origem: Origem, token: string): Promise<void> {
+    await comoSistema(banco, async (tx) => {
+      const t = await repo.buscarTokenValido(tx, "duas_etapas", hashToken(config.sessionSecret, token));
+      if (!t) throw new ErroApp(400, "LINK_INVALIDO", "Este link não vale mais. Peça ao administrador para enviar outro.");
+      await desligarDuasEtapasDe(tx, t.usuarioId);
+      await repo.marcarTokenUsado(tx, t.id);
+      await auditar(tx, { ...origem, empresaId: t.empresaId, atorId: t.usuarioId }, { acao: "duas_etapas.redefinida", entidade: "usuario", entidadeId: t.usuarioId });
+    });
+  }
+
   // Regra da empresa ---------------------------------------------------------------------------------------
 
   async function exigenciaDaEmpresa(ctx: ContextoEmpresa): Promise<{ exigirDuasEtapas: ExigenciaDuasEtapas }> {
@@ -331,6 +387,8 @@ export function criarServicoDuasEtapas(s: Servicos) {
     desligar,
     novosCodigos,
     exigenciaDaEmpresa,
+    pedirRedefinicao,
+    confirmarRedefinicao,
     definirExigencia,
   };
 }

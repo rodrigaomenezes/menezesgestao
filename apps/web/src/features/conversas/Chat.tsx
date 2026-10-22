@@ -20,6 +20,8 @@ import { Audio, Gravador } from "./Gravador";
 import { BotaoLigar } from "../telefonia/Telefone";
 import { BotaoScripts } from "../operacao/Scripts";
 import { BotaoAvaliar } from "../qualidade/Qualidade";
+import { BotaoRegistrarBre } from "../bre/Bre";
+import { BotaoSqBre } from "../qualidade/SqBre";
 import { useVocabulario } from "../../app/vocabulario";
 
 const MARCAS: Record<MensagemDto["status"], { texto: string; rotulo: string }> = {
@@ -235,6 +237,8 @@ function Cabecalho({ c, aoMudar }: { c: ConversaDetalheDto; aoMudar(): void }) {
         <BotaoLigar alvo={{ contatoId: c.contatoId, nome: c.contatoNome, numero: c.telefone }} rotulo="Ligar" classe="botao botao-secundario" />
       )}
       {c.atribuidaA && c.atribuidaA !== eu?.usuario.id && <BotaoAvaliar alvo={{ conversaId: c.id }} />}
+      {c.atribuidaA && c.atribuidaA !== eu?.usuario.id && <BotaoSqBre conversaId={c.id} />}
+      {c.contatoId && <BotaoRegistrarBre contatoId={c.contatoId} conversaId={c.id} />}
       {podeEditar && (
         <div className="chat-acoes">
           <label className="sr-only" htmlFor="atribuir">

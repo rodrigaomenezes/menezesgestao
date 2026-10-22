@@ -17,6 +17,8 @@ import { auditar, registrar, type Origem } from "../auditoria/registro.js";
 import { notificar } from "../notificacoes/notificar.js";
 import * as repo from "./auth.repositorio.js";
 import { criarServicoDuasEtapas } from "./duas-etapas.servico.js";
+import { aceitarDocumentosDaPessoa, criarServicoTermos } from "../termos/termos.servico.js";
+import { ehPlataformaAdmin } from "../acesso/acesso.js";
 
 const VALIDADE_RECUPERACAO_MIN = 60;
 
@@ -38,6 +40,7 @@ export function criarServicoAuth(s: Servicos) {
   const { banco, config } = s;
   const hash = (token: string) => hashToken(config.sessionSecret, token);
   const duasEtapas = criarServicoDuasEtapas(s);
+  const termos = criarServicoTermos(banco);
 
   /** Abre uma sessão nova; quem entra de novo no mesmo navegador não deixa a anterior aberta. */
   async function abrirSessao(tx: Tx, cliente: Cliente, usuarioId: string, empresaId: string): Promise<string> {
@@ -116,7 +119,7 @@ export function criarServicoAuth(s: Servicos) {
   }
 
   async function eu(ctx: Contexto): Promise<EuDto> {
-    const empresas = await comoSistema(banco, (tx) => repo.empresasDoUsuario(tx, ctx.usuarioId));
+    const [empresas, termosPendentes] = await Promise.all([comoSistema(banco, (tx) => repo.empresasDoUsuario(tx, ctx.usuarioId)), termos.pendentes(ctx)]);
     const marca = ctx.marca ?? MARCA_PADRAO;
     return {
       usuario: { id: ctx.usuarioId, nome: ctx.nome, email: ctx.email },
@@ -142,6 +145,9 @@ export function criarServicoAuth(s: Servicos) {
       },
       empresas,
       duasEtapas: { ativa: ctx.duasEtapasAtiva, obrigatoria: ctx.duasEtapasObrigatoria, pendente: ctx.duasEtapasObrigatoria && !ctx.duasEtapasAtiva },
+      assinatura: ctx.assinatura,
+      termosPendentes,
+      plataformaAdmin: ehPlataformaAdmin(config, ctx.email),
     };
   }
 
@@ -250,7 +256,7 @@ export function criarServicoAuth(s: Servicos) {
 
   async function aceitarConvite(
     cliente: Cliente,
-    dados: { token: string; nome?: string; senha?: string },
+    dados: { token: string; nome?: string; senha?: string; aceite?: boolean },
   ): Promise<{ token: string }> {
     const senhaHash = dados.senha ? await gerarHashSenha(dados.senha) : null;
     return comoSistema(banco, async (tx) => {
@@ -264,6 +270,7 @@ export function criarServicoAuth(s: Servicos) {
       }
       await repo.ativarVinculo(tx, c.vinculoId);
       await repo.marcarTokenUsado(tx, c.token.id);
+      if (dados.aceite) await aceitarDocumentosDaPessoa(tx, usuarioId, cliente.ip);
 
       const o = origem(cliente, c.empresaId, usuarioId);
       await registrar(tx, o, { acao: "usuario.entrou", entidade: "usuario", entidadeId: usuarioId, responsavelId: usuarioId });
@@ -279,7 +286,17 @@ export function criarServicoAuth(s: Servicos) {
     });
   }
 
+  /** Entrada sem senha, só para empresas de demonstração (a rota confere a chave e a marca da empresa). */
+  async function entrarComo(cliente: Cliente, usuarioId: string, empresaId: string): Promise<{ token: string }> {
+    return comoSistema(banco, async (tx) => {
+      const token = await abrirSessao(tx, cliente, usuarioId, empresaId);
+      await auditar(tx, origem(cliente, empresaId, usuarioId), { acao: "demonstracao.entrou", entidade: "usuario", entidadeId: usuarioId });
+      return { token };
+    });
+  }
+
   return {
+    entrarComo,
     entrar,
     confirmarDuasEtapas,
     reenviarCodigo: duasEtapas.reenviarLogin,

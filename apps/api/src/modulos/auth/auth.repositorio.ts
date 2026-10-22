@@ -84,13 +84,13 @@ export function listarSessoesAtivas(tx: Tx, usuarioId: string, cursor: string | 
 
 export function inserirToken(
   tx: Tx,
-  dados: { tipo: "convite" | "recuperacao"; tokenHash: string; usuarioId: string; empresaId?: string | null; expiraEm: Date },
+  dados: { tipo: "convite" | "recuperacao" | "duas_etapas"; tokenHash: string; usuarioId: string; empresaId?: string | null; expiraEm: Date },
 ) {
   return tx.db.insert(tokenAcesso).values(dados);
 }
 
 /** Token válido (não usado, não vencido), travado até o fim da transação. */
-export function buscarTokenValido(tx: Tx, tipo: "convite" | "recuperacao", tokenHash: string) {
+export function buscarTokenValido(tx: Tx, tipo: "convite" | "recuperacao" | "duas_etapas", tokenHash: string) {
   return tx.db
     .select()
     .from(tokenAcesso)

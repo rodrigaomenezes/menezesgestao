@@ -17,6 +17,7 @@ import { registrar, type Origem } from "../auditoria/registro.js";
 import { publicar } from "../eventos/publicar.js";
 import { notificar } from "../notificacoes/notificar.js";
 import type { CanalProvedor, EstadoConexao, ProvedorMensagens } from "./provedores/tipos.js";
+import { exigirLimite } from "../cobranca/limites.js";
 
 export type RegistroProvedores = Record<ProvedorCanal, ProvedorMensagens>;
 type LinhaCanal = typeof canal.$inferSelect;
@@ -135,6 +136,7 @@ export function criarServicoCanais(s: Servicos, provedores: RegistroProvedores) 
   async function criar(ctx: ContextoEmpresa, origem: Origem, dados: { nome: string; provedor: ProvedorCanal; equipeId?: string | null; horario?: HorarioCanal }): Promise<CanalDto> {
     return comEmpresa(banco, ctx.empresaId, async (tx) => {
       await validarEquipe(tx, ctx.empresaId, dados.equipeId);
+      await exigirLimite(tx, ctx.empresaId, "canais");
       const [c] = await tx.db
         .insert(canal)
         .values({
@@ -158,6 +160,7 @@ export function criarServicoCanais(s: Servicos, provedores: RegistroProvedores) 
     }
     return comEmpresa(banco, ctx.empresaId, async (tx) => {
       await validarEquipe(tx, ctx.empresaId, dados.equipeId);
+      if (dados.arquivado === false && c0.arquivadoEm) await exigirLimite(tx, ctx.empresaId, "canais");
       const { arquivado, ...resto } = dados;
       const [c] = await tx.db
         .update(canal)

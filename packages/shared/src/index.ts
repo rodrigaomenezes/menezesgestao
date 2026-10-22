@@ -15,3 +15,8 @@ export * from "./vocabulario.js";
 export * from "./dto-whitelabel.js";
 export * from "./dto-seguranca.js";
 export * from "./dto-inicio.js";
+export * from "./dto-bre.js";
+export * from "./dto-cobranca.js";
+export * from "./dto-plataforma.js";
+export * from "./dto-demonstracao.js";
+export * from "./ajuda.js";

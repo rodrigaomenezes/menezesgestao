@@ -476,3 +476,159 @@ consulta só. Fonte servida pelo app (`@fontsource-variable`, só latim), no pre
 Padrão automático foi a escolha do analista: nenhuma tela nova para o administrador e o Início certo desde o
 primeiro acesso. Guardar só a ordem deixa o catálogo evoluir sem migração.
 
+# ADR-032 — Motor BRE dentro do menezesgestao, como módulo por plano
+
+## Decisão
+O motor BRE (ETR BRE-ETR-001 v0.2) roda só no menezesgestao; o sistema do Robson recebe apenas documentação de telas.
+Entra como módulo `bre` do catálogo (plano Completo), com permissões próprias. As listas fechadas da doutrina
+(estágios, estados do cliente, categorias de Break, temperatura, resultado, reentrada, encerramento) vivem no
+contrato (`@mg/shared/dto-bre.ts`) e em CHECK no banco; os números (dias, tentativas, horas, pós-venda) ficam em
+`bre_config` por empresa, com versão. O funil continua configurável: a etapa ganha `marco_bre` e o motor lê o marco,
+nunca o nome (DEC-012). Break tem registro próprio, com motivo configurável dentro da categoria fixa (DEC-013). O
+SQ-BRE vai reaproveitar a Qualidade (DEC-014). A IA chega na 8.2, atrás de interface, com Claude como provedor real.
+As regras ficam no servidor (serviço `modulos/bre`), nunca só no prompt.
+
+## Por quê
+O menezesgestao já tem multiempresa, WhatsApp, fila, tarefas, vendas e eventos: o motor só acrescenta regras. Marco
+na etapa preserva o princípio de "tudo é configuração" sem perder a doutrina; e a 8.1 sem IA deixa o processo ser
+validado antes da automação, como o próprio livro pede.
+
+# ADR-033 — SQ-BRE na Qualidade, BPI calculado na consulta e escalonamento que para a automação
+
+## Decisão
+O SQ-BRE mora no módulo Qualidade (rotas `/api/qualidade/sq-bre`, permissão de Qualidade) e só existe com o motor BRE
+ligado. Tabela própria `sq_bre`, com a prévia da IA e a nota confirmada lado a lado; uma prévia aberta por conversa.
+O BPI não tem tabela: é calculado na consulta a partir das vendas confirmadas, do funil (eventos de etapa), dos
+registros BRE, do SQ-BRE confirmado e das tarefas do motor (`tarefa.origem_bre`). Pilar sem dados sai do cálculo e os
+pesos dos demais são redistribuídos; a meta mensal de receita vale proporcional aos dias do período; quem não atendeu
+no período (dono, financeiro) fica fora. O coaching roda toda segunda (job) e grava `coaching_alerta` único por
+pessoa × pilar × semana. O escalonamento é único por cliente × situação enquanto aberto, avisa o responsável e o
+gestor da equipe e faz as automações ignorarem o envio de mensagem para o cliente.
+
+## Por quê
+Reaproveitar a Qualidade mantém um lugar só para avaliar atendimento, sem misturar a escala 0–10 dos critérios livres
+com os 5 pilares × 20 da doutrina. Calcular o BPI na hora evita números duplicados que divergem dos registros; se o
+volume pedir, o caminho é a visão materializada já prevista (item 25 da dívida).
+
+# ADR-034 — Campos de inteligência, concordância IA × equipe e LGPD nos testes
+
+## Decisão
+Os campos de inteligência do método BRE são campos personalizados do contato marcados (`inteligencia_bre`): cada
+empresa escolhe os seus (perfume favorito, curso de interesse…) sem código. Eles alimentam o "falta saber" do
+registro (FR-006) e a completude do pilar Inteligência; sem campos marcados, vale a regra anterior. A concordância
+IA × equipe (DEC-010) compara, na amostra mais recente da empresa, a sugestão da IA com o que a pessoa registrou
+(resultado, temperatura, categoria do Break) e a prévia do SQ-BRE com a nota confirmada (até 5 pontos); "liberado"
+exige amostra mínima, o percentual da empresa em todos os campos e nenhuma sugestão barrada pelas regras. Por
+decisão do analista, a conversa vai aberta para a IA nos primeiros testes; o envio mascarado entra antes do uso real.
+
+## Por quê
+Reaproveitar os campos personalizados mantém "tudo é configuração" e evita um segundo cadastro de campos. Medir
+contra o que a própria equipe registrou dá um número que o gestor entende e não depende de rotular conversas à parte.
+
+# ADR-035 — Automação BRE por modelo de texto, travada pela concordância
+
+## Decisão
+A Fase 4 da ETR entra como automações por modelo de texto da empresa (`bre_automacao`): pós-venda D+N, aniversário
+(campo de data escolhido) e reentrada combinada do dia. Não usam IA. Ligar exige o painel IA × equipe liberado
+(DEC-010), e a liberação é conferida de novo a cada execução: se a concordância cair, nada sai. Cada candidato passa
+pelas mesmas travas do registro (`bloqueioDeTentativa`), por "não contatar", escalonamento aberto, cadastro arquivado
+ou anonimizado e telefone. `bre_automacao_execucao` é única por automação × cliente × referência (venda, ano ou
+reentrada) e guarda o motivo do pulo no vocabulário da empresa. Rotina diária às 09:17 (fuso de São Paulo) e "Rodar
+agora" para o administrador.
+
+## Por quê
+A doutrina só automatiza o que não exige julgamento (lembretes, aniversários, confirmação de entrega). Amarrar à
+concordância mantém a ordem que o livro pede — validar o processo antes de escalar — e a trava em cada execução
+impede que uma piora passe despercebida.
+
+# ADR-036 — IA do motor BRE pela fila de jobs e BPI guardado
+
+## Decisão
+Os pedidos à IA (sugestão do registro e prévia do SQ-BRE) entram na fila de jobs (`bre.ia`): a rota valida,
+grava a análise "processando" e devolve 202; o trabalhador chama a IA fora de transação, aplica as regras e grava o
+resultado com tempo e tokens, avisando quem pediu em tempo real. Recusa ou resposta fora do contrato viram "falhou"
+com o motivo; erro passageiro volta para a fila (até 3 tentativas); pedido parado há mais de 10 minutos é lido como
+falha. Prévia que falhou não trava a avaliação: o supervisor dá a nota mesmo assim. Cada empresa tem limite de pedidos
+por hora (`limiteIaPorHora`, padrão 300). O BPI do mês fica em `bre_bpi` (cache por empresa × mês × pessoa, com a
+posição na empresa): recalculado de hora em hora, quando tem mais de 10 minutos, a pedido ("Recalcular agora") ou
+logo depois de uma ação do motor que muda pilar (registro, nota SQ-BRE). A leitura é paginada pela posição e filtrada
+pelo escopo. O mascaramento para a IA passa a cobrir também o nome do cliente e endereços.
+
+## Por quê
+Uma chamada de IA pode levar segundos ou falhar; segurar a requisição HTTP e a transação por esse tempo derruba a
+experiência e o banco. O cache do BPI é descartável (sempre recalculável das fontes) e tira o cálculo pesado do
+caminho de cada abertura de tela.
+
+# ADR-037 — Catálogo com categoria e estoque; mensagem modelo nas automações
+
+## Decisão
+O item do catálogo (`oferta`) ganha `categoria`, `estoque` (vazio = não controla) e `lancamento_em`. A venda
+confirmada baixa uma unidade e o cancelamento de uma venda confirmada devolve (nunca abaixo de zero). As automações
+do BRE ganham "lançamento compatível" e "alerta de estoque", em que **compatível = já comprou outro item da mesma
+categoria** (comparação sem maiúsculas). A automação pode sair como **mensagem modelo** aprovada na Meta: guarda o
+nome, o idioma e a ordem das variáveis; cada mensagem grava `mensagem.modelo` com os parâmetros já preenchidos e o
+texto como prévia. O provedor recebe o conteúdo `modelo`: a API oficial manda `template`; QR e demonstração mandam o
+texto. Venda e troca de etapa marcam o BPI guardado para recalcular.
+
+## Por quê
+Categoria é configuração da empresa (sem regra de cliente no código) e basta para o "compatível" do livro sem criar
+cadastro de preferências agora. Mensagem modelo é o único caminho da API oficial fora da janela de 24 h; guardar a
+prévia mantém a conversa legível em qualquer provedor.
+
+# ADR-038 — Cobrança dos clientes pelo provedor da própria empresa
+
+## Decisão
+Cada empresa conecta o provedor de cobrança dela (`conta_cobranca`, uma por empresa): a chave é testada no provedor,
+guardada cifrada (AES-256-GCM, `CRM_CHAVE`) e só os 4 últimos caracteres voltam para a tela. A cobrança nasce da
+venda aguardando pagamento (Pix, boleto ou link; uma em aberto por venda), é criada no provedor fora da transação e o
+dinheiro cai na conta da empresa. O aviso do provedor chega em `/api/webhooks/cobranca/:empresaId` com o token da
+conta no cabeçalho (comparação em tempo constante); cada aviso é gravado em `cobranca_aviso` e processado uma vez só.
+Pagamento confirmado **confirma a venda sozinho** (estoque, evento `venda.confirmada`, BPI), como a confirmação manual.
+Primeiro provedor real: Asaas (sandbox e produção); a demonstração simula o pagamento pelo mesmo caminho do aviso.
+Fica num módulo próprio (`recebimentos`), separado da assinatura da empresa na plataforma (`modulos/cobranca`).
+
+## Por quê
+O dinheiro é do cliente da plataforma, não nosso: cada empresa usa o próprio agente financeiro. Interface por
+provedor deixa somar Mercado Pago, Pagar.me ou Stripe sem mexer em vendas. Idempotência por evento porque provedores
+reenviam avisos.
+
+# ADR-039 — Pronto para vender: bloqueio gradual, limites por plano, painel da plataforma e termos versionados
+
+## Decisão
+- **Preço por empresa, plano fixo** (decisão do analista), com limites no catálogo (`LIMITES_PLANOS` em `@mg/shared`):
+  pessoas, canais e armazenamento, conferidos no servidor na transação que cria o recurso, com trava da linha da empresa.
+  Uso calculado na hora (consultas indexadas por empresa), sem tabela de contadores: evita cache que desatualiza.
+  Mídia recebida do cliente não conta para o bloqueio (nunca perder mensagem de cliente).
+- **Bloqueio gradual**: a situação da assinatura entra no contexto da sessão (mesma consulta); regra única
+  `ficaSomenteLeitura` (atraso > 7 dias, cancelada ou suspensa) usada no servidor e na tela. Bloqueio = gravação
+  recusada (`ASSINATURA_SO_LEITURA`); rotas de pagar e trocar de plano marcadas `liberadaNoBloqueio`. Nada é apagado.
+- **Painel da plataforma** sem novo papel no banco: lista de e-mails em `PLATAFORMA_ADMINS`, checada em toda rota;
+  ações auditadas na empresa alvo. Suspensa não volta a ativa sozinha ao pagar.
+- **Documentos legais** versionados no código (`VERSOES_DOCUMENTOS`), textos como módulo TS (vão no build);
+  aceite em `termo_aceite` (só caminho do sistema, imutável): termos e privacidade por pessoa, contrato de dados pela
+  empresa (quem administra). Exigência na tela (portão), não em cada rota: aceite não é permissão.
+- **Ajuda própria** (artigos em `@mg/shared`, sem servidor) e **status** público a partir das mesmas checagens da saúde.
+- **Redefinir duas etapas**: token `duas_etapas` por e-mail; só a confirmação da pessoa desliga (o administrador
+  nunca desliga a segurança de outro sozinho).
+- **Provedor da assinatura**: continua a demonstração atrás da interface (analista decide depois).
+
+## Por quê
+Vender exige cobrar sem perder o cliente por atraso curto e sem apagar dados; limites e painel dão controle comercial
+sem regra de cliente no código; termos versionados dão prova de aceite exigida pela LGPD.
+
+# ADR-040 — Demonstração com empresas de exemplo geradas, antes do login
+
+## Decisão
+Uma tela aberta (`/demonstracao`), ligada só quando o servidor tem `DEMONSTRACAO_CHAVE` (sem a variável: 404; vale
+também em produção, por decisão do analista). A chave digitada vira um cookie httpOnly com validade e HMAC da própria
+chave (trocar a chave derruba os acessos; nada de segredo no navegador). Cada segmento gera, pela fila de jobs, uma
+**empresa separada** marcada `empresa.demonstracao`: o segmento é aplicado pela mesma função do assistente e o
+movimento (90 dias, ~300 contatos) é inserido direto em lote numa transação, gravando também os **eventos** que o
+sistema gravaria — os painéis leem eventos, então metas, mapa, ranking e BPI aparecem cheios sem código especial.
+O sorteio tem semente por segmento (o mesmo exemplo sai igual), datas no fuso de São Paulo e em horário comercial.
+Entrar com um clique (dono, gestor, vendedor, financeiro) só existe para empresa marcada como demonstração; elas ficam
+fora do painel da plataforma e sem assinatura (sem cobrança e sem bloqueio).
+
+## Por quê
+Apresentar o produto com telas vivas e coerentes por ramo, sem tocar em dados reais e sem senha de exemplo no código.
+Gerar pelo banco (em vez de chamar cada serviço) leva ~2 s por empresa; os eventos mantêm a mesma fonte da verdade.

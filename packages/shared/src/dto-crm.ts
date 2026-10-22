@@ -2,6 +2,7 @@
 // campos personalizados, histórico e importação.
 import { z } from "zod";
 import { DataIso, FiltroLista, Id, IdOpcional, Paginacao } from "./dto.js";
+import { CODIGOS_MARCOS } from "./dto-bre.js";
 
 const texto = (max: number, rotulo: string) =>
   z.string().trim().min(1, { error: `${rotulo}: preencha.` }).max(max, { error: `${rotulo}: no máximo ${max} caracteres.` });
@@ -29,6 +30,8 @@ export const CampoPersonalizadoDto = z.object({
   tipo: z.enum(TIPOS_CAMPO),
   opcoes: z.array(z.string()),
   obrigatorio: z.boolean(),
+  /** Conta como inteligência do método BRE (completude do CRM e "o que falta saber"). */
+  inteligenciaBre: z.boolean(),
   ordem: z.number().int(),
   arquivadoEm: DataIso.nullable(),
 });
@@ -44,6 +47,7 @@ export const CampoPersonalizadoEntrada = z.object({
   tipo: z.enum(TIPOS_CAMPO),
   opcoes: z.array(z.string().trim().min(1).max(80)).max(50).default([]),
   obrigatorio: z.boolean().default(false),
+  inteligenciaBre: z.boolean().default(false),
   ordem: z.number().int().min(0).max(1000).default(0),
 });
 export const AtualizarCampoEntrada = CampoPersonalizadoEntrada.omit({ entidade: true, chave: true, tipo: true }).partial();
@@ -70,6 +74,8 @@ export const EtapaDto = z.object({
   probabilidade: z.number().int(),
   tipo: z.enum(TIPOS_ETAPA),
   camposObrigatorios: z.array(z.string()),
+  /** Marco BRE da etapa (DEC-012); null = o motor BRE ignora a etapa. */
+  marcoBre: z.enum(CODIGOS_MARCOS).nullable(),
   arquivadoEm: DataIso.nullable(),
 });
 export type EtapaDto = z.infer<typeof EtapaDto>;
@@ -81,6 +87,7 @@ export const EtapaEntrada = z.object({
   probabilidade: z.number().int().min(0, { error: "A probabilidade vai de 0 a 100." }).max(100, { error: "A probabilidade vai de 0 a 100." }).default(0),
   tipo: z.enum(TIPOS_ETAPA).default("aberta"),
   camposObrigatorios: z.array(z.string().max(40)).max(30).default([]),
+  marcoBre: z.enum(CODIGOS_MARCOS).nullable().default(null),
 });
 export const AtualizarEtapaEntrada = EtapaEntrada.omit({ funilId: true }).partial();
 
@@ -189,6 +196,8 @@ export const OportunidadeDto = z.object({
   criadoEm: DataIso,
   atualizadoEm: DataIso,
   arquivadoEm: DataIso.nullable(),
+  /** Encerramento guiado pelo método BRE (critério e data), quando houve. */
+  encerradaBre: z.object({ criterio: z.string(), em: DataIso }).nullable(),
 });
 export type OportunidadeDto = z.infer<typeof OportunidadeDto>;
 

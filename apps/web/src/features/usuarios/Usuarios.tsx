@@ -13,7 +13,7 @@ import {
   usePaginado,
 } from "../../ui/ui";
 import { useAviso, useConfirmar } from "../../ui/sobreposicoes";
-import { useSessao } from "../../app/sessao";
+import { useEu, useSessao } from "../../app/sessao";
 import { useTempoReal } from "../../app/tempo-real";
 
 interface Usuario {
@@ -85,6 +85,15 @@ function LinhaUsuario({ u, opcoes, aoMudar }: { u: Usuario; opcoes: Opcoes; aoMu
   const confirmar = useConfirmar();
   const avisar = useAviso();
   const [editando, setEditando] = useState(false);
+  const [redefinindo, setRedefinindo] = useState(false);
+  const [motivo, setMotivo] = useState("");
+  const eu = useEu();
+  const redefinir = useEnvio(async () => {
+    await post(`/usuarios/${u.id}/redefinir-duas-etapas`, { motivo });
+    setRedefinindo(false);
+    setMotivo("");
+    avisar(`Pedido enviado para o e-mail de ${u.nome}. Nada muda até a pessoa confirmar.`);
+  });
   const [perfilId, setPerfilId] = useState(u.perfilId);
   const [unidadeId, setUnidadeId] = useState(u.unidadeId ?? "");
   const [equipeId, setEquipeId] = useState(u.equipeId ?? "");
@@ -130,6 +139,11 @@ function LinhaUsuario({ u, opcoes, aoMudar }: { u: Usuario; opcoes: Opcoes; aoMu
             {editando ? "Fechar" : "Editar"}
           </button>
         )}
+        {pode("usuarios", "editar") && !u.arquivadoEm && u.usuarioId !== eu.usuario.id && u.status === "ativo" && (
+          <button type="button" className="botao botao-secundario" onClick={() => setRedefinindo((v) => !v)}>
+            Redefinir duas etapas
+          </button>
+        )}
         {pode("usuarios", "arquivar") && (
           <button type="button" className="botao botao-secundario" disabled={arquivar.enviando} onClick={() => void arquivar.enviar()}>
             {u.arquivadoEm ? "Restaurar" : "Arquivar"}
@@ -137,6 +151,16 @@ function LinhaUsuario({ u, opcoes, aoMudar }: { u: Usuario; opcoes: Opcoes; aoMu
         )}
       </div>
       <Mensagem tipo="erro">{arquivar.erro}</Mensagem>
+      {redefinindo && (
+        <form className="item-edicao" onSubmit={redefinir.enviar} aria-label={`Redefinir duas etapas de ${u.nome}`}>
+          <p className="dica">Para quem perdeu o celular. A pessoa recebe um e-mail e só ela confirma; depois configura de novo.</p>
+          <Campo rotulo="Motivo" nome={`motivo-2e-${u.id}`} valor={motivo} aoMudar={setMotivo} obrigatorio />
+          <Mensagem tipo="erro">{redefinir.erro}</Mensagem>
+          <button type="submit" className="botao" disabled={redefinir.enviando}>
+            Enviar pedido
+          </button>
+        </form>
+      )}
       {editando && (
         <form className="item-edicao" onSubmit={salvar.enviar}>
           <div className="grade-campos">

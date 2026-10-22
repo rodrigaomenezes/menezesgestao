@@ -5,7 +5,7 @@ import { abrirMenu, dados, entrar, pessoa, semRolagemLateral } from "./apoio.js"
 
 const PROJETOS = ["celular-360", "celular-390", "tablet-768", "notebook-1024", "computador-1440"];
 
-async function api<T = { id: string }>(page: Page, metodo: "GET" | "POST" | "PATCH", url: string, data?: unknown): Promise<{ status: number; json: T }> {
+async function api<T = { id: string }>(page: Page, metodo: "GET" | "POST" | "PATCH" | "PUT", url: string, data?: unknown): Promise<{ status: number; json: T }> {
   const csrf = (await page.context().cookies()).find((c) => c.name === "mg_csrf")?.value ?? "";
   const r = await page.request.fetch(url, { method: metodo, headers: { "x-csrf-token": csrf }, data });
   return { status: r.status(), json: (await r.json()) as T };
@@ -139,4 +139,42 @@ test("telas de vendas, comissões, catálogo, qualidade e pesquisas cabem na lar
     await expect(page.getByRole("heading", { name: item, level: 1 })).toBeVisible();
     await semRolagemLateral(page);
   }
+});
+
+test("catálogo: item com categoria, estoque e lançamento aparece na lista", async ({ page }, info) => {
+  const { a } = dados();
+  await entrar(page, pessoa(a, "dono").email);
+  await page.goto("/catalogo");
+  await page.getByRole("button", { name: "Cadastrar oferta" }).click();
+  const form = page.getByRole("form", { name: "Cadastrar oferta" });
+  const nome = `Kit ${info.project.name}`;
+  await form.getByLabel("Nome").fill(nome);
+  await form.getByLabel("Categoria (opcional)").fill("Perfumaria");
+  await form.getByLabel("Estoque (opcional)").fill("5");
+  await form.getByLabel("Lançamento em (opcional)").fill("2026-12-01");
+  await form.getByRole("button", { name: "Criar" }).click();
+  const item = page.locator("li.item", { hasText: nome });
+  await expect(item).toContainText("Perfumaria · 5 em estoque · lança em 01/12/2026");
+  await semRolagemLateral(page);
+});
+
+test("cobrança: conta de demonstração, Pix gerado e pagamento simulado confirmam a venda", async ({ page }, info) => {
+  const k = PROJETOS.indexOf(info.project.name) + 1;
+  const { a } = dados();
+  await entrar(page, pessoa(a, "dono").email);
+  await api(page, "PUT", "/api/cobranca/conta", { provedor: "demonstracao" });
+  const contato = await api(page, "POST", "/api/contatos", { nome: `Pagante ${info.project.name}`, telefone: telefone(k, "555") });
+  const oferta = await api(page, "POST", "/api/ofertas", { nome: `Mentoria ${info.project.name}` });
+  await api(page, "POST", "/api/vendas", { contatoId: contato.json.id, ofertaId: oferta.json.id, valorCentavos: 4321, formaPagamento: "pix" });
+
+  await page.goto("/vendas");
+  await expect(page.getByRole("region", { name: "Conta de cobrança" })).toBeVisible();
+  const item = page.locator("li.item", { hasText: `Mentoria ${info.project.name}` });
+  await item.getByRole("button", { name: "Cobrança", exact: true }).click();
+  await item.getByRole("button", { name: "Gerar cobrança" }).click();
+  await item.getByRole("form", { name: "Gerar cobrança" }).getByRole("button", { name: "Gerar" }).click();
+  await expect(item.getByRole("button", { name: "Copiar Pix" })).toBeVisible();
+  await semRolagemLateral(page);
+  await item.getByRole("button", { name: "Simular pagamento" }).click();
+  await expect(item).toContainText("Confirmada");
 });

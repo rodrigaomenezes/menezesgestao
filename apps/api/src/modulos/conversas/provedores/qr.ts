@@ -112,7 +112,8 @@ export function interpretarMensagemQr(m: WAMessage): EventoEntrada | null {
 const STATUS_QR: Record<number, "enviada" | "entregue" | "lida" | "falhou"> = { 0: "falhou", 2: "enviada", 3: "entregue", 4: "lida", 5: "lida" };
 
 function conteudoBaileys(conteudo: ConteudoSaida) {
-  if (conteudo.tipo === "texto") return { text: conteudo.texto };
+  // Modelo é coisa da API oficial: pelo QR vai a prévia como texto comum.
+  if (conteudo.tipo === "texto" || conteudo.tipo === "modelo") return { text: conteudo.texto };
   if (conteudo.tipo === "audio") {
     return { audio: conteudo.midia.conteudo, mimetype: conteudo.voz ? "audio/ogg; codecs=opus" : conteudo.midia.mime, ptt: conteudo.voz };
   }

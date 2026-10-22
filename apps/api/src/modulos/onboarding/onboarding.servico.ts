@@ -13,6 +13,7 @@ import { auditar, registrar, type Origem } from "../auditoria/registro.js";
 import { criarServicoCobranca } from "../cobranca/cobranca.servico.js";
 import { criarEmpresa } from "../empresas/criar-empresa.js";
 import { hojeNoFuso } from "../operacao/comum.js";
+import { aceitarNoCadastro } from "../termos/termos.servico.js";
 
 const CORES_ETAPA = { aberta: ["#5b6470", "#1f5fbf", "#7a3fbf", "#e07a1f", "#0f766e"], ganha: "#1e6b34", perdida: "#b3261e" };
 const EXEMPLOS = [
@@ -52,6 +53,7 @@ export function criarServicoOnboarding(s: Servicos) {
       const criada = await criarEmpresa(tx, origem, { nome: d.empresa, plano: "completo", assistente: true });
       await tx.db.insert(vinculo).values({ empresaId: criada.empresaId, usuarioId: u.id, perfilId: criada.perfis.dono, unidadeId: criada.unidadeId, status: "ativo" });
       await cobranca.iniciarTeste(tx, criada.empresaId, "completo", hojeNoFuso("America/Sao_Paulo"));
+      await aceitarNoCadastro(tx, u.id, criada.empresaId, origemBase.ip);
       await auditar(tx, { ...origem, empresaId: criada.empresaId }, { acao: "empresa.cadastrada", entidade: "empresa", entidadeId: criada.empresaId, depois: { nome: d.empresa, email: d.email } });
     });
   }

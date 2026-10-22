@@ -241,6 +241,9 @@ export function criarServicoAutomacoes(s: Servicos, envio: ServicoEnvio | null) 
         if (!envio) throw new Ignorar("Mensagens indisponíveis.");
         if (!ct?.telefone || ct.arquivadoEm) throw new Ignorar("{Contato} sem telefone.");
         if (ct.naoContatar) throw new Ignorar("{Contato} pediu para não ser contatad{o|a:contato} (LGPD).");
+        // BR-017: com escalonamento aberto, quem responde é uma pessoa — nenhuma mensagem automática sai.
+        const escalado = await tx.cliente.query("SELECT 1 FROM escalonamento WHERE empresa_id = $1 AND contato_id = $2 AND status = 'aberto' LIMIT 1", [ev.empresa_id, ct.id]);
+        if (escalado.rowCount) throw new Ignorar("{Contato} está com uma pessoa (escalonamento aberto).");
         const [cn] = await tx.db.select().from(canal).where(and(eq(canal.id, String(p.canalId)), isNull(canal.arquivadoEm)));
         if (!cn) throw new Ignorar("O canal não existe mais.");
         let [c] = await tx.db

@@ -133,6 +133,38 @@ tests/      integration/ (Vitest + PostgreSQL real), e2e/ (Playwright, 5 largura
   (`dados`/`antes`/`depois`) com `app.lgpd_redacao` ligado na transação do sistema (ADR-027).
 - Push: `notificacao.entregue_em` (chegou a uma tela aberta pelo tempo real) e `push_em` (já processada);
   `so_celular` para avisos de ligação.
+- Motor BRE (ADR-032): `etapa.marco_bre` liga o funil configurável aos estágios da doutrina; `contato.estado_bre`
+  é recalculado todo dia por job a partir das vendas confirmadas; `ciclo_contato` tem no máximo um aberto por
+  cliente (índice único parcial); `registro_bre`, `break_bre` e `reentrada` guardam o registro de 30 s, a Regra de
+  Ouro e o retorno combinado. Os limites de cada empresa ficam em `bre_config` (versão + auditoria). Os bloqueios
+  da fila do dia e do registro são as mesmas regras, em SQL para a lista e em código para o registro.
+  Na 8.2: `analise_bre` (o que a IA sugeriu e o que o motor descartou), `sq_bre` (prévia e nota confirmada lado a
+  lado), `escalonamento` (um aberto por cliente × situação), `coaching_alerta` (um por pessoa × pilar × semana) e
+  `tarefa.origem_bre`. O BPI não tem tabela: sai dessas fontes na consulta (ADR-033).
+  Na 8.3: `campo_personalizado.inteligencia_bre` marca os campos de inteligência (ADR-034); a concordância IA ×
+  equipe é calculada na consulta, juntando cada registro à última análise da mesma conversa.
+  Na 8.4: `bre_automacao` (modelo de texto, canal, dias ou campo) e `bre_automacao_execucao` (única por automação ×
+  cliente × referência). O envio usa o mesmo serviço de saída das conversas (fila de jobs) (ADR-035).
+  Na 8.5: pedidos à IA pela fila `bre.ia` (`analise_bre.status` processando/pronta/falhou, `ms`, `tokens_*`; `sq_bre`
+  com prévia que pode faltar) e o BPI guardado em `bre_bpi` (cache por empresa × mês × pessoa) (ADR-036).
+  Depois da 8.5: `oferta.categoria/estoque/lancamento_em`; `bre_automacao` com `LANCAMENTO`/`ESTOQUE`,
+  `limite_estoque` e `modelo_*`; `mensagem.modelo` (nome, idioma, parâmetros já preenchidos) vira o conteúdo
+  `modelo` do provedor — template na API oficial, texto no QR e na demonstração (ADR-037). Venda e troca de etapa
+  também marcam o BPI guardado para recalcular.
+  Na 8.6 (`modulos/recebimentos`, migração 0018): `conta_cobranca` (uma por empresa; credenciais e token do webhook
+  cifrados com `CRM_CHAVE`), `cobranca` (uma em aberto por venda) e `cobranca_aviso` (cada aviso do provedor uma vez
+  só). Provedores atrás de `ProvedorRecebimento` (demonstração, Asaas). Webhook `POST /api/webhooks/cobranca/:empresaId`
+  com token no cabeçalho. Diferente de `modulos/cobranca`, que é a assinatura da empresa na plataforma (ADR-038).
+- Fase 9 (migração 0019, ADR-039): o contexto da sessão traz a situação da assinatura (status, dias de atraso, só
+  consulta) e o `preValidation` recusa gravação quando só consulta (rotas `liberadaNoBloqueio` passam). Limites em
+  `modulos/cobranca/limites.ts` (`exigirLimite`, chamado em convites, restaurar pessoa, canais e arquivos).
+  `modulos/plataforma` (painel, só `PLATAFORMA_ADMINS`), `modulos/termos` (documentos, aceite em `termo_aceite`,
+  suporte e status públicos). Na tela: faixa `AvisoAssinatura` na casca, portão de aceite em `main.tsx`, ajuda em
+  `@mg/shared/ajuda.ts`.
+- Demonstração (migração 0020, ADR-040): `modulos/demonstracao` — `roteiros.ts` (conteúdo por segmento),
+  `aleatorio.ts` (sorteio com semente), `gerador.ts` (empresa + segmento pela função do assistente + 90 dias de
+  movimento numa transação, com os eventos que alimentam metas, mapa, ranking e BPI), fila `demonstracao.gerar`,
+  tabela `demonstracao` (pedidos) e `empresa.demonstracao`. Acesso por cookie httpOnly assinado com a chave.
 - Campos personalizados: definição em `campo_personalizado`, valores em `campos jsonb` validados pelo serviço.
 - Sessões e tokens guardam só o HMAC (`SESSION_SECRET`); conteúdo sensível de jobs vai cifrado (`CRM_CHAVE`).
 

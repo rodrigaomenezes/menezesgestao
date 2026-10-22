@@ -24,13 +24,14 @@ export const BLOCOS_INICIO = [
   { id: "ranking", nome: "Ranking da equipe", descricao: "Quem está liderando o mês", exige: [["desempenho", "ver"]] },
   { id: "comissao", nome: "Comissão do mês", descricao: "Prévia do que já foi confirmado", exige: [["vendas", "ver"]] },
   { id: "avisos", nome: "Avisos", descricao: "Notificações que você ainda não leu", exige: [] },
+  { id: "bre", nome: "Fila do dia (BRE)", descricao: "Quem pode ser contatado hoje pelo método", exige: [["bre", "ver"]] },
 ] as const satisfies readonly BlocoInicio[];
 
 export type BlocoInicioId = (typeof BLOCOS_INICIO)[number]["id"];
 export const IDS_BLOCOS_INICIO = BLOCOS_INICIO.map((b) => b.id) as [BlocoInicioId, ...BlocoInicioId[]];
 
 /** Ordem pensada para quem atende (o padrão), para quem gere e para quem confere números. */
-const ORDEM_ATENDIMENTO: BlocoInicioId[] = ["atalhos", "conversas", "metas", "agenda", "retornos", "tarefas", "checklist", "ponto", "avisos"];
+const ORDEM_ATENDIMENTO: BlocoInicioId[] = ["atalhos", "conversas", "metas", "bre", "agenda", "retornos", "tarefas", "checklist", "ponto", "avisos"];
 const ORDEM_GESTAO: BlocoInicioId[] = ["atalhos", "ranking", "metas", "funil", "conversas", "agenda", "tarefas", "checklist", "ponto", "avisos"];
 const ORDEM_FINANCEIRO: BlocoInicioId[] = ["atalhos", "comissao", "ranking", "avisos"];
 

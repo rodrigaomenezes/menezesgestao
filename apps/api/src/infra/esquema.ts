@@ -1,5 +1,6 @@
 // Espelho em Drizzle das tabelas criadas em migracoes/*.sql (as migrações SQL são a fonte da verdade).
 import { bigint, boolean, customType, date, integer, jsonb, numeric, pgTable, primaryKey, smallint, text, time, timestamp, uuid } from "drizzle-orm/pg-core";
+import type { MarcoBre } from "@mg/shared";
 
 const ts = (nome: string) => timestamp(nome, { withTimezone: true, precision: 3 });
 const criadoEm = () => ts("criado_em").notNull().defaultNow();
@@ -18,6 +19,7 @@ export const empresa = pgTable("empresa", {
   onboarding: jsonb("onboarding").$type<{ passo?: number; segmento?: string; concluidoEm?: string }>().notNull().default({}),
   exigirDuasEtapas: text("exigir_duas_etapas").$type<"nao" | "admins" | "todos">().notNull().default("nao"),
   retencao: jsonb("retencao").$type<{ mensagensMeses?: number | null; arquivadosMeses?: number | null }>().notNull().default({}),
+  demonstracao: boolean("demonstracao").notNull().default(false),
   criadoEm: criadoEm(),
   atualizadoEm: atualizadoEm(),
   arquivadoEm: ts("arquivado_em"),
@@ -116,7 +118,7 @@ export const sessao = pgTable("sessao", {
 
 export const tokenAcesso = pgTable("token_acesso", {
   id: uuid("id").primaryKey().defaultRandom(),
-  tipo: text("tipo").$type<"convite" | "recuperacao">().notNull(),
+  tipo: text("tipo").$type<"convite" | "recuperacao" | "duas_etapas">().notNull(),
   tokenHash: text("token_hash").notNull(),
   usuarioId: uuid("usuario_id").notNull(),
   empresaId: uuid("empresa_id"),
@@ -230,6 +232,7 @@ export const campoPersonalizado = pgTable("campo_personalizado", {
   tipo: text("tipo").$type<"texto" | "numero" | "data" | "lista" | "sim_nao">().notNull(),
   opcoes: jsonb("opcoes").$type<string[]>().notNull().default([]),
   obrigatorio: boolean("obrigatorio").notNull().default(false),
+  inteligenciaBre: boolean("inteligencia_bre").notNull().default(false),
   ordem: integer("ordem").notNull().default(0),
   criadoPor: uuid("criado_por"),
   criadoEm: criadoEm(),
@@ -269,6 +272,7 @@ export const etapa = pgTable("etapa", {
   probabilidade: integer("probabilidade").notNull().default(0),
   tipo: text("tipo").$type<"aberta" | "ganha" | "perdida">().notNull().default("aberta"),
   camposObrigatorios: jsonb("campos_obrigatorios").$type<string[]>().notNull().default([]),
+  marcoBre: text("marco_bre").$type<MarcoBre>(),
   criadoEm: criadoEm(),
   atualizadoEm: atualizadoEm(),
   arquivadoEm: ts("arquivado_em"),
@@ -332,6 +336,7 @@ export const oportunidade = pgTable("oportunidade", {
   criadoPor: uuid("criado_por"),
   criadoEm: criadoEm(),
   atualizadoEm: atualizadoEm(),
+  encerramentoBre: jsonb("encerramento_bre").$type<{ criterio: string; em: string }>(),
   arquivadoEm: ts("arquivado_em"),
 });
 
@@ -473,6 +478,7 @@ export const mensagem = pgTable("mensagem", {
   idExterno: text("id_externo"),
   autorId: uuid("autor_id"),
   automacao: text("automacao"),
+  modelo: jsonb("modelo").$type<{ nome: string; idioma: string; parametros: string[] } | null>(),
   criadoEm: criadoEm(),
   atualizadoEm: atualizadoEm(),
 });
@@ -771,6 +777,9 @@ export const oferta = pgTable("oferta", {
   nome: text("nome").notNull(),
   descricao: text("descricao"),
   precoCentavos: bigint("preco_centavos", { mode: "number" }),
+  categoria: text("categoria"),
+  estoque: integer("estoque"),
+  lancamentoEm: date("lancamento_em"),
   criadoPor: uuid("criado_por"),
   criadoEm: criadoEm(),
   atualizadoEm: atualizadoEm(),
@@ -965,7 +974,7 @@ export const automacaoExecucao = pgTable("automacao_execucao", {
   criadoEm: criadoEm(),
 });
 
-export type StatusAssinatura = "teste" | "ativa" | "atrasada" | "cancelada";
+export type StatusAssinatura = "teste" | "ativa" | "atrasada" | "cancelada" | "suspensa";
 
 export const assinatura = pgTable("assinatura", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -977,6 +986,7 @@ export const assinatura = pgTable("assinatura", {
   idExterno: text("id_externo"),
   testeAte: date("teste_ate", { mode: "string" }),
   proximaCobranca: date("proxima_cobranca", { mode: "string" }),
+  motivoSuspensao: text("motivo_suspensao"),
   criadoEm: criadoEm(),
   atualizadoEm: atualizadoEm(),
 });

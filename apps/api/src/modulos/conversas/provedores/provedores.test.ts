@@ -60,6 +60,26 @@ describe("API oficial", () => {
     expect(JSON.parse(chamadas[0].init?.body as string)).toMatchObject({ to: "5511988887777", type: "text", text: { body: "olá" } });
   });
 
+  it("mensagem modelo vai como template aprovado, com as variáveis na ordem", async () => {
+    const corpos: unknown[] = [];
+    const falso = (async (_url: string, init?: RequestInit) => {
+      corpos.push(JSON.parse(init?.body as string));
+      return new Response(JSON.stringify({ messages: [{ id: "wamid.M" }] }), { status: 200 });
+    }) as typeof fetch;
+    const p = provedorCloudApi({ fetch: falso });
+    await p.enviar(canalCloud, { telefone: "+5511988887777", idExterno: null }, { tipo: "modelo", nome: "pos_venda", idioma: "pt_BR", parametros: ["Ana", ""], texto: "Oi Ana" });
+    expect(corpos[0]).toMatchObject({
+      type: "template",
+      template: { name: "pos_venda", language: { code: "pt_BR" }, components: [{ type: "body", parameters: [{ type: "text", text: "Ana" }, { type: "text", text: "-" }] }] },
+    });
+    const semModelo = (async () => new Response(JSON.stringify({ error: { code: 132001 } }), { status: 404 })) as unknown as typeof fetch;
+    const erro = await provedorCloudApi({ fetch: semModelo })
+      .enviar(canalCloud, { telefone: "+5511988887777", idExterno: null }, { tipo: "modelo", nome: "x", idioma: "pt_BR", parametros: [], texto: "x" })
+      .catch((e: unknown) => e);
+    expect((erro as ErroProvedor).temporario).toBe(false);
+    expect((erro as ErroProvedor).message).toMatch(/não encontrou esse modelo/);
+  });
+
   it("fora da janela de 24 h é erro definitivo, com mensagem clara", async () => {
     const falso = (async () => new Response(JSON.stringify({ error: { code: 131047, message: "Re-engagement message" } }), { status: 400 })) as unknown as typeof fetch;
     const p = provedorCloudApi({ fetch: falso });

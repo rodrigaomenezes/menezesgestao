@@ -10,6 +10,7 @@ import type { Servicos } from "../../app.js";
 import type { ContextoEmpresa } from "../acesso/acesso.js";
 import { registrar, type Origem } from "../auditoria/registro.js";
 import { fusoDe, hojeNoFuso, somarDias } from "../operacao/comum.js";
+import { usoDoPlano } from "./limites.js";
 
 export interface ProvedorCobranca {
   readonly id: string;
@@ -62,6 +63,7 @@ export function criarServicoCobranca(s: Servicos, provedor: ProvedorCobranca = p
         testeAte: a?.testeAte ?? null,
         proximaCobranca: a?.proximaCobranca ?? null,
         modulos: e?.modulos ?? [],
+        uso: await usoDoPlano(tx, ctx.empresaId),
         faturas: faturas.map((f) => ({ id: f.id, plano: f.plano, valorCentavos: f.valorCentavos, vencimento: f.vencimento, status: f.status, link: f.link, pagaEm: iso(f.pagaEm) })),
       };
     });
@@ -70,20 +72,25 @@ export function criarServicoCobranca(s: Servicos, provedor: ProvedorCobranca = p
   /** Trocar de plano liga/desliga módulos (desligar esconde, nunca apaga dados) e ajusta o valor da assinatura. */
   async function trocarPlano(ctx: ContextoEmpresa, origem: Origem, plano: keyof typeof PRECOS_PLANOS): Promise<AssinaturaDto> {
     await comEmpresa(banco, ctx.empresaId, async (tx) => {
-      const [e] = await tx.db.select({ plano: empresa.plano, modulos: empresa.modulos }).from(empresa).where(eq(empresa.id, ctx.empresaId));
-      if (e?.plano === "sob_medida") throw conflito("O plano sob medida é ajustado pela equipe comercial. Fale com o suporte.");
-      const modulos: Modulo[] = PLANOS[plano].modulos;
-      await tx.db.update(empresa).set({ plano, modulos, atualizadoEm: new Date() }).where(eq(empresa.id, ctx.empresaId));
-      const [a] = await tx.db.select().from(assinatura).where(eq(assinatura.empresaId, ctx.empresaId));
-      if (a) {
-        await tx.db.update(assinatura).set({ plano, valorCentavos: PRECOS_PLANOS[plano], atualizadoEm: new Date() }).where(eq(assinatura.id, a.id));
-      } else {
-        const hoje = hojeNoFuso(fusoDe(ctx));
-        await tx.db.insert(assinatura).values({ empresaId: ctx.empresaId, plano, status: "ativa", valorCentavos: PRECOS_PLANOS[plano], provedor: provedor.id, proximaCobranca: hoje });
-      }
-      await registrar(tx, origem, { acao: "empresa.plano_alterado", entidade: "empresa", entidadeId: ctx.empresaId, antes: e, depois: { plano, modulos } });
+      const antes = await aplicarPlano(tx, ctx.empresaId, plano, hojeNoFuso(fusoDe(ctx)));
+      await registrar(tx, origem, { acao: "empresa.plano_alterado", entidade: "empresa", entidadeId: ctx.empresaId, antes, depois: { plano, modulos: PLANOS[plano].modulos } });
     });
     return obter(ctx);
+  }
+
+  /** Plano novo: módulos (desligar esconde, nunca apaga) e valor da assinatura. Usado pela empresa e pela plataforma. */
+  async function aplicarPlano(tx: Tx, empresaId: string, plano: keyof typeof PRECOS_PLANOS, hoje: string) {
+    const [e] = await tx.db.select({ plano: empresa.plano, modulos: empresa.modulos }).from(empresa).where(eq(empresa.id, empresaId));
+    if (e?.plano === "sob_medida") throw conflito("O plano sob medida é ajustado pela equipe comercial. Fale com o suporte.");
+    const modulos: Modulo[] = PLANOS[plano].modulos;
+    await tx.db.update(empresa).set({ plano, modulos, atualizadoEm: new Date() }).where(eq(empresa.id, empresaId));
+    const [a] = await tx.db.select().from(assinatura).where(eq(assinatura.empresaId, empresaId));
+    if (a) {
+      await tx.db.update(assinatura).set({ plano, valorCentavos: PRECOS_PLANOS[plano], atualizadoEm: new Date() }).where(eq(assinatura.id, a.id));
+    } else {
+      await tx.db.insert(assinatura).values({ empresaId, plano, status: "ativa", valorCentavos: PRECOS_PLANOS[plano], provedor: provedor.id, proximaCobranca: hoje });
+    }
+    return e;
   }
 
   /** Só no provedor de demonstração: simula o pagamento. */
@@ -105,7 +112,13 @@ export function criarServicoCobranca(s: Servicos, provedor: ProvedorCobranca = p
       .select({ n: sql<number>`count(*)::int` })
       .from(fatura)
       .where(and(eq(fatura.assinaturaId, f.assinaturaId), eq(fatura.status, "vencida")));
-    if (!abertas.n) await tx.db.update(assinatura).set({ status: "ativa", atualizadoEm: new Date() }).where(eq(assinatura.id, f.assinaturaId));
+    // Suspensa pela plataforma continua suspensa: pagar não reativa sozinho.
+    if (!abertas.n) {
+      await tx.db
+        .update(assinatura)
+        .set({ status: "ativa", atualizadoEm: new Date() })
+        .where(and(eq(assinatura.id, f.assinaturaId), inArray(assinatura.status, ["teste", "ativa", "atrasada"])));
+    }
     await registrar(tx, origem, { acao: "fatura.paga", entidade: "fatura", entidadeId: f.id, depois: { valorCentavos: f.valorCentavos, vencimento: f.vencimento } });
   }
 
@@ -151,5 +164,5 @@ export function criarServicoCobranca(s: Servicos, provedor: ProvedorCobranca = p
     return { geradas, vencidas };
   }
 
-  return { provedor, iniciarTeste, obter, trocarPlano, pagarDemonstracao, confirmarPagamento, executarCiclo };
+  return { provedor, iniciarTeste, obter, trocarPlano, aplicarPlano, pagarDemonstracao, confirmarPagamento, executarCiclo };
 }

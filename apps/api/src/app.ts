@@ -35,6 +35,11 @@ import { rotasPerfis } from "./modulos/permissoes/perfis.rotas.js";
 import { rotasAuditoria } from "./modulos/auditoria/auditoria.rotas.js";
 import { rotasNotificacoes } from "./modulos/notificacoes/notificacoes.rotas.js";
 import { rotasInicio } from "./modulos/inicio/inicio.rotas.js";
+import { FILA_BRE_AUTOMACAO, FILA_BRE_DIARIA, FILA_BRE_HORARIA, FILA_BRE_SEMANAL, rotasBre } from "./modulos/bre/bre.rotas.js";
+import { criarServicoAutomacaoBre } from "./modulos/bre/automacao.servico.js";
+import { criarServicoDesempenho } from "./modulos/bre/desempenho.servico.js";
+import { FILA_BRE_IA } from "./modulos/bre/bre.servico.js";
+import { criarServicoBre } from "./modulos/bre/bre.servico.js";
 import { rotasSistema } from "./modulos/sistema/sistema.rotas.js";
 import { provedorArquivosBanco } from "./modulos/arquivos/armazenamento.js";
 import { rotasConfiguracaoCrm } from "./modulos/crm/configuracao.rotas.js";
@@ -50,6 +55,10 @@ import { FILA_RETORNO, criarServicoFila } from "./modulos/fila/fila.servico.js";
 import { criarServicoTelefonia, rotasTelefonia } from "./modulos/telefonia/telefonia.rotas.js";
 import { rotasOperacao } from "./modulos/operacao/operacao.rotas.js";
 import { rotasReceita } from "./modulos/receita/receita.rotas.js";
+import { rotasRecebimentos } from "./modulos/recebimentos/recebimentos.rotas.js";
+import { rotasTermos } from "./modulos/termos/termos.rotas.js";
+import { rotasDemonstracao } from "./modulos/demonstracao/demonstracao.rotas.js";
+import { rotasPlataforma } from "./modulos/plataforma/plataforma.rotas.js";
 import { rotasQualidade } from "./modulos/qualidade/qualidade.rotas.js";
 import { rotasWhiteLabel } from "./modulos/marca/whitelabel.rotas.js";
 import { resolvedorDominio } from "./modulos/marca/dominio.js";
@@ -201,7 +210,35 @@ export async function criarApp(servicos: Servicos): Promise<AppMontado> {
 
   await app.register(rotasOperacao(servicos));
   await app.register(rotasReceita(servicos));
+  await app.register(rotasRecebimentos(servicos));
+  await app.register(rotasTermos(servicos));
+  await app.register(rotasDemonstracao(servicos));
+  await app.register(rotasPlataforma(servicos));
   await app.register(rotasQualidade(servicos));
+  // Motor BRE: estado do cliente todo dia; silêncio dos ciclos de hora em hora.
+  await app.register(rotasBre(servicos, envio));
+  const bre = criarServicoBre(servicos);
+  await servicos.jobs.trabalhar(FILA_BRE_DIARIA, () => bre.rotinaDiaria());
+  await servicos.jobs.agendar(FILA_BRE_DIARIA, "7 3 * * *");
+  await servicos.jobs.trabalhar(FILA_BRE_HORARIA, () => bre.rotinaHoraria());
+  await servicos.jobs.agendar(FILA_BRE_HORARIA, "11 * * * *");
+  // Coaching (BR-022): segunda de manhã, depois de fechar a semana.
+  const desempenhoBre = criarServicoDesempenho(servicos);
+  await servicos.jobs.trabalhar(FILA_BRE_SEMANAL, () => desempenhoBre.rotinaSemanal());
+  await servicos.jobs.agendar(FILA_BRE_SEMANAL, "13 7 * * 1");
+  // Pedidos à IA (sugestão do registro e prévia do SQ-BRE) pela fila: nova tentativa em falha passageira.
+  await servicos.jobs.trabalhar<{ empresaId: string; tipo: "analise" | "sq"; id: string }>(FILA_BRE_IA, (d) =>
+    d.tipo === "analise" ? bre.processarAnalise(d.empresaId, d.id) : desempenhoBre.processarPrevia(d.empresaId, d.id),
+  );
+  // BPI do mês guardado de hora em hora.
+  await servicos.jobs.trabalhar("bre.bpi", () => desempenhoBre.rotinaHorariaBpi());
+  await servicos.jobs.agendar("bre.bpi", "23 * * * *");
+  // Automação do método (fase 8.4): uma vez por dia, de manhã, só nas empresas com automação ligada.
+  const automacaoBre = criarServicoAutomacaoBre(servicos, envio);
+  await servicos.jobs.trabalhar(FILA_BRE_AUTOMACAO, async () => {
+    await automacaoBre.rotinaDiaria();
+  });
+  await servicos.jobs.agendar(FILA_BRE_AUTOMACAO, "17 9 * * *");
   await app.register(rotasWhiteLabel(servicos, arquivos, envio));
   // Automações: varre os eventos a cada minuto. Cobrança: ciclo diário de faturas.
   const automacoes = criarServicoAutomacoes(servicos, envio);

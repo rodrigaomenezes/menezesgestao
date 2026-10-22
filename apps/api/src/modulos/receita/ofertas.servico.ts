@@ -42,8 +42,19 @@ export function criarServicoOfertas(s: Servicos) {
 
   // Ofertas -------------------------------------------------------------------------------------------
 
-  const colunasOferta = { id: oferta.id, nome: oferta.nome, descricao: oferta.descricao, precoCentavos: oferta.precoCentavos, criadoEm: oferta.criadoEm, arquivadoEm: oferta.arquivadoEm };
-  const ofertaDto = ({ criadoEm: _c, ...o }: { id: string; nome: string; descricao: string | null; precoCentavos: number | null; criadoEm: Date; arquivadoEm: Date | null }): OfertaDto => ({
+  const colunasOferta = {
+    id: oferta.id,
+    nome: oferta.nome,
+    descricao: oferta.descricao,
+    precoCentavos: oferta.precoCentavos,
+    categoria: oferta.categoria,
+    estoque: oferta.estoque,
+    lancamentoEm: oferta.lancamentoEm,
+    criadoEm: oferta.criadoEm,
+    arquivadoEm: oferta.arquivadoEm,
+  };
+  type LinhaOferta = Omit<OfertaDto, "arquivadoEm"> & { criadoEm: Date; arquivadoEm: Date | null };
+  const ofertaDto = ({ criadoEm: _c, ...o }: LinhaOferta): OfertaDto => ({
     ...o,
     arquivadoEm: iso(o.arquivadoEm),
   });
@@ -71,7 +82,15 @@ export function criarServicoOfertas(s: Servicos) {
     ctx: ContextoEmpresa,
     origem: Origem,
     id: string | null,
-    d: { nome?: string; descricao?: string | null; precoCentavos?: number | null; arquivar?: boolean },
+    d: {
+      nome?: string;
+      descricao?: string | null;
+      precoCentavos?: number | null;
+      categoria?: string | null;
+      estoque?: number | null;
+      lancamentoEm?: string | null;
+      arquivar?: boolean;
+    },
   ): Promise<OfertaDto> {
     return comEmpresa(banco, ctx.empresaId, async (tx) => {
       let ofertaId = id;
@@ -79,7 +98,16 @@ export function criarServicoOfertas(s: Servicos) {
         if (!ofertaId) {
           const [n] = await tx.db
             .insert(oferta)
-            .values({ empresaId: ctx.empresaId, nome: d.nome!, descricao: d.descricao ?? null, precoCentavos: d.precoCentavos ?? null, criadoPor: ctx.usuarioId })
+            .values({
+              empresaId: ctx.empresaId,
+              nome: d.nome!,
+              descricao: d.descricao ?? null,
+              precoCentavos: d.precoCentavos ?? null,
+              categoria: d.categoria ?? null,
+              estoque: d.estoque ?? null,
+              lancamentoEm: d.lancamentoEm ?? null,
+              criadoPor: ctx.usuarioId,
+            })
             .returning({ id: oferta.id });
           ofertaId = n.id;
         } else {
@@ -91,6 +119,9 @@ export function criarServicoOfertas(s: Servicos) {
               ...(d.nome !== undefined ? { nome: d.nome } : {}),
               ...(d.descricao !== undefined ? { descricao: d.descricao } : {}),
               ...(d.precoCentavos !== undefined ? { precoCentavos: d.precoCentavos } : {}),
+              ...(d.categoria !== undefined ? { categoria: d.categoria } : {}),
+              ...(d.estoque !== undefined ? { estoque: d.estoque } : {}),
+              ...(d.lancamentoEm !== undefined ? { lancamentoEm: d.lancamentoEm } : {}),
               ...(d.arquivar !== undefined ? { arquivadoEm: d.arquivar ? new Date() : null } : {}),
               atualizadoEm: new Date(),
             })

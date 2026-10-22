@@ -18,6 +18,7 @@ import type { Servicos } from "../../app.js";
 import type { ContextoEmpresa } from "../acesso/acesso.js";
 import { filtroUsuariosVisiveis, usuariosVisiveis } from "../acesso/escopo.js";
 import { registrar, type Origem } from "../auditoria/registro.js";
+import { marcarBpiVelho } from "../bre/bpi-cache.js";
 import * as contatos from "../crm/contatos.repositorio.js";
 import { exigirPessoa, fusoDe, hojeNoFuso, limitesPeriodo } from "../operacao/comum.js";
 import { calcularComissoes, type RegraParaComissao } from "./calculo-comissao.js";
@@ -39,6 +40,39 @@ type DadosVenda = {
   status: "pendente" | "confirmada";
   observacao: string | null;
 };
+
+/** Venda confirmada baixa uma unidade da oferta que controla estoque; cancelar a confirmada devolve. Nunca fica negativo. */
+export async function moverEstoque(tx: Tx, ofertaId: string, delta: number): Promise<void> {
+  await tx.cliente.query("UPDATE oferta SET estoque = greatest(estoque + $3, 0), atualizado_em = now() WHERE id = $1 AND empresa_id = $2 AND estoque IS NOT NULL", [
+    ofertaId,
+    tx.empresaId,
+    delta,
+  ]);
+}
+
+/**
+ * Pagamento confirmado pelo provedor de cobrança: a venda aguardando pagamento vira confirmada, com os mesmos efeitos
+ * da confirmação manual (estoque, evento, BPI). Venda já confirmada ou cancelada não muda.
+ */
+export async function confirmarPorPagamento(tx: Tx, origem: Origem, vendaId: string): Promise<boolean> {
+  const { rows } = await tx.cliente.query<{ contato_id: string; vendedor_id: string; oferta_id: string; valor_centavos: string }>(
+    "UPDATE venda SET status = 'confirmada', atualizado_em = now() WHERE id = $1 AND empresa_id = $2 AND status = 'pendente' RETURNING contato_id, vendedor_id, oferta_id, valor_centavos",
+    [vendaId, tx.empresaId],
+  );
+  const v = rows[0];
+  if (!v) return false;
+  await moverEstoque(tx, v.oferta_id, -1);
+  await registrar(tx, origem, {
+    acao: "venda.confirmada",
+    entidade: "venda",
+    entidadeId: vendaId,
+    contatoId: v.contato_id,
+    responsavelId: v.vendedor_id,
+    dados: { valorCentavos: Number(v.valor_centavos), pagoPor: "cobranca" },
+  });
+  await marcarBpiVelho(tx);
+  return true;
+}
 
 export function criarServicoVendas(s: Servicos) {
   const { banco } = s;
@@ -167,6 +201,8 @@ export function criarServicoVendas(s: Servicos) {
       const dados = { valorCentavos: d.valorCentavos, oferta: o.nome, titulo: `Venda: ${o.nome}` };
       await registrar(tx, origem, { acao: "venda.registrada", entidade: "venda", entidadeId: id, contatoId: d.contatoId, responsavelId: vendedorId, depois: { ...d, vendedorId, dataVenda }, dados });
       if (d.status === "confirmada") await registrar(tx, origem, { acao: "venda.confirmada", entidade: "venda", entidadeId: id, contatoId: d.contatoId, responsavelId: vendedorId, dados });
+      if (d.status === "confirmada") await moverEstoque(tx, d.ofertaId, -1);
+      await marcarBpiVelho(tx); // a receita entra no BPI do vendedor
       return dto(await carregar(tx, ctx, "empresa", id));
     });
   }
@@ -202,6 +238,9 @@ export function criarServicoVendas(s: Servicos) {
         await tx.db.update(entregaParticipante).set({ status: "cancelado", atualizadoEm: new Date() }).where(and(eq(entregaParticipante.vendaId, id), eq(entregaParticipante.status, "ativo")));
       }
       const mudouStatus = d.status !== undefined && d.status !== antes.status;
+      if (mudouStatus && d.status === "confirmada") await moverEstoque(tx, antes.ofertaId, -1);
+      if (mudouStatus && antes.status === "confirmada" && d.status === "cancelada") await moverEstoque(tx, antes.ofertaId, 1);
+      await marcarBpiVelho(tx);
       const acao = mudouStatus ? (d.status === "confirmada" ? "venda.confirmada" : d.status === "cancelada" ? "venda.cancelada" : "venda.atualizada") : "venda.atualizada";
       await registrar(tx, origem, {
         acao,
@@ -427,5 +466,10 @@ export function criarServicoVendas(s: Servicos) {
     });
   }
 
-  return { listar, criar, atualizar, regras, criarRegra, atualizarRegra, doMes, fechar, reabrir };
+  /** Uma venda que a pessoa enxerga (usado pela cobrança). */
+  async function obter(ctx: ContextoEmpresa, escopo: Escopo, id: string) {
+    return comEmpresa(banco, ctx.empresaId, (tx) => carregar(tx, ctx, escopo, id));
+  }
+
+  return { listar, obter, criar, atualizar, regras, criarRegra, atualizarRegra, doMes, fechar, reabrir };
 }
