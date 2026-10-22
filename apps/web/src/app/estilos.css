@@ -2434,3 +2434,68 @@ fieldset legend {
 .quebra {
   overflow-wrap: anywhere;
 }
+
+/* Fase 9 — topo com ajuda, páginas abertas (documentos e status), uso do plano e aviso de assinatura. */
+.topo-acoes {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+.pagina-aberta {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 1rem;
+}
+.documento {
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.documento h1 {
+  font-size: 1.6rem;
+}
+.documento h2 {
+  font-size: 1.15rem;
+  margin-top: 1.5rem;
+}
+.documento table {
+  border-collapse: collapse;
+  width: 100%;
+}
+.documento th,
+.documento td {
+  border: 1px solid var(--borda);
+  padding: 0.4rem 0.6rem;
+  text-align: left;
+  vertical-align: top;
+}
+.medidor {
+  margin-bottom: 0.9rem;
+}
+.medidor-rotulo {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.25rem 1rem;
+  margin-bottom: 0.3rem;
+}
+.medidor-barra {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--borda);
+  overflow: hidden;
+}
+.medidor-barra span {
+  display: block;
+  height: 100%;
+  background: var(--cor-primaria);
+}
+.medidor-alerta span {
+  background: var(--erro);
+}
+.aviso-assinatura {
+  margin-bottom: 1rem;
+}
+.selo-atencao {
+  background: var(--erro-fundo);
+  color: var(--texto);
+}

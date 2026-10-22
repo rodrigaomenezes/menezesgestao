@@ -210,6 +210,24 @@ servidor e a pessoa registra.
 - **Motivos de Break** (administrador, em "Motor BRE") e **Encerrar (BRE)** na ficha do cliente, em cada
   oportunidade em andamento: critério, temperatura, checklist e reentrada.
 
+### Pronto para vender (fase 9)
+
+- **Plano e cobrança** mostra o uso de pessoas, canais e armazenamento contra o limite do plano (Essencial 3/1/500 MB,
+  Comercial 10/3/2 GB, Completo 30/10/10 GB; sob medida sem limite). Passar do limite nunca apaga: só impede acrescentar,
+  com mensagem dizendo o que fazer. Mídia recebida do cliente nunca é recusada.
+- **Atraso**: até 7 dias, faixa de aviso em todas as telas; depois, a empresa fica **só para consulta** (o servidor recusa
+  gravações; pagar e trocar de plano continuam liberados). Pagou, volta na hora. Nada é apagado.
+- **Painel da plataforma** (menu "Plataforma", só para os e-mails em `PLATAFORMA_ADMINS`): todas as empresas com plano,
+  situação, uso, última atividade e saúde (boa, atenção, risco); estender teste, trocar plano, suspender e reativar,
+  tudo auditado.
+- **Termos de uso, política de privacidade e contrato de dados** em `/termos`, `/privacidade` e `/contrato-de-dados`
+  (**minutas para revisão jurídica**). Aceite versionado e imutável: cadastro e convite gravam o aceite; versão nova
+  pede aceite no próximo acesso (contrato de dados: quem administra a empresa).
+- **Ajuda** (ícone "?" no topo): artigos da tela aberta primeiro, busca, e "Falar com o suporte" (`SUPORTE_WHATSAPP`,
+  `SUPORTE_EMAIL`). **Situação do serviço** em `/status`.
+- **Redefinir duas etapas** (Usuários): o administrador pede, a pessoa confirma pelo link do e-mail; só então as duas
+  etapas são desligadas e as sessões encerradas.
+
 ## Testes
 
 ```bash
@@ -243,6 +261,9 @@ npm run build && npm run test:e2e   # Playwright em 360, 390, 768, 1024 e 1440 p
 | `WHATSAPP_QR_ATIVO` | não | `nao` desliga as conexões por QR nesta instância (só **uma** instância pode segurar cada número) |
 | `ANTHROPIC_API_KEY` | não | IA do motor BRE (Claude). Sem ela, "Sugerir com IA" usa a demonstração por palavras |
 | `BRE_IA_MODELO` | não | Modelo da IA do motor BRE (padrão `claude-opus-5-5`) |
+| `PLATAFORMA_ADMINS` | não | E-mails da equipe da plataforma, separados por vírgula: veem o painel de todas as empresas |
+| `SUPORTE_WHATSAPP`, `SUPORTE_EMAIL` | não | Canais de suporte mostrados na central de ajuda |
+| `ENCARREGADO_DADOS` | não | Encarregado de dados (DPO): nome e contato, publicado na política de privacidade |
 | `WHATSAPP_GRAPH_URL` | não | Endereço da Graph API da Meta (padrão `https://graph.facebook.com/v21.0`; troque só em testes) |
 
 ## Publicar no Railway

@@ -155,6 +155,12 @@ tests/      integration/ (Vitest + PostgreSQL real), e2e/ (Playwright, 5 largura
   cifrados com `CRM_CHAVE`), `cobranca` (uma em aberto por venda) e `cobranca_aviso` (cada aviso do provedor uma vez
   só). Provedores atrás de `ProvedorRecebimento` (demonstração, Asaas). Webhook `POST /api/webhooks/cobranca/:empresaId`
   com token no cabeçalho. Diferente de `modulos/cobranca`, que é a assinatura da empresa na plataforma (ADR-038).
+- Fase 9 (migração 0019, ADR-039): o contexto da sessão traz a situação da assinatura (status, dias de atraso, só
+  consulta) e o `preValidation` recusa gravação quando só consulta (rotas `liberadaNoBloqueio` passam). Limites em
+  `modulos/cobranca/limites.ts` (`exigirLimite`, chamado em convites, restaurar pessoa, canais e arquivos).
+  `modulos/plataforma` (painel, só `PLATAFORMA_ADMINS`), `modulos/termos` (documentos, aceite em `termo_aceite`,
+  suporte e status públicos). Na tela: faixa `AvisoAssinatura` na casca, portão de aceite em `main.tsx`, ajuda em
+  `@mg/shared/ajuda.ts`.
 - Campos personalizados: definição em `campo_personalizado`, valores em `campos jsonb` validados pelo serviço.
 - Sessões e tokens guardam só o HMAC (`SESSION_SECRET`); conteúdo sensível de jobs vai cifrado (`CRM_CHAVE`).
 

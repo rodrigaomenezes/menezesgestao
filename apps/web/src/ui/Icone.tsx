@@ -27,6 +27,7 @@ const TRACOS: Record<string, string[]> = {
   subir: ["M12 19V5", "M6 11l6-6 6 6"],
   descer: ["M12 5v14", "M6 13l6 6 6-6"],
   fechar: ["M6 6l12 12", "M18 6L6 18"],
+  ajuda: ["M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z", "M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.6", "M12 17h.01"],
   adicionar: ["M12 5v14", "M5 12h14"],
   arrastar: ["M9 6h.01", "M9 12h.01", "M9 18h.01", "M15 6h.01", "M15 12h.01", "M15 18h.01"],
 };

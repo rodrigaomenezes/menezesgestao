@@ -591,3 +591,27 @@ Fica num módulo próprio (`recebimentos`), separado da assinatura da empresa na
 O dinheiro é do cliente da plataforma, não nosso: cada empresa usa o próprio agente financeiro. Interface por
 provedor deixa somar Mercado Pago, Pagar.me ou Stripe sem mexer em vendas. Idempotência por evento porque provedores
 reenviam avisos.
+
+# ADR-039 — Pronto para vender: bloqueio gradual, limites por plano, painel da plataforma e termos versionados
+
+## Decisão
+- **Preço por empresa, plano fixo** (decisão do analista), com limites no catálogo (`LIMITES_PLANOS` em `@mg/shared`):
+  pessoas, canais e armazenamento, conferidos no servidor na transação que cria o recurso, com trava da linha da empresa.
+  Uso calculado na hora (consultas indexadas por empresa), sem tabela de contadores: evita cache que desatualiza.
+  Mídia recebida do cliente não conta para o bloqueio (nunca perder mensagem de cliente).
+- **Bloqueio gradual**: a situação da assinatura entra no contexto da sessão (mesma consulta); regra única
+  `ficaSomenteLeitura` (atraso > 7 dias, cancelada ou suspensa) usada no servidor e na tela. Bloqueio = gravação
+  recusada (`ASSINATURA_SO_LEITURA`); rotas de pagar e trocar de plano marcadas `liberadaNoBloqueio`. Nada é apagado.
+- **Painel da plataforma** sem novo papel no banco: lista de e-mails em `PLATAFORMA_ADMINS`, checada em toda rota;
+  ações auditadas na empresa alvo. Suspensa não volta a ativa sozinha ao pagar.
+- **Documentos legais** versionados no código (`VERSOES_DOCUMENTOS`), textos como módulo TS (vão no build);
+  aceite em `termo_aceite` (só caminho do sistema, imutável): termos e privacidade por pessoa, contrato de dados pela
+  empresa (quem administra). Exigência na tela (portão), não em cada rota: aceite não é permissão.
+- **Ajuda própria** (artigos em `@mg/shared`, sem servidor) e **status** público a partir das mesmas checagens da saúde.
+- **Redefinir duas etapas**: token `duas_etapas` por e-mail; só a confirmação da pessoa desliga (o administrador
+  nunca desliga a segurança de outro sozinho).
+- **Provedor da assinatura**: continua a demonstração atrás da interface (analista decide depois).
+
+## Por quê
+Vender exige cobrar sem perder o cliente por atraso curto e sem apagar dados; limites e painel dão controle comercial
+sem regra de cliente no código; termos versionados dão prova de aceite exigida pela LGPD.

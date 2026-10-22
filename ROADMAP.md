@@ -78,7 +78,10 @@ Marcos: **primeiro cliente pagante** ao fim da Fase 9 · **venda em escala** ao 
 
 - [ ] Sprint 0 — Produção configurada (1 semana, sem código): as pendências da seção seguinte.
       Pronto quando: um convite chega por e-mail, um aviso chega no celular e uma cópia do banco é restaurada e conferida.
-- [ ] Fase 9 — Pronto para vender (3 sprints): provedor de cobrança real com webhook; bloqueio gradual por
+- [~] Fase 9 — Pronto para vender (ADR-039; feito: bloqueio gradual, limites por plano, painel da plataforma, termos
+      com aceite versionado, central de ajuda, suporte, status e redefinição das duas etapas com confirmação; falta:
+      provedor real da assinatura — decisão adiada pelo analista — e domínio próprio cadastrado sozinho no Railway).
+      Escopo original (3 sprints): provedor de cobrança real com webhook; bloqueio gradual por
       atraso (aviso → só leitura, nunca apagar); limites por plano (usuários, canais, armazenamento) e preço por
       usuário, se decidido; painel da plataforma (todas as empresas, assinaturas, uso, saúde); domínio próprio
       cadastrado sozinho no Railway; termos de uso, política de privacidade e contrato de dados em páginas públicas

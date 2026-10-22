@@ -68,6 +68,8 @@ export const AceitarConviteEntrada = z.object({
   token: Token,
   nome: z.string().trim().min(2).max(120).optional(),
   senha: SenhaNova.optional(),
+  /** Marcou "Li e aceito" os termos e a política de privacidade na tela do convite (grava o aceite junto). */
+  aceite: z.boolean().optional(),
 });
 
 export const EuDto = z.object({

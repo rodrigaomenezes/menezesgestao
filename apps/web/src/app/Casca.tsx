@@ -9,6 +9,7 @@ import { useVocabulario } from "./vocabulario";
 import { ProvedorTelefoneSistema } from "../features/telefonia/Telefone";
 import { Logo } from "../features/whitelabel/Logo";
 import { Icone, type NomeIcone } from "../ui/Icone";
+import { AvisoAssinatura } from "../features/plataforma/AvisoAssinatura";
 
 interface ItemMenu {
   para: string;
@@ -16,6 +17,8 @@ interface ItemMenu {
   texto: string;
   icone: NomeIcone;
   exige?: [Modulo, Acao];
+  /** Só para a equipe da plataforma (PLATAFORMA_ADMINS). */
+  plataforma?: boolean;
 }
 
 /** Menu em grupos: o dia a dia primeiro, depois resultados, configuração e a conta da pessoa. */
@@ -73,6 +76,8 @@ const MENU: { grupo: string; itens: ItemMenu[] }[] = [
       { para: "/notificacoes", texto: "Notificações", icone: "avisos" },
       { para: "/seguranca", texto: "Segurança da conta", icone: "seguranca" },
       { para: "/dispositivos", texto: "Meus dispositivos", icone: "ligacoes" },
+      { para: "/ajuda", texto: "Ajuda", icone: "ajuda" },
+      { para: "/plataforma", texto: "Plataforma", icone: "empresa", plataforma: true },
     ],
   },
 ];
@@ -135,7 +140,8 @@ export function Casca({ children }: { children: ReactNode }) {
   useEffect(() => (eu.empresa ? conectarTempoReal() : undefined), [eu.empresa]);
 
   // Duas etapas pendentes: só a segurança da conta até configurar.
-  const visivel = (i: ItemMenu) => (eu.duasEtapas.pendente ? i.para === "/seguranca" : !i.exige || pode(...i.exige));
+  const visivel = (i: ItemMenu) =>
+    eu.duasEtapas.pendente ? i.para === "/seguranca" : i.plataforma ? eu.plataformaAdmin : !i.exige || pode(...i.exige);
   const grupos = MENU.map((g) => ({ ...g, itens: g.itens.filter(visivel) })).filter((g) => g.itens.length);
   const barra = BARRA.filter(visivel);
 
@@ -153,7 +159,12 @@ export function Casca({ children }: { children: ReactNode }) {
               eu.marca.nomeProduto
             )}
           </Link>
-          <Sino />
+          <div className="topo-acoes">
+            <Link to={`/ajuda?tela=${encodeURIComponent(local.pathname)}`} className="sino" aria-label="Ajuda desta tela" title="Ajuda">
+              <Icone nome="ajuda" tamanho={22} />
+            </Link>
+            <Sino />
+          </div>
         </header>
 
         <nav id="menu-principal" className={`menu ${menuAberto ? "aberto" : ""}`} aria-label="Menu principal">
@@ -213,6 +224,7 @@ export function Casca({ children }: { children: ReactNode }) {
               Sem conexão com a internet. Você vê os dados mais recentes; o que fizer agora não será salvo até a conexão voltar.
             </p>
           )}
+          <AvisoAssinatura />
           {children}
         </main>
       </div>

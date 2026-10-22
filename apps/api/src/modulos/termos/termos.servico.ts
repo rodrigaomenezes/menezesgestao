@@ -47,6 +47,11 @@ export async function aceitarNoCadastro(tx: Tx, usuarioId: string, empresaId: st
   await gravar(tx, usuarioId, empresaId, ip, ["termos", "privacidade", "contrato"]);
 }
 
+/** Convite aceito com "Li e aceito": termos e privacidade da pessoa (o contrato de dados é da empresa). */
+export async function aceitarDocumentosDaPessoa(tx: Tx, usuarioId: string, ip: string | null): Promise<void> {
+  await gravar(tx, usuarioId, null, ip, ["termos", "privacidade"]);
+}
+
 export function criarServicoTermos(banco: Banco) {
   /** Documentos com versão nova ainda não aceita (uma consulta só, junto com o "eu"). */
   async function pendentes(ctx: Contexto): Promise<DocumentoLegalId[]> {

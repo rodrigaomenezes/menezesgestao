@@ -1,6 +1,17 @@
 // Plano e cobrança: situação da assinatura, troca de plano (desligar módulo esconde, não apaga) e faturas.
 import { useCallback, useEffect, useState } from "react";
-import { MODULOS, NOMES_STATUS_ASSINATURA, NOMES_STATUS_FATURA, PLANOS, PRECOS_PLANOS, type AssinaturaDto } from "@mg/shared";
+import {
+  LIMITES_PLANOS,
+  MODULOS,
+  NOMES_RECURSOS_PLANO,
+  NOMES_STATUS_ASSINATURA,
+  NOMES_STATUS_FATURA,
+  PLANOS,
+  PRECOS_PLANOS,
+  type AssinaturaDto,
+  type UsoPlanoDto,
+} from "@mg/shared";
+import { formatarBytes } from "../plataforma/formato";
 import { ErroApi, get, post, put } from "../../app/api";
 import { useSessao } from "../../app/sessao";
 import { useAviso, useConfirmar } from "../../ui/sobreposicoes";
@@ -9,6 +20,25 @@ import { formatarDinheiro } from "../crm/comum";
 import { useVocabulario } from "../../app/vocabulario";
 
 const data = (d: string | null) => (d ? d.split("-").reverse().join("/") : "—");
+const valor = (u: Pick<UsoPlanoDto, "recurso">, n: number) => (u.recurso === "armazenamento" ? formatarBytes(n) : String(n));
+
+/** Uso contra o limite do plano: barra fica de alerta a partir de 90%. */
+function Medidor({ u }: { u: UsoPlanoDto }) {
+  const pct = u.limite ? Math.min(100, Math.round((u.usado / u.limite) * 100)) : 0;
+  return (
+    <div className="medidor">
+      <div className="medidor-rotulo">
+        <span>{NOMES_RECURSOS_PLANO[u.recurso]}</span>
+        <span>{u.limite === null ? `${valor(u, u.usado)} (sem limite)` : `${valor(u, u.usado)} de ${valor(u, u.limite)}`}</span>
+      </div>
+      {u.limite !== null && (
+        <div className={`medidor-barra ${pct >= 90 ? "medidor-alerta" : ""}`} role="meter" aria-label={NOMES_RECURSOS_PLANO[u.recurso]} aria-valuemin={0} aria-valuemax={u.limite} aria-valuenow={u.usado}>
+          <span style={{ width: `${pct}%` }} />
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function Plano() {
   const termos = useVocabulario();
@@ -46,6 +76,7 @@ export function Plano() {
     try {
       setA(await post<AssinaturaDto>(`/faturas/${id}/pagar-simulado`));
       avisar("Pagamento registrado (simulado).");
+      await recarregar(); // tira o aviso de atraso / só consulta na hora
     } catch (e) {
       avisar(e instanceof ErroApi ? e.message : "Não foi possível pagar.", "erro");
     }
@@ -62,8 +93,17 @@ export function Plano() {
           {a.valorCentavos > 0 && ` · ${formatarDinheiro(a.valorCentavos)} por mês`}
         </p>
         {a.status === "teste" && a.testeAte && <Mensagem tipo="info">Período de teste até {data(a.testeAte)}.</Mensagem>}
-        {a.status === "atrasada" && <Mensagem tipo="erro">Há fatura vencida. Pague para manter o acesso sem interrupção.</Mensagem>}
+        {a.status === "atrasada" && <Mensagem tipo="erro">Há fatura vencida. Depois de 7 dias de atraso a empresa fica só para consulta (nada é apagado); ao pagar, volta na hora.</Mensagem>}
+        {a.status === "suspensa" && <Mensagem tipo="erro">A empresa está suspensa: só consulta. Fale com o suporte na central de ajuda.</Mensagem>}
         {a.provedor === "demonstracao" && <p className="dica">Cobrança em modo de demonstração: nenhum valor é cobrado de verdade.</p>}
+      </section>
+
+      <section className="cartao" aria-labelledby="titulo-uso">
+        <h2 id="titulo-uso">Uso do plano</h2>
+        {a.uso.map((u) => (
+          <Medidor key={u.recurso} u={u} />
+        ))}
+        <p className="dica">Passar do limite não apaga nada: só impede acrescentar. Para crescer, mude de plano.</p>
       </section>
 
       <section className="cartao" aria-labelledby="titulo-planos">
@@ -73,6 +113,9 @@ export function Plano() {
             <div key={p} className={`plano ${a.plano === p ? "plano-atual" : ""}`}>
               <h3>{PLANOS[p].nome}</h3>
               <p className="preco">{formatarDinheiro(PRECOS_PLANOS[p])}/mês</p>
+              <p className="dica">
+                Até {LIMITES_PLANOS[p].usuarios} pessoas · {LIMITES_PLANOS[p].canais} canal(is) · {formatarBytes(LIMITES_PLANOS[p].armazenamento)}
+              </p>
               <ul className="lista-simples">
                 {MODULOS.filter((m) => (PLANOS[p].modulos as readonly string[]).includes(m.id)).map((m) => (
                   <li key={m.id}>{termos.t(m.nome)}</li>

@@ -51,6 +51,10 @@ import { Automacoes } from "./features/whitelabel/Automacoes";
 import "./app/fonte.css";
 import "./app/estilos.css";
 import { SegmentoTermos } from "./features/whitelabel/SegmentoTermos";
+import { ConfirmarDuasEtapas, Documento, StatusServico } from "./features/plataforma/Publicas";
+import { AceitarTermos } from "./features/plataforma/AceitarTermos";
+import { Ajuda } from "./features/plataforma/Ajuda";
+import { PainelPlataforma } from "./features/plataforma/PainelPlataforma";
 
 function App() {
   const { eu, carregando } = useSessao();
@@ -61,6 +65,11 @@ function App() {
     <Route key="convite" path="/convite" element={<AceitarConvite />} />,
     <Route key="redefinir" path="/redefinir-senha" element={<RedefinirSenha />} />,
     <Route key="pesquisa" path="/p/:token" element={<PesquisaPublica />} />,
+    <Route key="termos" path="/termos" element={<Documento id="termos" />} />,
+    <Route key="privacidade" path="/privacidade" element={<Documento id="privacidade" />} />,
+    <Route key="contrato" path="/contrato-de-dados" element={<Documento id="contrato" />} />,
+    <Route key="status" path="/status" element={<StatusServico />} />,
+    <Route key="duas-etapas" path="/confirmar-duas-etapas" element={<ConfirmarDuasEtapas />} />,
   ];
 
   if (!eu) {
@@ -70,6 +79,16 @@ function App() {
         <Route path="/esqueci-senha" element={<EsqueciSenha />} />
         <Route path="/cadastro" element={<Cadastro />} />
         <Route path="*" element={<Entrar />} />
+      </Routes>
+    );
+  }
+
+  // Versão nova dos termos (ou contrato de dados, para quem administra): aceitar antes de usar. Documentos ficam abertos.
+  if (eu.termosPendentes.length) {
+    return (
+      <Routes>
+        {abertas}
+        <Route path="*" element={<AceitarTermos />} />
       </Routes>
     );
   }
@@ -142,6 +161,8 @@ function App() {
               <Route path="/notificacoes" element={<Notificacoes />} />
               <Route path="/dispositivos" element={<Dispositivos />} />
               <Route path="/seguranca" element={<Seguranca />} />
+              <Route path="/ajuda" element={<Ajuda />} />
+              {eu.plataformaAdmin && <Route path="/plataforma" element={<PainelPlataforma />} />}
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </Casca>

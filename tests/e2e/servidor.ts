@@ -37,5 +37,7 @@ Object.assign(process.env, {
   CRM_CHAVE: randomBytes(32).toString("hex"),
   LIMITE_LOGIN_MINUTO: "1000",
   LIMITE_REQ_MINUTO: "100000",
+  // Equipe da plataforma nos testes: uma pessoa por largura de tela (plataforma.spec.ts).
+  PLATAFORMA_ADMINS: ["celular-360", "celular-390", "tablet-768", "notebook-1024", "computador-1440"].map((p) => `plataforma.${p}@teste.example.com`).join(","),
 });
 await import("../../apps/api/src/server.js");

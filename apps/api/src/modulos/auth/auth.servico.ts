@@ -17,7 +17,7 @@ import { auditar, registrar, type Origem } from "../auditoria/registro.js";
 import { notificar } from "../notificacoes/notificar.js";
 import * as repo from "./auth.repositorio.js";
 import { criarServicoDuasEtapas } from "./duas-etapas.servico.js";
-import { criarServicoTermos } from "../termos/termos.servico.js";
+import { aceitarDocumentosDaPessoa, criarServicoTermos } from "../termos/termos.servico.js";
 import { ehPlataformaAdmin } from "../acesso/acesso.js";
 
 const VALIDADE_RECUPERACAO_MIN = 60;
@@ -256,7 +256,7 @@ export function criarServicoAuth(s: Servicos) {
 
   async function aceitarConvite(
     cliente: Cliente,
-    dados: { token: string; nome?: string; senha?: string },
+    dados: { token: string; nome?: string; senha?: string; aceite?: boolean },
   ): Promise<{ token: string }> {
     const senhaHash = dados.senha ? await gerarHashSenha(dados.senha) : null;
     return comoSistema(banco, async (tx) => {
@@ -270,6 +270,7 @@ export function criarServicoAuth(s: Servicos) {
       }
       await repo.ativarVinculo(tx, c.vinculoId);
       await repo.marcarTokenUsado(tx, c.token.id);
+      if (dados.aceite) await aceitarDocumentosDaPessoa(tx, usuarioId, cliente.ip);
 
       const o = origem(cliente, c.empresaId, usuarioId);
       await registrar(tx, o, { acao: "usuario.entrou", entidade: "usuario", entidadeId: usuarioId, responsavelId: usuarioId });
