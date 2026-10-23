@@ -20,6 +20,10 @@ próximo: telefonia)
 
 Um único serviço no Railway: o Fastify serve a API e o front compilado (`apps/web/dist`).
 
+Painéis (ADR-043): filtros de tela no endereço (`apps/web/src/app/filtros-url.ts`) e peças de painel sem biblioteca de
+gráficos (`apps/web/src/ui/paineis.tsx`); o servidor entrega um resumo por filtro (`/api/desempenho/resumo`) e o
+"por trás do número" paginado (`/api/desempenho/eventos`), sempre dos eventos e no escopo de quem pede.
+
 Limite entre módulos (ADR-041): o repositório é interno do módulo dono; outro módulo chama o serviço. O lint barra
 importação do repositório de outro módulo, sem exceções; interfaces públicas: `crm/carteira.ts` (contato na carteira,
 responsável) e `permissoes/interface.ts` (permissões do perfil, criar perfil com permissões). Regras permanentes:

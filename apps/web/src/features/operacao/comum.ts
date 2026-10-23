@@ -10,7 +10,7 @@ export function useFuso(): string {
   return useSessao().eu?.empresa?.fuso ?? FUSO_PADRAO;
 }
 
-export const somarDias = (dia: string, n: number) => new Date(Date.parse(`${dia}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
+export { somarDias } from "../../app/filtros-url";
 
 /** Data (AAAA-MM-DD) + hora (HH:MM) digitadas → instante ISO. */
 export const instante = (dia: string, hora: string) => new Date(`${dia}T${hora}`).toISOString();

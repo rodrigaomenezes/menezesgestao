@@ -659,3 +659,19 @@ importar `*.repositorio.js` de outro módulo, sem exceções.
 Mudar a consulta de contatos ou de permissões não pode quebrar módulos vizinhos sem aviso; a interface tem
 assinatura menor (recebe o contexto) e um dono só. Mesmo comportamento: as funções só delegam ao repositório.
 
+# ADR-043 — Painéis do todo ao micro, sem biblioteca de gráficos
+
+## Decisão
+Todo número de painel é clicável e leva a um filtro mais fino, até a ação que o compõe e dali ao registro. Os
+filtros ficam no endereço (`useFiltrosUrl`): "voltar" desfaz o clique, o link é compartilhável e cada filtro vira
+uma etiqueta removível. Gráficos são componentes próprios em HTML/CSS (`ui/paineis.tsx`: número com variação,
+ranking em barras, barras por dia), com uma cor só (a da marca), seleção por contorno e `aria-pressed`, variação com
+seta e texto, "Ver como tabela" e teclado. O servidor responde um resumo por filtro (totais do período e do anterior,
+série diária com zeros, ranking de até 20) e a lista paginada das ações (`/api/desempenho/eventos`), com o mesmo
+escopo de permissão do painel. Intervalo livre até 92 dias.
+
+## Por quê
+Mostrar o todo sem levar ao micro não ajuda a decidir. Biblioteca de gráficos traria peso e dependência para
+barras simples (política, item 13); barras como botões dão foco, toque grande e leitor de tela de graça. Uma chamada
+por mudança de filtro (e não uma por número) mantém a tela leve.
+

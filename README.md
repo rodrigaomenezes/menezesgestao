@@ -240,6 +240,14 @@ dono, gestor, vendedor ou financeiro", com um clique, para mostrar cada visão. 
 empresa marcada como demonstração; nomes, telefones e e-mails são fictícios (`.example`). "Gerar de novo" cria um
 exemplo novo (o "hoje" dos dados é o dia da geração); "Arquivar" tira da lista.
 
+### Painéis do todo ao micro (fase 9.1)
+
+Todo número é uma porta (ADR-043). No **Desempenho**: os números do período (com a variação contra o período
+anterior) escolhem o indicador → o gráfico por dia aproxima o dia clicado → "Quem mais fez" foca a pessoa →
+"O que está por trás do número" lista cada ação e abre o contato ou a conversa. Período com atalhos (Hoje, 7 dias,
+30 dias, Este mês, Mês passado, Outro até 92 dias). Os filtros ficam no endereço: o "voltar" desfaz o último clique,
+o link pode ser enviado e cada clique vira uma etiqueta removível. Gráficos com "Ver como tabela", teclado e 360 px.
+
 ## Testes
 
 ```bash
