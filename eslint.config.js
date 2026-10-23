@@ -37,6 +37,38 @@ export default tseslint.config(
     },
   },
   {
+    // Limite entre módulos (Política de Engenharia, item 1): o repositório é interno do módulo dono dele.
+    // Outro módulo usa o serviço ou a função exportada para isso, nunca o SQL do vizinho.
+    files: ["apps/api/src/modulos/**/*.ts"],
+    ignores: ["**/*.test.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["../*/*.repositorio.js", "../*/**/*.repositorio.js"],
+              message: "Repositório é interno do módulo dono dele (POLITICA_ENGENHARIA, item 1). Use a interface do módulo.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    // Exceções que já existiam quando a regra entrou (TECH_DEBT #70): saem conforme cada módulo for tocado.
+    files: [
+      "apps/api/src/modulos/empresas/criar-empresa.ts",
+      "apps/api/src/modulos/usuarios/usuarios.servico.ts",
+      "apps/api/src/modulos/usuarios/convites.ts",
+      "apps/api/src/modulos/operacao/agenda.servico.ts",
+      "apps/api/src/modulos/receita/vendas.servico.ts",
+      "apps/api/src/modulos/receita/ofertas.servico.ts",
+      "apps/api/src/modulos/conversas/conversas.servico.ts",
+    ],
+    rules: { "no-restricted-imports": "off" },
+  },
+  {
     files: ["apps/web/**/*.{ts,tsx}"],
     languageOptions: { globals: globals.browser },
     plugins: { "react-hooks": reactHooks },

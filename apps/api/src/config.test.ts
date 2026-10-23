@@ -37,5 +37,12 @@ describe("logs", () => {
     const { ocultarTokens } = await import("./app.js");
     expect(ocultarTokens("/convite?token=abc123&x=1")).toBe("/convite?token=***&x=1");
     expect(ocultarTokens("/api/auth/convite?a=1&token=segredo")).toBe("/api/auth/convite?a=1&token=***");
+    expect(ocultarTokens("/api/webhooks/whatsapp/c1?hub.mode=subscribe&hub.verify_token=segredo&hub.challenge=9")).toBe(
+      "/api/webhooks/whatsapp/c1?hub.mode=subscribe&hub.verify_token=***&hub.challenge=9",
+    );
+    expect(ocultarTokens("/api/gravacoes/segredo123")).toBe("/api/gravacoes/***");
+    expect(ocultarTokens("/p/segredo?x=1")).toBe("/p/***?x=1");
+    expect(ocultarTokens("/api/crm/p/1")).toBe("/api/crm/p/1");
+    expect(ocultarTokens("/api/publico/pesquisas/segredo/respostas")).toBe("/api/publico/pesquisas/***/respostas");
   });
 });

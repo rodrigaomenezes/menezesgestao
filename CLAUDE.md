@@ -6,6 +6,7 @@ desempenho da equipe), em português do Brasil.
 Documentos de referência (leia antes de qualquer fase):
 - `PROMPT_MESTRE.md` — instrução permanente do agente: princípios, estrutura, definição de pronto, checklists.
 - `ESPECIFICACAO.md` — o produto (funcional). Fonte da verdade das regras de negócio.
+- `docs/POLITICA_ENGENHARIA.md` — **política permanente de engenharia** (vale para todos os sistemas).
 - `ARCHITECTURE.md` — como o sistema está montado hoje. `DECISIONS.md` — ADRs. `TECH_DEBT.md` — dívida registrada.
 - Precedência: regra funcional aprovada → especificação → arquitetura → decisões → implementação → preferência do agente.
 
@@ -30,6 +31,18 @@ Documentos de referência (leia antes de qualquer fase):
     sem `setInterval` para rotinas (use fila de jobs), sem listagem sem paginação, sem JSON acima de 1 MB
     (arquivos vão por upload próprio) e sem módulo que falhe em silêncio.
 
+## Política de engenharia (permanente — `docs/POLITICA_ENGENHARIA.md`)
+Arquitetura, estabilidade, segurança, manutenibilidade e evolução são requisitos de toda mudança:
+limites claros entre módulos (sem ciclo, sem usar o repositório de outro módulo); contratos de API, eventos e banco
+preservados (incompatível = migração planejada + ADR); teste em toda regra e correção; entrada e transição
+validadas, transação e idempotência no que é crítico; menor privilégio e segredo protegido; sem trabalho
+redundante, otimização medida; falha externa, timeout, repetição e concorrência tratadas; log útil sem credencial nem
+dado sensível; migração versionada com volta segura; documentação atualizada; nenhuma camada, cache ou serviço sem
+justificativa escrita. **Antes** de mudança significativa: ler `ARCHITECTURE.md` e `DECISIONS.md` e listar quem usa
+o que vai mudar; refatoração grande só com diagnóstico, riscos e plano aprovados. **Pronto** = requisitos +
+contratos + verificações executadas (nunca declarar "ok" o que não rodou) + documentação. Deficiência arquitetural
+encontrada não fica calada: problema → consequência → correção mínima.
+
 ## Pilha e estrutura
 Node.js 20 + TypeScript, Fastify, PostgreSQL + Drizzle, Zod, React + Vite como PWA, SSE, pg-boss, Vitest e Playwright
 (ADR-001). Monorepo npm workspaces (ADR-005): `apps/api` (módulos por domínio: rotas → serviço → repositório),
@@ -50,7 +63,8 @@ Mudanças de pilha: propor antes.
 - **Arquitetura (diretriz do analista):** modular sem fragmentar; baixo acoplamento e alta coesão (regra de negócio
   no módulo dono dela, sem importar módulos pesados só por um helper); sem recalcular, reconsultar ou renderizar o que
   não mudou (sem chamada por linha de lista); menor alteração que resolve; investigar consumidores antes de mudar.
-  Ao fim, informar arquivos modificados, responsabilidades, dependências afetadas, otimizações e testes executados.
+  Ao fim, informar arquivos modificados, responsabilidades, dependências afetadas, otimizações, verificações
+  executadas (com o resultado real) e deficiências encontradas.
 - Antes de declarar pronto, releia o diff procurando vazamento entre empresas, rota sem permissão, duplicação por
   telefone, texto em inglês na interface e tela quebrada no celular.
 
