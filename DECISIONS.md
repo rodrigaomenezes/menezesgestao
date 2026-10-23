@@ -632,3 +632,18 @@ fora do painel da plataforma e sem assinatura (sem cobrança e sem bloqueio).
 ## Por quê
 Apresentar o produto com telas vivas e coerentes por ramo, sem tocar em dados reais e sem senha de exemplo no código.
 Gerar pelo banco (em vez de chamar cada serviço) leva ~2 s por empresa; os eventos mantêm a mesma fonte da verdade.
+
+# ADR-041 — Política Permanente de Engenharia em todos os sistemas
+
+## Decisão
+A política do analista (22/10/2026) vira regra permanente deste e dos demais sistemas: texto em
+`docs/POLITICA_ENGENHARIA.md` (igual em todos os repositórios, com uma seção "Como cumprir neste projeto"), resumo no
+`CLAUDE.md`, checklist no modelo de PR. Duas travas automáticas entram já: o lint proíbe um módulo de importar o
+repositório de outro (7 exceções antigas registradas em TECH_DEBT #70) e o log de produção oculta também tokens no
+caminho (`/p/…`, `/api/gravacoes/…`, `/api/publico/pesquisas/…`) e parâmetros terminados em `token`.
+
+## Por quê
+A regra escrita sem verificação se perde; as duas travas cobrem as falhas reais encontradas ao aplicar a política
+(acesso ao SQL de outro módulo e token de acesso sem login gravado no log). Verificação de ciclos e medida de
+desempenho ficam como recomendação até haver sinal concreto (item 13: sem ferramenta nova sem motivo).
+

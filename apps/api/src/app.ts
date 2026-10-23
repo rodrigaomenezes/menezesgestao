@@ -86,7 +86,13 @@ const PASTA_WEB = fileURLToPath(new URL("../../web/dist/", import.meta.url));
 const LIMITE_JSON = 1024 * 1024; // 1 MB: arquivos vão por upload próprio.
 
 export function ocultarTokens(url: string): string {
-  return url.replace(/([?&]token=)[^&]*/gi, "$1***");
+  return (
+    url
+      // Parâmetro cujo nome termina em "token" (token=, hub.verify_token=…).
+      .replace(/([?&][\w.]*token=)[^&]*/gi, "$1***")
+      // Token no caminho: link da gravação e da pesquisa pública (tela /p/… e API) dão acesso sem login.
+      .replace(/^(\/(?:api\/gravacoes|api\/publico\/pesquisas|p)\/)[^/?]+/i, "$1***")
+  );
 }
 
 /** A mensagem sai no vocabulário da empresa de quem pediu ("{Contato} não encontrado" → "Paciente não encontrado"). */
