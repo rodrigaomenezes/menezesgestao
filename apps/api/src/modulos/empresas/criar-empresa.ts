@@ -16,7 +16,7 @@ import {
 import { empresa, unidade } from "../../infra/esquema.js";
 import type { Tx } from "../../infra/banco.js";
 import { auditar, type Origem } from "../auditoria/registro.js";
-import { gravarPermissoes, inserirPerfil } from "../permissoes/permissoes.repositorio.js";
+import { criarPerfilComPermissoes } from "../permissoes/interface.js";
 import { criarFunilPadrao } from "../crm/configuracao.servico.js";
 import { criarListasTelefonia } from "../fila/listas.js";
 import { criarCriteriosQualidade } from "../qualidade/criterios-iniciais.js";
@@ -71,15 +71,12 @@ export async function criarEmpresa(tx: Tx, origem: Omit<Origem, "empresaId">, da
 
   const perfis = {} as Record<PerfilBase, string>;
   for (const base of PERFIS_BASE) {
-    const p = await inserirPerfil(tx, {
-      empresaId,
-      nome: INFO_PERFIS_BASE[base].nome,
-      base,
-      protegido: base === "dono",
-      criadoPor: origem.atorId,
-    });
+    const p = await criarPerfilComPermissoes(
+      tx,
+      { empresaId, nome: INFO_PERFIS_BASE[base].nome, base, protegido: base === "dono", criadoPor: origem.atorId },
+      permissoesDoPerfilBase(base),
+    );
     perfis[base] = p.id;
-    await gravarPermissoes(tx, empresaId, p.id, permissoesDoPerfilBase(base));
   }
 
   const unidadeId = randomUUID();

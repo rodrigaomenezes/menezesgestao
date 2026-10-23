@@ -21,7 +21,8 @@ próximo: telefonia)
 Um único serviço no Railway: o Fastify serve a API e o front compilado (`apps/web/dist`).
 
 Limite entre módulos (ADR-041): o repositório é interno do módulo dono; outro módulo chama o serviço. O lint barra
-importação do repositório de outro módulo (exceções antigas em TECH_DEBT #70). Regras permanentes:
+importação do repositório de outro módulo, sem exceções; interfaces públicas: `crm/carteira.ts` (contato na carteira,
+responsável) e `permissoes/interface.ts` (permissões do perfil, criar perfil com permissões). Regras permanentes:
 `docs/POLITICA_ENGENHARIA.md`.
 
 ## Repositório

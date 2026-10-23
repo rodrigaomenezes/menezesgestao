@@ -11,8 +11,7 @@ import type { ContextoEmpresa } from "../acesso/acesso.js";
 import { filtroUsuariosVisiveis } from "../acesso/escopo.js";
 import { registrar, type Origem } from "../auditoria/registro.js";
 import type { ProvedorArquivos } from "../arquivos/armazenamento.js";
-import { validarResponsavel } from "../crm/carteira.js";
-import * as contatos from "../crm/contatos.repositorio.js";
+import { contatoNaCarteira, validarResponsavel } from "../crm/carteira.js";
 import { prepararAudio } from "./audio.js";
 import { FILAS_CONVERSAS, variaveisDaConversa, type ServicoEnvio } from "./envio.servico.js";
 
@@ -247,7 +246,7 @@ export function criarServicoConversas(s: Servicos, arquivos: ProvedorArquivos, e
     return comEmpresa(banco, ctx.empresaId, async (tx) => {
       const [cn] = await tx.db.select().from(canal).where(and(eq(canal.id, dados.canalId), eq(canal.empresaId, ctx.empresaId), isNull(canal.arquivadoEm)));
       if (!cn) throw naoEncontrado("Canal");
-      const ct = await contatos.buscarVisivel(tx, ctx.empresaId, ctx, escopo, dados.contatoId);
+      const ct = await contatoNaCarteira(tx, ctx, escopo, dados.contatoId);
       if (!ct || ct.arquivadoEm) throw naoEncontrado("Contato");
       if (!ct.telefone) throw invalido("{Este contato} não tem telefone. Cadastre o número para conversar pelo WhatsApp.");
       if (ct.naoContatar) throw invalido("{Este contato} pediu para não ser contatad{o|a:contato} (LGPD). Responda só se a pessoa escrever primeiro.");

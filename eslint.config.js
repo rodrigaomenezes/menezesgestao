@@ -56,19 +56,6 @@ export default tseslint.config(
     },
   },
   {
-    // Exceções que já existiam quando a regra entrou (TECH_DEBT #70): saem conforme cada módulo for tocado.
-    files: [
-      "apps/api/src/modulos/empresas/criar-empresa.ts",
-      "apps/api/src/modulos/usuarios/usuarios.servico.ts",
-      "apps/api/src/modulos/usuarios/convites.ts",
-      "apps/api/src/modulos/operacao/agenda.servico.ts",
-      "apps/api/src/modulos/receita/vendas.servico.ts",
-      "apps/api/src/modulos/receita/ofertas.servico.ts",
-      "apps/api/src/modulos/conversas/conversas.servico.ts",
-    ],
-    rules: { "no-restricted-imports": "off" },
-  },
-  {
     files: ["apps/web/**/*.{ts,tsx}"],
     languageOptions: { globals: globals.browser },
     plugins: { "react-hooks": reactHooks },

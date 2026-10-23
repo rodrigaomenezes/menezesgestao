@@ -7,6 +7,7 @@ import { vinculo } from "../../infra/esquema.js";
 import { invalido } from "../../infra/erros.js";
 import type { ContextoEmpresa } from "../acesso/acesso.js";
 import { usuariosVisiveis } from "../acesso/escopo.js";
+import { buscarVisivel } from "./contatos.repositorio.js";
 
 export async function validarResponsavel(
   tx: Tx,
@@ -26,4 +27,12 @@ export async function validarResponsavel(
     .where(and(eq(vinculo.empresaId, ctx.empresaId), eq(vinculo.usuarioId, alvo), eq(vinculo.status, "ativo"), isNull(vinculo.arquivadoEm)));
   if (!v) throw invalido("O responsável escolhido não está ativo na empresa.");
   return alvo;
+}
+
+/**
+ * Contato visível para quem pede, no escopo dado (ou null). Interface do CRM para outros módulos (agenda, vendas,
+ * ofertas, conversas): o repositório de contatos fica interno ao CRM (POLITICA_ENGENHARIA, item 1).
+ */
+export function contatoNaCarteira(tx: Tx, ctx: ContextoEmpresa, escopo: Escopo, contatoId: string) {
+  return buscarVisivel(tx, ctx.empresaId, ctx, escopo, contatoId);
 }
