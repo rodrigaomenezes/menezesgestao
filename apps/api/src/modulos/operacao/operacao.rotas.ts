@@ -23,6 +23,10 @@ import {
   FiltroAtividades,
   FiltroCompromissos,
   FiltroDesempenho,
+  FiltroResumoDesempenho,
+  FiltroEventosIndicador,
+  ResumoDesempenhoDto,
+  EventoIndicadorDto,
   FiltroHoras,
   FiltroMapa,
   FiltroMetas,
@@ -193,6 +197,22 @@ export const rotasOperacao =
         "/api/desempenho",
         { config: acesso("desempenho", "ver"), schema: { tags, summary: "Indicadores por pessoa no período (calculados dos eventos)", querystring: FiltroDesempenho, response: { 200: DesempenhoDto } } },
         async (req) => desempenho.painel(exigirEmpresa(req), exigirEscopo(req), req.query),
+      );
+      app.get(
+        "/api/desempenho/resumo",
+        {
+          config: acesso("desempenho", "ver"),
+          schema: { tags, summary: "Painel do todo ao micro: totais com variação, série por dia e ranking do indicador", querystring: FiltroResumoDesempenho, response: { 200: ResumoDesempenhoDto } },
+        },
+        async (req) => desempenho.resumo(exigirEmpresa(req), exigirEscopo(req), req.query),
+      );
+      app.get(
+        "/api/desempenho/eventos",
+        {
+          config: acesso("desempenho", "ver"),
+          schema: { tags, summary: "As ações por trás de um número do painel (paginadas)", querystring: FiltroEventosIndicador, response: { 200: pagina(EventoIndicadorDto) } },
+        },
+        async (req) => desempenho.eventos(exigirEmpresa(req), exigirEscopo(req), req.query),
       );
       app.get(
         "/api/metas",

@@ -92,7 +92,8 @@ test("desempenho com meta definida na tela e mapa com atividade lançada à mão
   await form.getByRole("button", { name: "Definir meta" }).click();
   await expect(page.getByText("Meta definida.")).toBeVisible();
   await expect(page.getByRole("region", { name: "Metas" }).getByText(`${NOMES[k]} — Vendedor A1`).first()).toBeVisible();
-  await expect(page.getByRole("region", { name: "Por pessoa" }).getByText("Vendedor A1")).toBeVisible();
+  await page.getByText("Tabela por pessoa").click();
+  await expect(page.getByRole("rowheader", { name: "Vendedor A1" })).toBeVisible();
   await semRolagemLateral(page);
 
   await page.goto("/mapa");
@@ -104,6 +105,40 @@ test("desempenho com meta definida na tela e mapa com atividade lançada à mão
   await expect(page.getByText("Atividade lançada.")).toBeVisible();
   const linha = page.getByRole("row").filter({ has: page.getByRole("rowheader", { name: "Dona A" }) });
   await expect(linha.getByRole("cell", { name: /^7h: .*Treinamento/ })).toBeVisible();
+  await semRolagemLateral(page);
+});
+
+test("desempenho do todo ao micro: número → pessoa → ação → registro, e o voltar mantém o filtro", async ({ page }, info) => {
+  const k = PROJETOS.indexOf(info.project.name);
+  const { a } = dados();
+  await entrar(page, pessoa(a, "dono").email);
+  const nome = `Aluno do painel ${info.project.name}`;
+  expect((await api(page, "POST", "/api/contatos", { nome, telefone: `(31) 98${String(4400_000 + k).padStart(7, "0")}` })).status).toBe(201);
+
+  await page.goto("/desempenho");
+  // 1) O número escolhe o indicador (vai para o endereço).
+  await page.getByRole("button", { name: /^Alunos cadastrados/ }).click();
+  await expect(page).toHaveURL(/indicador=contatos_novos/);
+  // 2) O ranking foca a pessoa: vira etiqueta de filtro.
+  await page.getByRole("region", { name: "Quem mais fez" }).getByRole("button", { name: /Dona A/ }).click();
+  await expect(page).toHaveURL(/usuarioId=/);
+  await expect(page.getByRole("button", { name: "Tirar filtro: Dona A" })).toBeVisible();
+  // 3) A ação por trás do número abre o registro.
+  await page.getByRole("region", { name: /O que está por trás do número/ }).getByRole("link", { name: new RegExp(nome) }).click();
+  await expect(page).toHaveURL(/\/contatos\//);
+  // 4) Voltar devolve o painel com o mesmo filtro.
+  await page.goBack();
+  await expect(page.getByRole("button", { name: "Tirar filtro: Dona A" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Alunos cadastrados/ })).toHaveAttribute("aria-pressed", "true");
+  await semRolagemLateral(page);
+  // 5) Tirar a etiqueta volta um nível.
+  await page.getByRole("button", { name: "Tirar filtro: Dona A" }).click();
+  await expect(page).not.toHaveURL(/usuarioId=/);
+  // 6) Período de 7 dias: o gráfico por dia aparece e o dia clicado aproxima o painel.
+  await page.getByRole("button", { name: "7 dias", exact: true }).click();
+  const porDia = page.getByRole("region", { name: /por dia/ });
+  await porDia.getByRole("button", { name: /Abrir o dia/ }).last().click();
+  await expect(page.getByRole("region", { name: /por dia/ })).toHaveCount(0);
   await semRolagemLateral(page);
 });
 

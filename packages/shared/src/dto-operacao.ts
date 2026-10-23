@@ -71,14 +71,12 @@ export const AtualizarMetaEntrada = z.object({ valor: MetaEntrada.shape.valor.op
 export const FiltroMetas = Paginacao.extend({
   data: DataDia.optional(),
   alvo: z.enum(ALVOS_META).optional(),
+  /** Só as metas desta pessoa (painel com a pessoa em foco). */
+  usuarioId: Id.optional(),
   arquivados: z.enum(["sim", "nao"]).default("nao"),
 });
 
-export const FiltroDesempenho = Paginacao.extend({
-  periodo: z.enum(PERIODOS).default("dia"),
-  data: DataDia.optional(),
-  equipeId: Id.optional(),
-});
+
 export const LinhaDesempenhoDto = z.object({
   usuarioId: Id,
   nome: z.string(),
@@ -91,6 +89,80 @@ export const DesempenhoDto = z.object({
   proximoCursor: z.string().nullable(),
 });
 export type DesempenhoDto = z.infer<typeof DesempenhoDto>;
+
+// Painel de desempenho com detalhe (do todo ao micro): período livre, indicador escolhido, pessoa opcional.
+/** Maior intervalo de um painel: um trimestre e pouco (série por dia legível e consulta barata). */
+export const MAX_DIAS_PAINEL = 92;
+/** Intervalo livre válido (os dois juntos, em ordem, até MAX_DIAS_PAINEL dias). */
+function intervaloValido(f: { inicio?: string; fim?: string }, ctx: z.RefinementCtx) {
+  if (!f.inicio !== !f.fim) ctx.addIssue({ code: "custom", message: "Informe o início e o fim do intervalo.", path: ["fim"] });
+  else if (f.inicio && f.fim && f.inicio > f.fim) ctx.addIssue({ code: "custom", message: "O início vem antes do fim.", path: ["fim"] });
+  else if (f.inicio && f.fim && (Date.parse(f.fim) - Date.parse(f.inicio)) / 86_400_000 >= MAX_DIAS_PAINEL)
+    ctx.addIssue({ code: "custom", message: `Escolha um intervalo de até ${MAX_DIAS_PAINEL} dias.`, path: ["fim"] });
+}
+export const FiltroDesempenho = Paginacao.extend({
+  periodo: z.enum(PERIODOS).default("dia"),
+  data: DataDia.optional(),
+  /** Intervalo livre (os dois juntos); quando vem, vale no lugar de periodo + data. */
+  inicio: DataDia.optional(),
+  fim: DataDia.optional(),
+  equipeId: Id.optional(),
+}).superRefine(intervaloValido);
+export const FiltroResumoDesempenho = z
+  .object({
+    periodo: z.enum(PERIODOS).default("dia"),
+    data: DataDia.optional(),
+    /** Intervalo livre (os dois juntos); quando vem, vale no lugar de periodo + data. */
+    inicio: DataDia.optional(),
+    fim: DataDia.optional(),
+    indicador: z.enum(IDS_INDICADORES).default("ligacoes"),
+    usuarioId: Id.optional(),
+    equipeId: Id.optional(),
+  })
+  .superRefine(intervaloValido);
+export type FiltroResumoDesempenho = z.infer<typeof FiltroResumoDesempenho>;
+const ValoresIndicadores = z.record(z.string(), z.number());
+export const ResumoDesempenhoDto = z.object({
+  inicio: DataDia,
+  fim: DataDia,
+  /** O período imediatamente anterior, do mesmo tamanho (para a variação). */
+  anterior: z.object({ inicio: DataDia, fim: DataDia }),
+  indicador: z.enum(IDS_INDICADORES),
+  /** Pessoa em foco (filtro), ou null = todos que o escopo enxerga. */
+  usuarioId: Id.nullable(),
+  usuarioNome: z.string().nullable(),
+  totais: ValoresIndicadores,
+  totaisAnteriores: ValoresIndicadores,
+  /** Um ponto por dia do intervalo (dias sem ação = 0), do indicador escolhido. */
+  serie: z.array(z.object({ dia: DataDia, valor: z.number() })),
+  /** Quem mais fez no indicador escolhido (até 20), maior primeiro. Sem filtro de pessoa. */
+  ranking: z.array(z.object({ usuarioId: Id, nome: z.string(), valor: z.number() })),
+});
+export type ResumoDesempenhoDto = z.infer<typeof ResumoDesempenhoDto>;
+
+export const FiltroEventosIndicador = Paginacao.extend({
+  indicador: z.enum(IDS_INDICADORES),
+  inicio: DataDia,
+  fim: DataDia,
+  usuarioId: Id.optional(),
+  equipeId: Id.optional(),
+}).superRefine(intervaloValido);
+/** Uma ação que entrou na conta do indicador: o "por trás do número". */
+export const EventoIndicadorDto = z.object({
+  id: Id,
+  criadoEm: DataIso,
+  usuarioId: Id.nullable(),
+  usuarioNome: z.string().nullable(),
+  contatoId: Id.nullable(),
+  contatoNome: z.string().nullable(),
+  entidade: z.string(),
+  entidadeId: Id.nullable(),
+  /** Quanto este evento soma (minutos, reais) ou 1 numa contagem. */
+  valor: z.number(),
+  /** Detalhe curto e legível (ex.: "Atendida · 4 min", "Resultado: Interessado"). */
+  detalhe: z.string().nullable(),
+});
+export type EventoIndicadorDto = z.infer<typeof EventoIndicadorDto>;
 
 // Mapa de atividades ------------------------------------------------------------------------------------
 

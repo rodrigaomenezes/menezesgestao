@@ -1,6 +1,6 @@
 // Metas (pessoa, equipe ou empresa) e painel de desempenho. Os números saem só dos eventos (indicadores.ts).
 import { and, desc, eq, isNotNull, isNull, or, sql, type SQL } from "drizzle-orm";
-import type { DesempenhoDto, Escopo, IndicadorId, MetaDto, Pagina, PeriodoId } from "@mg/shared";
+import type { DesempenhoDto, Escopo, EventoIndicadorDto, FiltroResumoDesempenho, IndicadorId, MetaDto, Pagina, PeriodoId, ResumoDesempenhoDto } from "@mg/shared";
 import { comEmpresa, type Tx } from "../../infra/banco.js";
 import { equipe, meta, usuario, vinculo } from "../../infra/esquema.js";
 import { codigoPg, conflito, invalido, naoEncontrado, semPermissao } from "../../infra/erros.js";
@@ -9,8 +9,8 @@ import type { Servicos } from "../../app.js";
 import type { ContextoEmpresa } from "../acesso/acesso.js";
 import { filtroUsuariosVisiveis } from "../acesso/escopo.js";
 import { registrar, type Origem } from "../auditoria/registro.js";
-import { exigirPessoa, fusoDe, hojeNoFuso, instantesDoPeriodo, limitesPeriodo, pessoasVisiveis } from "./comum.js";
-import { calcularIndicadores, zerados } from "./indicadores.js";
+import { exigirPessoa, fusoDe, hojeNoFuso, instantesDoPeriodo, limitesPeriodo, pessoasVisiveis, somarDias } from "./comum.js";
+import { calcularIndicadores, eventosIndicador, rankingIndicador, serieIndicador, zerados, type LinhaEventoIndicador, type Quem } from "./indicadores.js";
 
 type LinhaMeta = typeof meta.$inferSelect & { usuarioNome: string | null; equipeNome: string | null };
 
@@ -23,6 +23,32 @@ function metaVisivel(ctx: ContextoEmpresa, escopo: Escopo): SQL {
     and(eq(meta.alvo, "equipe"), escopo === "unidade" ? sql`true` : equipes),
     and(eq(meta.alvo, "pessoa"), filtroUsuariosVisiveis(ctx, escopo, meta.usuarioId)),
   )!;
+}
+
+/** Intervalo do painel: livre (inicio/fim) ou o período que contém `data`; e o anterior, para a variação. */
+export function intervaloDoPainel(f: { periodo: PeriodoId; data?: string; inicio?: string; fim?: string }, hoje: string) {
+  if (f.inicio && f.fim) {
+    const dias = Math.round((Date.parse(f.fim) - Date.parse(f.inicio)) / 86_400_000) + 1;
+    return { inicio: f.inicio, fim: f.fim, anterior: { inicio: somarDias(f.inicio, -dias), fim: somarDias(f.inicio, -1) } };
+  }
+  const atual = limitesPeriodo(f.periodo, f.data ?? hoje);
+  return { ...atual, anterior: limitesPeriodo(f.periodo, somarDias(atual.inicio, -1)) };
+}
+
+const minutos = (seg: unknown) => Math.max(1, Math.round(Number(seg ?? 0) / 60));
+/** Uma linha curta e sem dado sensível sobre a ação (o conteúdo das mensagens fica na conversa). */
+function detalheDoEvento(l: LinhaEventoIndicador): string | null {
+  const d = l.dados;
+  switch (l.tipo) {
+    case "ligacao.encerrada":
+      return d.atendida ? `Atendida · ${minutos(d.duracaoSegundos)} min` : "Não atendida";
+    case "mensagem.criada":
+      return d.automacao ? "Enviada por automação" : null;
+    case "fila.resultado_registrado":
+      return typeof d.resultado === "string" ? `Resultado: ${d.resultado}` : null;
+    default:
+      return typeof d.titulo === "string" ? d.titulo : null;
+  }
 }
 
 async function membrosDaEquipe(tx: Tx, empresaId: string, equipeId: string): Promise<string[]> {
@@ -113,7 +139,7 @@ export function criarServicoDesempenho(s: Servicos) {
   async function listarMetas(
     ctx: ContextoEmpresa,
     escopo: Escopo,
-    f: { data?: string; alvo?: "pessoa" | "equipe" | "empresa"; arquivados: "sim" | "nao"; cursor?: string; limite: number },
+    f: { data?: string; alvo?: "pessoa" | "equipe" | "empresa"; usuarioId?: string; arquivados: "sim" | "nao"; cursor?: string; limite: number },
   ): Promise<Pagina<MetaDto>> {
     return comEmpresa(banco, ctx.empresaId, async (tx) => {
       const linhas = await consulta(tx)
@@ -123,6 +149,7 @@ export function criarServicoDesempenho(s: Servicos) {
             f.arquivados === "sim" ? isNotNull(meta.arquivadoEm) : isNull(meta.arquivadoEm),
             metaVisivel(ctx, escopo),
             f.alvo ? eq(meta.alvo, f.alvo) : undefined,
+            f.usuarioId ? and(eq(meta.alvo, "pessoa"), eq(meta.usuarioId, f.usuarioId)) : undefined,
             condicaoCursor(meta.criadoEm, meta.id, lerCursor(f.cursor)),
           ),
         )
@@ -235,10 +262,10 @@ export function criarServicoDesempenho(s: Servicos) {
   async function painel(
     ctx: ContextoEmpresa,
     escopo: Escopo,
-    f: { periodo: PeriodoId; data?: string; equipeId?: string; cursor?: string; limite: number },
+    f: { periodo: PeriodoId; data?: string; inicio?: string; fim?: string; equipeId?: string; cursor?: string; limite: number },
   ): Promise<DesempenhoDto> {
     return comEmpresa(banco, ctx.empresaId, async (tx) => {
-      const { inicio, fim } = limitesPeriodo(f.periodo, f.data ?? hojeNoFuso(fusoDe(ctx)));
+      const { inicio, fim } = intervaloDoPainel(f, hojeNoFuso(fusoDe(ctx)));
       const { pessoas, proximoCursor } = await pessoasVisiveis(tx, ctx, escopo, f);
       const { de, ate } = instantesDoPeriodo(inicio, fim, fusoDe(ctx));
       const valores = await calcularIndicadores(tx, ctx.empresaId, de, ate, pessoas.map((p) => p.id), true);
@@ -251,5 +278,64 @@ export function criarServicoDesempenho(s: Servicos) {
     });
   }
 
-  return { listarMetas, minhasMetas, criarMeta, atualizarMeta, painel };
+  /** Quem entra na conta do painel: a pessoa em foco, a equipe escolhida ou todos que o escopo enxerga. */
+  async function quemDoPainel(tx: Tx, ctx: ContextoEmpresa, escopo: Escopo, f: { usuarioId?: string; equipeId?: string }): Promise<Quem> {
+    if (f.usuarioId) return [await exigirPessoa(tx, ctx, escopo, f.usuarioId)];
+    const equipeId = f.equipeId;
+    if (equipeId) {
+      return (col) =>
+        sql`(${filtroUsuariosVisiveis(ctx, escopo, col)} AND ${col} IN (SELECT usuario_id FROM vinculo WHERE empresa_id = ${ctx.empresaId} AND equipe_id = ${equipeId}))`;
+    }
+    return (col) => filtroUsuariosVisiveis(ctx, escopo, col);
+  }
+
+  /** Painel do todo ao micro: totais com variação, série por dia e ranking do indicador escolhido. */
+  async function resumo(ctx: ContextoEmpresa, escopo: Escopo, f: FiltroResumoDesempenho): Promise<ResumoDesempenhoDto> {
+    return comEmpresa(banco, ctx.empresaId, async (tx) => {
+      const fuso = fusoDe(ctx);
+      const { inicio, fim, anterior } = intervaloDoPainel(f, hojeNoFuso(fuso));
+      const quem = await quemDoPainel(tx, ctx, escopo, f);
+      const atual = instantesDoPeriodo(inicio, fim, fuso);
+      const antes = instantesDoPeriodo(anterior.inicio, anterior.fim, fuso);
+      const totais = (await calcularIndicadores(tx, ctx.empresaId, atual.de, atual.ate, quem, false)).get("total") ?? zerados();
+      const totaisAnteriores = (await calcularIndicadores(tx, ctx.empresaId, antes.de, antes.ate, quem, false)).get("total") ?? zerados();
+      const serie = await serieIndicador(tx, ctx.empresaId, inicio, fim, atual.de, atual.ate, fuso, f.indicador, quem);
+      // O ranking mostra o time (sem o filtro de pessoa), para a pessoa em foco aparecer no contexto.
+      const quemRanking = f.usuarioId ? await quemDoPainel(tx, ctx, escopo, { equipeId: f.equipeId }) : quem;
+      const ranking = await rankingIndicador(tx, ctx.empresaId, atual.de, atual.ate, f.indicador, quemRanking, 20);
+      let usuarioNome: string | null = null;
+      if (f.usuarioId) {
+        const [u] = await tx.db.select({ nome: usuario.nome }).from(usuario).where(eq(usuario.id, f.usuarioId));
+        usuarioNome = u?.nome ?? null;
+      }
+      return { inicio, fim, anterior, indicador: f.indicador, usuarioId: f.usuarioId ?? null, usuarioNome, totais, totaisAnteriores, serie, ranking };
+    });
+  }
+
+  /** O que está por trás do número: as ações que entraram na conta, mais recentes primeiro. */
+  async function eventos(
+    ctx: ContextoEmpresa,
+    escopo: Escopo,
+    f: { indicador: IndicadorId; inicio: string; fim: string; usuarioId?: string; equipeId?: string; cursor?: string; limite: number },
+  ): Promise<Pagina<EventoIndicadorDto>> {
+    return comEmpresa(banco, ctx.empresaId, async (tx) => {
+      const quem = await quemDoPainel(tx, ctx, escopo, f);
+      const { de, ate } = instantesDoPeriodo(f.inicio, f.fim, fusoDe(ctx));
+      const linhas = await eventosIndicador(tx, ctx.empresaId, de, ate, f.indicador, quem, lerCursor(f.cursor), f.limite);
+      return montarPagina(linhas, f.limite, (l) => ({
+        id: l.id,
+        criadoEm: l.criadoEm.toISOString(),
+        usuarioId: l.usuarioId,
+        usuarioNome: l.usuarioNome,
+        contatoId: l.contatoId,
+        contatoNome: l.contatoNome,
+        entidade: l.entidade,
+        entidadeId: l.entidadeId,
+        valor: l.valor,
+        detalhe: detalheDoEvento(l),
+      }));
+    });
+  }
+
+  return { listarMetas, minhasMetas, criarMeta, atualizarMeta, painel, resumo, eventos };
 }

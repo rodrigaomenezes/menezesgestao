@@ -2504,3 +2504,491 @@ fieldset legend {
   background: var(--erro-fundo);
   color: var(--texto);
 }
+
+/* Painéis do todo ao micro (ui/paineis.tsx): todo número é um botão que leva a um filtro mais fino.
+   Uma cor só nos gráficos (a da marca); o selecionado fica cheio e o resto recua. Nada depende só de cor:
+   a seleção tem contorno e aria-pressed, a variação tem seta e texto. */
+.botao-texto {
+  background: none;
+  border: 0;
+  padding: 0.25rem 0;
+  min-height: 40px;
+  color: var(--cor-primaria);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+@media (prefers-color-scheme: dark) {
+  .botao-texto {
+    color: var(--texto);
+  }
+}
+
+.filtros-painel {
+  padding: 0.75rem 1rem;
+}
+
+/* No computador o filtro acompanha a rolagem; no celular ele ocuparia a tela, então fica no topo da página. */
+@media (min-width: 900px) {
+  .filtros-painel {
+    position: sticky;
+    top: 0.5rem;
+    z-index: 5;
+  }
+}
+
+.atalhos-periodo {
+  display: flex;
+  gap: 0.375rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+}
+
+.atalhos-periodo button {
+  flex: 0 0 auto;
+  min-height: 40px;
+  padding: 0 0.875rem;
+  border: 1px solid var(--borda);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--texto);
+  font: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.atalhos-periodo button.ativa {
+  background: var(--cor-primaria);
+  border-color: var(--cor-primaria);
+  color: var(--cor-primaria-texto);
+  font-weight: 600;
+}
+
+.periodo-livre {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.periodo-livre .campo {
+  flex: 1 1 140px;
+}
+
+.etiquetas-filtro {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem;
+  margin-top: 0.625rem;
+}
+
+.etiqueta-filtro {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-height: 32px;
+  padding: 0 0.75rem;
+  border-radius: 999px;
+  border: 1px solid var(--cor-primaria);
+  background: var(--cor-primaria-suave);
+  color: var(--texto);
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.etiqueta-filtro.fixa {
+  border-color: var(--borda);
+  background: transparent;
+  cursor: default;
+}
+
+.etiqueta-filtro span[aria-hidden] {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+/* Recarregar não pula a tela: o painel fica onde está, só recua um pouco. */
+.painel {
+  transition: opacity 0.15s;
+}
+
+.painel.atualizando {
+  opacity: 0.55;
+}
+
+.destaques {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+@media (min-width: 600px) {
+  .destaques {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1100px) {
+  .destaques {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.destaque {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.125rem;
+  min-height: 96px;
+  padding: 0.75rem 0.875rem;
+  border: 1px solid var(--borda);
+  border-radius: var(--raio-pequeno);
+  background: var(--superficie);
+  color: var(--texto);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.destaque:hover {
+  border-color: var(--cor-primaria);
+}
+
+.destaque.selecionado {
+  border-color: var(--cor-primaria);
+  box-shadow: inset 0 0 0 1px var(--cor-primaria);
+  background: var(--cor-primaria-suave);
+}
+
+.destaque-rotulo {
+  font-size: 0.8rem;
+  color: var(--texto-suave);
+  line-height: 1.3;
+}
+
+.destaque-valor {
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+.destaque.zerado .destaque-valor {
+  color: var(--texto-suave);
+}
+
+.destaque-variacao {
+  font-size: 0.75rem;
+  color: var(--texto-suave);
+}
+
+.destaque-variacao.sobe {
+  color: var(--sucesso);
+}
+
+.destaque-variacao.desce {
+  color: var(--erro);
+}
+
+.painel-colunas {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0 1rem;
+}
+
+@media (min-width: 1024px) {
+  .painel-colunas {
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  }
+}
+
+.ranking-barras {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.barra-h {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "rotulo numero" "trilho trilho";
+  gap: 0.25rem 0.5rem;
+  width: 100%;
+  min-height: 48px;
+  padding: 0.375rem 0.25rem;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--texto);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.barra-h:hover {
+  background: var(--cor-primaria-suave);
+}
+
+.barra-h.selecionada {
+  box-shadow: inset 0 0 0 2px var(--cor-primaria);
+}
+
+.barra-h.apagada .barra-h-valor {
+  opacity: 0.35;
+}
+
+.barra-h-rotulo {
+  grid-area: rotulo;
+  font-size: 0.9rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.barra-h-posicao {
+  color: var(--texto-suave);
+  font-size: 0.8rem;
+}
+
+.barra-h-numero {
+  grid-area: numero;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.barra-h-trilho {
+  grid-area: trilho;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--borda);
+  overflow: hidden;
+}
+
+.barra-h-valor {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--cor-primaria);
+}
+
+.barras-dia-topo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0 0.75rem;
+}
+
+.barras-dia-leitura {
+  margin: 0 0 0.5rem;
+  color: var(--texto-suave);
+  font-size: 0.9rem;
+}
+
+.barras-dia-leitura strong {
+  color: var(--texto);
+  font-size: 1.05rem;
+}
+
+.barras-dia-grade {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  height: 180px;
+  border-bottom: 1px solid var(--borda);
+}
+
+.coluna {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  position: relative;
+}
+
+.coluna-barra {
+  display: block;
+  width: 100%;
+  max-width: 28px;
+  border-radius: 4px 4px 0 0;
+  background: var(--cor-primaria);
+  opacity: 0.8;
+  transition: opacity 0.1s;
+}
+
+.coluna:hover .coluna-barra,
+.coluna.em-foco .coluna-barra {
+  opacity: 1;
+  box-shadow: 0 0 0 2px var(--superficie), 0 0 0 4px var(--cor-primaria);
+}
+
+.coluna-dia {
+  position: absolute;
+  bottom: -1.4rem;
+  font-size: 0.7rem;
+  color: var(--texto-suave);
+}
+
+.barras-dia {
+  padding-bottom: 1.5rem;
+}
+
+.tabela-simples {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.tabela-simples th,
+.tabela-simples td {
+  padding: 0.375rem 0.5rem;
+  border-bottom: 1px solid var(--borda);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.tabela-simples td {
+  text-align: right;
+}
+
+.tabela-rolagem {
+  overflow-x: auto;
+  margin: 0.5rem 0;
+}
+
+.tabela-pessoas summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.tabela-pessoas summary h2 {
+  display: inline;
+}
+
+.tabela-pessoas summary::after {
+  content: " ▾";
+  color: var(--texto-suave);
+}
+
+.tabela-pessoas[open] summary::after {
+  content: " ▴";
+}
+
+.acoes-indicador {
+  margin: 0;
+  padding: 0;
+}
+
+.acao-link {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 52px;
+  padding: 0.5rem 0.25rem;
+  border-bottom: 1px solid var(--borda);
+  color: var(--texto);
+  text-decoration: none;
+}
+
+a.acao-link:hover {
+  background: var(--cor-primaria-suave);
+}
+
+.acao-quando {
+  font-size: 0.8rem;
+  color: var(--texto-suave);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.acao-o-que {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.acao-valor {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.acao-seta {
+  color: var(--texto-suave);
+  font-size: 1.25rem;
+}
+
+.acao-link.sem-link {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+/* No celular a variação fica curta ("↓ -14%"); o texto inteiro vai no title e aparece a partir de 600 px. */
+.destaque-variacao-extra {
+  display: none;
+}
+
+@media (min-width: 600px) {
+  .destaque-variacao-extra {
+    display: inline;
+  }
+}
+
+@media (max-width: 599px) {
+  .destaque {
+    min-height: 0;
+    padding: 0.625rem 0.75rem;
+  }
+
+  .destaque-valor {
+    font-size: 1.3rem;
+  }
+}
+
+.metas-grade {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0 1.5rem;
+}
+
+@media (min-width: 900px) {
+  .metas-grade {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.metas-grade .meta-linha {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--borda);
+}
+
+.metas-grade .meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.botao-arquivar {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--texto-suave);
+}
