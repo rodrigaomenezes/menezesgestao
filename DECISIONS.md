@@ -647,3 +647,15 @@ A regra escrita sem verificação se perde; as duas travas cobrem as falhas reai
 (acesso ao SQL de outro módulo e token de acesso sem login gravado no log). Verificação de ciclos e medida de
 desempenho ficam como recomendação até haver sinal concreto (item 13: sem ferramenta nova sem motivo).
 
+# ADR-042 — Interfaces públicas entre módulos no lugar do repositório do vizinho
+
+## Decisão
+As 7 exceções do ADR-041 saíram. O CRM expõe `contatoNaCarteira` em `crm/carteira.ts` (contato visível no escopo de
+quem pede), usado por agenda, vendas, ofertas e conversas. Permissões expõe `permissoes/interface.ts`
+(`permissoesDoPerfil`, `criarPerfilComPermissoes`), usado por criar empresa, convites e usuários. O lint barra
+importar `*.repositorio.js` de outro módulo, sem exceções.
+
+## Por quê
+Mudar a consulta de contatos ou de permissões não pode quebrar módulos vizinhos sem aviso; a interface tem
+assinatura menor (recebe o contexto) e um dono só. Mesmo comportamento: as funções só delegam ao repositório.
+

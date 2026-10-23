@@ -66,7 +66,7 @@ implementação em uma fonte crescente de falhas, retrabalho, lentidão ou compl
 
 | Item | Como se cumpre aqui | Verificado por |
 | --- | --- | --- |
-| 1. Limites | Módulos em `apps/api/src/modulos/<dominio>` (rotas → serviço → repositório); contrato da API em `@mg/shared`. Repositório é interno do módulo: outro módulo usa o serviço | Lint `no-restricted-imports` (7 exceções antigas, TECH_DEBT #70) |
+| 1. Limites | Módulos em `apps/api/src/modulos/<dominio>` (rotas → serviço → repositório); contrato da API em `@mg/shared`. Repositório é interno do módulo: outro módulo usa o serviço ou a interface pública (ex.: `crm/carteira.ts`, `permissoes/interface.ts`) | Lint `no-restricted-imports`, sem exceções |
 | 2. Compatibilidade | Contrato Zod em `@mg/shared` e OpenAPI; eventos e tabelas só ganham campos; mudança incompatível = ADR + migração em duas etapas (adiciona → migra uso → remove numa versão seguinte) | Typecheck do monorepo; testes de integração das rotas |
 | 3. Testes | Vitest (unidade e integração) + Playwright em 5 larguras; correção de bug vem com teste que falhava antes | `npm test`, `npm run test:e2e` |
 | 4. Integridade | Zod em toda entrada; transições checadas no serviço; transação no repositório; índice único + idempotência em webhooks e jobs | Testes de integração |
@@ -83,10 +83,9 @@ implementação em uma fonte crescente de falhas, retrabalho, lentidão ou compl
 
 ### Deficiências conhecidas (problema → consequência → correção mínima)
 
-- **Repositório usado por outro módulo** (7 arquivos usam `permissoes.repositorio` ou `crm/contatos.repositorio`) →
-  mudar uma consulta de contatos ou permissões pode quebrar Conversas, Receita, Operação, Usuários ou Empresas sem
-  aviso → a trava de lint impede casos novos; cada exceção sai quando o módulo for tocado, trocando a importação por
-  uma função do serviço dono (TECH_DEBT #70).
+- **[Corrigida] Repositório usado por outro módulo** (7 arquivos) → agenda, vendas, ofertas e conversas usam
+  `contatoNaCarteira` (`crm/carteira.ts`); empresas e usuários usam `permissoes/interface.ts`. As exceções do lint
+  saíram (ADR-042).
 - **Sem verificação automática de dependências circulares** → um ciclo de importação pode surgir sem ninguém ver e
   causar valores `undefined` na inicialização → quando houver o primeiro sinal, adicionar `madge --circular` ao CI
   (não adicionado agora para não criar dependência sem necessidade; item 13).
