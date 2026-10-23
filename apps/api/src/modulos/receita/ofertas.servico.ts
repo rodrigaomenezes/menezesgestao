@@ -9,7 +9,7 @@ import type { Servicos } from "../../app.js";
 import type { ContextoEmpresa } from "../acesso/acesso.js";
 import { filtroUsuariosVisiveis } from "../acesso/escopo.js";
 import { registrar, type Origem } from "../auditoria/registro.js";
-import * as contatos from "../crm/contatos.repositorio.js";
+import { contatoNaCarteira } from "../crm/carteira.js";
 import { exigirPessoa } from "../operacao/comum.js";
 
 const ocupadas = sql<number>`(SELECT count(*)::int FROM entrega_participante p WHERE p.entrega_id = ${sql.raw('"entrega"."id"')} AND p.status = 'ativo')`;
@@ -301,7 +301,7 @@ export function criarServicoOfertas(s: Servicos) {
     return comEmpresa(banco, ctx.empresaId, async (tx) => {
       const e = await carregarEntrega(tx, ctx, escopo, entregaId);
       const escopoCrm = temPermissao(ctx.permissoes, "crm", "ver");
-      const c = escopoCrm ? await contatos.buscarVisivel(tx, ctx.empresaId, ctx, escopoCrm, contatoId) : null;
+      const c = escopoCrm ? await contatoNaCarteira(tx, ctx, escopoCrm, contatoId) : null;
       if (!c) throw invalido("{Contato} não encontrad{o|a:contato} na sua carteira.");
       const id = await ocuparVaga(tx, ctx.empresaId, entregaId, contatoId, ctx.usuarioId, null);
       await registrar(tx, origem, { acao: "entrega.participante_incluido", entidade: "entrega", entidadeId: entregaId, contatoId, dados: { entrega: e.nome } });

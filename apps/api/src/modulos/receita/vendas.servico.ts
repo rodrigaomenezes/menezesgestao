@@ -19,7 +19,7 @@ import type { ContextoEmpresa } from "../acesso/acesso.js";
 import { filtroUsuariosVisiveis, usuariosVisiveis } from "../acesso/escopo.js";
 import { registrar, type Origem } from "../auditoria/registro.js";
 import { marcarBpiVelho } from "../bre/bpi-cache.js";
-import * as contatos from "../crm/contatos.repositorio.js";
+import { contatoNaCarteira } from "../crm/carteira.js";
 import { exigirPessoa, fusoDe, hojeNoFuso, limitesPeriodo } from "../operacao/comum.js";
 import { calcularComissoes, type RegraParaComissao } from "./calculo-comissao.js";
 import { ocuparVaga } from "./ofertas.servico.js";
@@ -156,7 +156,7 @@ export function criarServicoVendas(s: Servicos) {
     if (d.status === "confirmada" && !confere(escopo)) throw invalido("A venda entra como aguardando pagamento; quem confere o pagamento confirma.");
     return comEmpresa(banco, ctx.empresaId, async (tx) => {
       const escopoCrm = temPermissao(ctx.permissoes, "crm", "ver");
-      if (!escopoCrm || !(await contatos.buscarVisivel(tx, ctx.empresaId, ctx, escopoCrm, d.contatoId))) throw invalido("{Contato} não encontrad{o|a:contato} na sua carteira.");
+      if (!escopoCrm || !(await contatoNaCarteira(tx, ctx, escopoCrm, d.contatoId))) throw invalido("{Contato} não encontrad{o|a:contato} na sua carteira.");
       const [o] = await tx.db.select({ nome: oferta.nome }).from(oferta).where(and(eq(oferta.id, d.ofertaId), eq(oferta.empresaId, ctx.empresaId), isNull(oferta.arquivadoEm)));
       if (!o) throw invalido("{Oferta} não encontrad{o|a:oferta}.");
       const vendedorId = await exigirPessoa(tx, ctx, escopo, d.vendedorId);

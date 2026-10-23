@@ -15,7 +15,7 @@ import { iso, montarPagina } from "../../infra/paginacao.js";
 import type { Servicos } from "../../app.js";
 import type { ContextoEmpresa } from "../acesso/acesso.js";
 import { registrar, type Origem } from "../auditoria/registro.js";
-import { lerPermissoes } from "../permissoes/permissoes.repositorio.js";
+import { permissoesDoPerfil } from "../permissoes/interface.js";
 import { convidar, validarLotacao, type DadosConvite } from "./convites.js";
 import * as repo from "./usuarios.repositorio.js";
 import { exigirLimite } from "../cobranca/limites.js";
@@ -81,7 +81,7 @@ export function criarServicoUsuarios(s: Servicos) {
           columns: { id: true },
         });
         if (!novo) throw invalido("Escolha um perfil válido.");
-        const permissoes = (await lerPermissoes(tx, [novo.id])).get(novo.id) ?? {};
+        const permissoes = await permissoesDoPerfil(tx, novo.id);
         if (perfilAdministra(permissoes) && !podeAdministrarUsuarios(ctx)) throw semPermissao();
         await garantirOutroDono(tx, ctx.empresaId, antes);
       }

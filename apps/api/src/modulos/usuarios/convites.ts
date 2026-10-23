@@ -9,7 +9,7 @@ import type { Jobs } from "../../infra/jobs.js";
 import { hashToken, novoToken } from "../../infra/seguranca/cripto.js";
 import { conflito, invalido, semPermissao } from "../../infra/erros.js";
 import { registrar, type Origem } from "../auditoria/registro.js";
-import { lerPermissoes } from "../permissoes/permissoes.repositorio.js";
+import { permissoesDoPerfil } from "../permissoes/interface.js";
 import { exigirLimite } from "../cobranca/limites.js";
 
 export const VALIDADE_CONVITE_DIAS = 7;
@@ -61,7 +61,7 @@ export async function convidar(
     .from(perfil)
     .where(and(eq(perfil.id, dados.perfilId), eq(perfil.empresaId, empresaId), isNull(perfil.arquivadoEm)));
   if (!p) throw invalido("Escolha um perfil válido para a pessoa convidada.");
-  const permissoes = (await lerPermissoes(tx, [p.id])).get(p.id) ?? {};
+  const permissoes = await permissoesDoPerfil(tx, p.id);
   if (perfilAdministra(permissoes) && !podeAdministrar) throw semPermissao();
   await validarLotacao(tx, empresaId, dados.unidadeId ?? null, dados.equipeId ?? null);
 

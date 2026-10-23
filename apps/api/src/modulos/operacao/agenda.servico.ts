@@ -9,7 +9,7 @@ import type { Servicos } from "../../app.js";
 import type { ContextoEmpresa } from "../acesso/acesso.js";
 import { filtroUsuariosVisiveis } from "../acesso/escopo.js";
 import { registrar, type Origem } from "../auditoria/registro.js";
-import * as contatos from "../crm/contatos.repositorio.js";
+import { contatoNaCarteira } from "../crm/carteira.js";
 import { notificar } from "../notificacoes/notificar.js";
 import { exigirPessoa, fusoDe, instantesDoPeriodo } from "./comum.js";
 
@@ -64,7 +64,7 @@ export function criarServicoAgenda(s: Servicos) {
   async function validarContato(tx: Tx, ctx: ContextoEmpresa, contatoId: string | null | undefined): Promise<string | null> {
     if (!contatoId) return null;
     const escopoCrm = temPermissao(ctx.permissoes, "crm", "ver");
-    if (!escopoCrm || !(await contatos.buscarVisivel(tx, ctx.empresaId, ctx, escopoCrm, contatoId))) {
+    if (!escopoCrm || !(await contatoNaCarteira(tx, ctx, escopoCrm, contatoId))) {
       throw invalido("{Contato} não encontrad{o|a:contato} na sua carteira.");
     }
     return contatoId;
