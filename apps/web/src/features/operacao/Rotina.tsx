@@ -125,7 +125,14 @@ export function BlocoMetas({ r }: { r: RotinaDto }) {
   return (
     <>
       {r.metas.map((m) => (
-        <ProgressoMeta key={m.id} m={m} />
+        // A meta leva ao painel de desempenho do indicador, no período dela (e da pessoa, se for de alguém).
+        <Link
+          key={m.id}
+          className="link-bloco"
+          to={`/desempenho?inicio=${m.inicioPeriodo}&fim=${m.fimPeriodo}&indicador=${m.indicador}${m.alvo === "pessoa" && m.usuarioId ? `&usuarioId=${m.usuarioId}` : ""}`}
+        >
+          <ProgressoMeta m={m} />
+        </Link>
       ))}
     </>
   );

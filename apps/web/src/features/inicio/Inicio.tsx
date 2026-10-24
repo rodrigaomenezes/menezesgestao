@@ -98,13 +98,17 @@ function BlocoFunil() {
     <ul className="barras" aria-label={termos.t(`{Oportunidades} por etapa em ${k.funil.nome}`)}>
       {k.funil.etapas.map((e) => {
         const total = k.colunas.find((c) => c.etapaId === e.id)?.total ?? 0;
+        // A etapa leva ao painel do funil com a lista exata: abertas nela, ou ganhas/perdidas.
+        const lente = e.tipo === "aberta" ? `lista=aberta&etapaId=${e.id}` : `lista=${e.tipo}`;
         return (
           <li key={e.id}>
-            <span className="barras-rotulo">{e.nome}</span>
-            <span className="barras-trilho">
-              <span className="barras-valor" style={{ width: `${(total / maior) * 100}%` }} />
-            </span>
-            <strong>{total}</strong>
+            <Link to={`/funil?funil=${k.funil.id}&ver=painel&${lente}`} className="barras-link" aria-label={`${e.nome}: ${total}. Ver a lista.`}>
+              <span className="barras-rotulo">{e.nome}</span>
+              <span className="barras-trilho">
+                <span className="barras-valor" style={{ width: `${(total / maior) * 100}%` }} />
+              </span>
+              <strong>{total}</strong>
+            </Link>
           </li>
         );
       })}
@@ -127,9 +131,12 @@ function BlocoRanking() {
     <ol className="ranking">
       {lideres.map((p, i) => (
         <li key={p.usuarioId}>
-          <span className="ranking-posicao">{i + 1}</span>
-          <span className="ranking-nome">{p.nome}</span>
-          <span className="item-detalhe">{termos.t(`${p.valores.vendas ?? 0} {oportunidades} ganh{os|as:oportunidades}`)}</span>
+          {/* A pessoa leva ao painel de desempenho do mês, focado nela e no que conta no ranking. */}
+          <Link to={`/desempenho?inicio=${d.inicio}&fim=${d.fim}&indicador=vendas&usuarioId=${p.usuarioId}`} className="ranking-link">
+            <span className="ranking-posicao">{i + 1}</span>
+            <span className="ranking-nome">{p.nome}</span>
+            <span className="item-detalhe">{termos.t(`${p.valores.vendas ?? 0} {oportunidades} ganh{os|as:oportunidades}`)}</span>
+          </Link>
         </li>
       ))}
     </ol>
