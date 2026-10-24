@@ -6,7 +6,6 @@ histórico do git.
 | # | Item | Classe | Onde | Plano |
 | --- | --- | --- | --- | --- |
 | 1 | Coluna `perfil.permissoes` (JSON) obsoleta desde a migração 0002 | BAIXA | `database/migrations` | Remover numa migração futura, depois de uma versão estável sem uso (ADR-006) |
-| 2 | Filtro de período da auditoria usa a meia-noite do navegador, não a do fuso da empresa | BAIXA | `apps/web/src/features/auditoria` | Calcular os limites no servidor a partir de datas sem hora + fuso da empresa |
 | 4 | Sem limite de conexões de tempo real por pessoa | MÉDIA | `modulos/eventos/tempo-real.ts` | Limitar por sessão e fechar as mais antigas |
 | 10 | Kanban mostra até 50 oportunidades por etapa (o resto, pela busca) | BAIXA | `modulos/crm/oportunidades.servico.ts` | "Carregar mais" por coluna |
 | 11 | Mudanças de configuração do CRM não chegam em tempo real a perfis de escopo "próprio" | BAIXA | `modulos/eventos/tempo-real.ts` | Evento de configuração com destino "todos que têm o módulo" |

@@ -65,11 +65,8 @@ export function Auditoria() {
   const setEntidade = (v: string) => mudar({ entidade: v || undefined });
   const setDe = (v: string) => mudar({ de: v || undefined }, { substituir: true });
   const setAte = (v: string) => mudar({ ate: v || undefined }, { substituir: true });
-  // "até" inclui o dia inteiro escolhido.
-  const ateExclusivo = ate ? new Date(new Date(`${ate}T00:00:00`).getTime() + 86_400_000).toISOString() : "";
-  const lista = usePaginado<Registro>(
-    `/auditoria${query({ entidade, de: de ? new Date(`${de}T00:00:00`).toISOString() : "", ate: ateExclusivo })}`,
-  );
+  // Os dias vão como dias: o servidor usa a meia-noite do fuso da empresa e o "até" inclui o dia inteiro.
+  const lista = usePaginado<Registro>(`/auditoria${query({ entidade, deDia: de, ateDia: ate })}`);
 
   return (
     <>

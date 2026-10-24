@@ -129,3 +129,30 @@ test("automação: o administrador cria, e ligar sem o painel IA × equipe liber
   await expect(page.getByText(/o painel IA × equipe precisa estar liberado/)).toBeVisible();
   await expect(item).toContainText("desligada");
 });
+
+test("Breaks do todo ao micro: categoria → motivo → o contato", async ({ page }, info) => {
+  const { a } = dados();
+  await entrar(page, pessoa(a, "vendedor").email);
+  const csrf = (await page.context().cookies()).find((c) => c.name === "mg_csrf")?.value ?? "";
+  const cabecalho = { "x-csrf-token": csrf };
+  const nome = `Break Painel ${info.project.name}`;
+  const contatoId = (await (await page.request.post("/api/contatos", { headers: cabecalho, data: { nome } })).json()).id as string;
+  const motivos = (await (await page.request.get("/api/bre/motivos")).json()).itens as { id: string; categoria: string; nome: string }[];
+  const preco = motivos.find((m) => m.categoria === "C_FINANCIAL" && m.nome === "Preço")!;
+  const retornoEm = new Date(Date.now() + 3 * 864e5).toISOString().slice(0, 10);
+  const r = await page.request.post("/api/bre/registros", {
+    headers: cabecalho,
+    data: { contatoId, resultado: "REPLIED_NO_ADVANCE", temperatura: "COLD", proximaAcao: "CALL_BACK", retornoEm, break: { categoria: "C_FINANCIAL", motivoId: preco.id, comentario: "Achou caro" } },
+  });
+  expect(r.ok(), await r.text()).toBe(true);
+
+  await page.goto("/bre");
+  const breaks = page.getByRole("region", { name: "Breaks: onde a venda quebra" });
+  await breaks.getByRole("button", { name: /C — Financeiro/ }).click();
+  await expect(page).toHaveURL(/brkCategoria=C_FINANCIAL/);
+  await breaks.getByRole("button", { name: /Preço/ }).click();
+  await expect(page).toHaveURL(/brkMotivo=/);
+  await semRolagemLateral(page);
+  await breaks.getByRole("link", { name: new RegExp(nome) }).first().click();
+  await expect(page).toHaveURL(new RegExp(`/contatos/${contatoId}`));
+});

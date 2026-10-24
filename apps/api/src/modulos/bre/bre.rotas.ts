@@ -11,6 +11,8 @@ import {
   AtualizarReentradaEntrada,
   BpiRespostaDto,
   BreakDto,
+  FiltroPainelBreaks,
+  PainelBreaksDto,
   ConcordanciaDto,
   InteligenciaContatoDto,
   ConfirmarSqBreEntrada,
@@ -43,6 +45,7 @@ import { exigirEmpresa, exigirEscopo, origemDe, type ContextoEmpresa } from "../
 import { criarServicoBre } from "./bre.servico.js";
 import { criarServicoDesempenho } from "./desempenho.servico.js";
 import { criarServicoAutomacaoBre } from "./automacao.servico.js";
+import { criarServicoPainelBreaks } from "./painel-breaks.servico.js";
 import type { ServicoEnvio } from "../conversas/envio.servico.js";
 
 export const FILA_BRE_DIARIA = "bre.classificar";
@@ -61,6 +64,7 @@ export const rotasBre =
   async (app) => {
     const bre = criarServicoBre(s);
     const desempenho = criarServicoDesempenho(s);
+    const painelBreaks = criarServicoPainelBreaks(s);
     const automacao = criarServicoAutomacaoBre(s, envio);
     const tags = ["Motor BRE"];
     const acesso = (acao: "ver" | "criar" | "editar" | "administrar") => ({ acesso: { modulo: "bre" as const, acao } });
@@ -107,6 +111,11 @@ export const rotasBre =
       "/api/bre/analises/:id",
       { config: acesso("ver"), schema: { tags, summary: "Situação e resultado de uma análise da IA", params: ParamId, response: { 200: AnaliseBreDto } } },
       async (req) => bre.obterAnalise(exigirEmpresa(req), exigirEscopo(req), req.params.id),
+    );
+    app.get(
+      "/api/bre/breaks/painel",
+      { config: acesso("ver"), schema: { tags, summary: "Painel de Breaks: por dia, categoria, motivo e quem registrou", querystring: FiltroPainelBreaks, response: { 200: PainelBreaksDto } } },
+      async (req) => painelBreaks.painel(exigirEmpresa(req), exigirEscopo(req), req.query),
     );
     app.get(
       "/api/bre/breaks",

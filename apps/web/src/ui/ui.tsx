@@ -1,6 +1,7 @@
 // Peças de interface reaproveitadas pelas telas.
-import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { ErroApi, get, type Pagina } from "../app/api";
+import { enderecoDaPagina } from "./paginacao";
 
 export function Mensagem({ tipo, children }: { tipo: "erro" | "sucesso" | "info"; children: ReactNode }) {
   if (!children) return null;
@@ -92,32 +93,44 @@ export function useEnvio<T>(acao: () => Promise<T>) {
 }
 
 /** Lista paginada por cursor, com "Carregar mais". */
+/**
+ * Lista paginada por cursor. Só a resposta do último pedido vale (clicar rápido em filtros não mostra a lista de um
+ * filtro antigo), e recarregar traz de uma vez o que já estava na tela, sem encolher a lista.
+ */
 export function usePaginado<T>(caminho: string) {
   const [itens, setItens] = useState<T[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState("");
+  const pedido = useRef(0);
+  const naTela = useRef(0);
 
   const buscar = useCallback(
-    async (depoisDe: string | null) => {
+    async (depoisDe: string | null, quantos?: number) => {
+      const meu = ++pedido.current;
       setCarregando(true);
       setErro("");
       try {
-        const separador = caminho.includes("?") ? "&" : "?";
-        const url = depoisDe ? `${caminho}${separador}cursor=${encodeURIComponent(depoisDe)}` : caminho;
-        const pagina = await get<Pagina<T>>(url);
-        setItens((atuais) => (depoisDe ? [...atuais, ...pagina.itens] : pagina.itens));
+        const pagina = await get<Pagina<T>>(enderecoDaPagina(caminho, { cursor: depoisDe, quantos }));
+        if (meu !== pedido.current) return;
+        setItens((atuais) => {
+          const novos = depoisDe ? [...atuais, ...pagina.itens] : pagina.itens;
+          naTela.current = novos.length;
+          return novos;
+        });
         setCursor(pagina.proximoCursor);
       } catch (err) {
+        if (meu !== pedido.current) return;
         setErro(err instanceof ErroApi ? err.message : "Não foi possível carregar a lista.");
       } finally {
-        setCarregando(false);
+        if (meu === pedido.current) setCarregando(false);
       }
     },
     [caminho],
   );
 
   useEffect(() => {
+    naTela.current = 0;
     void buscar(null);
   }, [buscar]);
 
@@ -127,7 +140,7 @@ export function usePaginado<T>(caminho: string) {
     erro,
     temMais: Boolean(cursor),
     carregarMais: () => buscar(cursor),
-    recarregar: () => buscar(null),
+    recarregar: () => buscar(null, naTela.current),
   };
 }
 

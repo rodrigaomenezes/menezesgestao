@@ -250,6 +250,9 @@ export const FiltroAuditoria = Paginacao.extend({
   acao: z.string().max(60).optional(),
   de: z.coerce.date().optional(),
   ate: z.coerce.date().optional(),
+  /** Dias (AAAA-MM-DD) no fuso da empresa, o "até" inclui o dia inteiro; usados pela tela no lugar de de/ate. */
+  deDia: z.iso.date({ error: "Data inválida (use AAAA-MM-DD)." }).optional(),
+  ateDia: z.iso.date({ error: "Data inválida (use AAAA-MM-DD)." }).optional(),
 });
 
 export const NotificacaoDto = z.object({
