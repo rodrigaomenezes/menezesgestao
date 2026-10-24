@@ -1,7 +1,8 @@
 // Contrato do módulo CRM (fase 1): contatos, funis e etapas, oportunidades, tarefas, notas, etiquetas,
 // campos personalizados, histórico e importação.
 import { z } from "zod";
-import { DataIso, FiltroLista, Id, IdOpcional, Paginacao } from "./dto.js";
+import { DataIso, FiltroLista, Id, IdOpcional, MAX_DIAS_ANALISE, Paginacao, validarIntervalo } from "./dto.js";
+import { DataDia } from "./dto-operacao.js";
 import { CODIGOS_MARCOS } from "./dto-bre.js";
 
 const texto = (max: number, rotulo: string) =>
@@ -222,7 +223,48 @@ export const FiltroOportunidades = FiltroLista.extend({
   contatoId: Id.optional(),
   responsavelId: Id.optional(),
   status: z.enum(STATUS_OPORTUNIDADE).optional(),
+  motivoPerdaId: Id.optional(),
+  /** Painel do funil: fechadas (ganhas/perdidas) entre estas datas, no fuso da empresa. */
+  fechadaDe: DataDia.optional(),
+  fechadaAte: DataDia.optional(),
+  /** Painel do funil: criadas entre estas datas. */
+  criadaDe: DataDia.optional(),
+  criadaAte: DataDia.optional(),
 });
+
+// Painel do funil (do todo ao micro) ----------------------------------------------------------------------
+
+export const FiltroPainelFunil = z
+  .object({ funilId: Id, inicio: DataDia, fim: DataDia, responsavelId: Id.optional() })
+  .superRefine(validarIntervalo(MAX_DIAS_ANALISE));
+const TotaisFunil = z.object({
+  /** Criadas no período. */
+  entraram: z.number().int(),
+  /** Fechadas no período. */
+  ganhas: z.number().int(),
+  perdidas: z.number().int(),
+  valorGanhoCentavos: z.number().int(),
+  /** Ganhas ÷ (ganhas + perdidas) no período, em %; null sem nenhuma fechada. */
+  conversao: z.number().nullable(),
+  /** Dias médios da criação ao ganho, das ganhas no período. */
+  cicloMedioDias: z.number().nullable(),
+});
+export const PainelFunilDto = z.object({
+  inicio: DataDia,
+  fim: DataDia,
+  anterior: z.object({ inicio: DataDia, fim: DataDia }),
+  totais: TotaisFunil,
+  totaisAnteriores: TotaisFunil,
+  /** Abertas AGORA em cada etapa aberta do funil (retrato do momento, não do período), na ordem do funil. */
+  etapas: z.array(z.object({ etapaId: Id, nome: z.string(), quantidade: z.number().int(), valorCentavos: z.number().int() })),
+  /** Perdidas no período por motivo (maior primeiro); motivo null = sem motivo informado. */
+  motivos: z.array(z.object({ motivoPerdaId: Id.nullable(), nome: z.string(), quantidade: z.number().int() })),
+  /** Ganhas no período por responsável (valor maior primeiro), até 20. Não usa o filtro de responsável. */
+  responsaveis: z.array(z.object({ usuarioId: Id, nome: z.string(), ganhas: z.number().int(), valorCentavos: z.number().int() })),
+  /** Ganhas por dia (com zeros). */
+  serie: z.array(z.object({ dia: DataDia, valor: z.number() })),
+});
+export type PainelFunilDto = z.infer<typeof PainelFunilDto>;
 
 export const KanbanDto = z.object({
   funil: FunilDto,

@@ -1,6 +1,6 @@
 // Contrato da fase 4: rotina diária, agenda, escala e horas, atividades, metas/desempenho e scripts.
 import { z } from "zod";
-import { DataIso, Id, IdOpcional, Paginacao } from "./dto.js";
+import { DataIso, Id, IdOpcional, Paginacao, validarIntervalo } from "./dto.js";
 
 const texto = (max: number, rotulo: string) =>
   z.string().trim().min(1, { error: `${rotulo}: preencha.` }).max(max, { error: `${rotulo}: no máximo ${max} caracteres.` });
@@ -93,13 +93,7 @@ export type DesempenhoDto = z.infer<typeof DesempenhoDto>;
 // Painel de desempenho com detalhe (do todo ao micro): período livre, indicador escolhido, pessoa opcional.
 /** Maior intervalo de um painel: um trimestre e pouco (série por dia legível e consulta barata). */
 export const MAX_DIAS_PAINEL = 92;
-/** Intervalo livre válido (os dois juntos, em ordem, até MAX_DIAS_PAINEL dias). */
-function intervaloValido(f: { inicio?: string; fim?: string }, ctx: z.RefinementCtx) {
-  if (!f.inicio !== !f.fim) ctx.addIssue({ code: "custom", message: "Informe o início e o fim do intervalo.", path: ["fim"] });
-  else if (f.inicio && f.fim && f.inicio > f.fim) ctx.addIssue({ code: "custom", message: "O início vem antes do fim.", path: ["fim"] });
-  else if (f.inicio && f.fim && (Date.parse(f.fim) - Date.parse(f.inicio)) / 86_400_000 >= MAX_DIAS_PAINEL)
-    ctx.addIssue({ code: "custom", message: `Escolha um intervalo de até ${MAX_DIAS_PAINEL} dias.`, path: ["fim"] });
-}
+const intervaloValido = validarIntervalo(MAX_DIAS_PAINEL);
 export const FiltroDesempenho = Paginacao.extend({
   periodo: z.enum(PERIODOS).default("dia"),
   data: DataDia.optional(),

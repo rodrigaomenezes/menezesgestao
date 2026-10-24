@@ -9,7 +9,7 @@ import type { Servicos } from "../../app.js";
 import type { ContextoEmpresa } from "../acesso/acesso.js";
 import { filtroUsuariosVisiveis } from "../acesso/escopo.js";
 import { registrar, type Origem } from "../auditoria/registro.js";
-import { exigirPessoa, fusoDe, hojeNoFuso, instantesDoPeriodo, limitesPeriodo, pessoasVisiveis, somarDias } from "./comum.js";
+import { exigirPessoa, fusoDe, hojeNoFuso, instantesDoPeriodo, intervaloDoPainel, limitesPeriodo, pessoasVisiveis } from "./comum.js";
 import { calcularIndicadores, eventosIndicador, rankingIndicador, serieIndicador, zerados, type LinhaEventoIndicador, type Quem } from "./indicadores.js";
 
 type LinhaMeta = typeof meta.$inferSelect & { usuarioNome: string | null; equipeNome: string | null };
@@ -23,16 +23,6 @@ function metaVisivel(ctx: ContextoEmpresa, escopo: Escopo): SQL {
     and(eq(meta.alvo, "equipe"), escopo === "unidade" ? sql`true` : equipes),
     and(eq(meta.alvo, "pessoa"), filtroUsuariosVisiveis(ctx, escopo, meta.usuarioId)),
   )!;
-}
-
-/** Intervalo do painel: livre (inicio/fim) ou o período que contém `data`; e o anterior, para a variação. */
-export function intervaloDoPainel(f: { periodo: PeriodoId; data?: string; inicio?: string; fim?: string }, hoje: string) {
-  if (f.inicio && f.fim) {
-    const dias = Math.round((Date.parse(f.fim) - Date.parse(f.inicio)) / 86_400_000) + 1;
-    return { inicio: f.inicio, fim: f.fim, anterior: { inicio: somarDias(f.inicio, -dias), fim: somarDias(f.inicio, -1) } };
-  }
-  const atual = limitesPeriodo(f.periodo, f.data ?? hoje);
-  return { ...atual, anterior: limitesPeriodo(f.periodo, somarDias(atual.inicio, -1)) };
 }
 
 const minutos = (seg: unknown) => Math.max(1, Math.round(Number(seg ?? 0) / 60));

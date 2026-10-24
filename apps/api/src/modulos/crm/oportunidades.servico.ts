@@ -2,6 +2,7 @@
 // arquivar e o quadro kanban. Mover de etapa publica oportunidade.etapa_alterada (e ganha/perdida).
 import { and, asc, count, desc, eq, ilike, inArray, isNotNull, isNull, sql, sum } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
+import type { AnyColumn } from "drizzle-orm";
 import type { Escopo, KanbanDto, OportunidadeDto, Pagina } from "@mg/shared";
 import { TRANSICOES_BRE, nomeMarco, transicaoPermitida } from "@mg/shared";
 import { comEmpresa, type Tx } from "../../infra/banco.js";
@@ -12,6 +13,7 @@ import type { Servicos } from "../../app.js";
 import type { ContextoEmpresa } from "../acesso/acesso.js";
 import { filtroUsuariosVisiveis, type QuemVe } from "../acesso/escopo.js";
 import { registrar, type Origem } from "../auditoria/registro.js";
+import { fusoDe, instantesDoPeriodo } from "../operacao/comum.js";
 import { marcarBpiVelho } from "../bre/bpi-cache.js";
 import { validarCampos, type DefinicaoCampo } from "./campos.js";
 import { validarResponsavel } from "./carteira.js";
@@ -98,9 +100,31 @@ export function criarServicoOportunidades(s: Servicos) {
   async function listar(
     ctx: ContextoEmpresa,
     escopo: Escopo,
-    f: { arquivados: "sim" | "nao"; busca?: string; funilId?: string; etapaId?: string; contatoId?: string; responsavelId?: string; status?: "aberta" | "ganha" | "perdida"; cursor?: string; limite: number },
+    f: {
+      arquivados: "sim" | "nao";
+      busca?: string;
+      funilId?: string;
+      etapaId?: string;
+      contatoId?: string;
+      responsavelId?: string;
+      status?: "aberta" | "ganha" | "perdida";
+      motivoPerdaId?: string;
+      fechadaDe?: string;
+      fechadaAte?: string;
+      criadaDe?: string;
+      criadaAte?: string;
+      cursor?: string;
+      limite: number;
+    },
   ): Promise<Pagina<OportunidadeDto>> {
     return comEmpresa(banco, ctx.empresaId, async (tx) => {
+      const fuso = fusoDe(ctx);
+      // Datas do painel (dias no fuso da empresa) viram instantes; um lado só vale como limite aberto.
+      const entre = (col: AnyColumn, de?: string, ate?: string) => {
+        if (!de && !ate) return undefined;
+        const i = instantesDoPeriodo(de ?? "1970-01-01", ate ?? "9999-12-30", fuso);
+        return and(de ? sql`${col} >= ${i.de}` : undefined, ate ? sql`${col} < ${i.ate}` : undefined);
+      };
       const linhas = await consulta(tx)
         .where(
           and(
@@ -113,6 +137,9 @@ export function criarServicoOportunidades(s: Servicos) {
             f.contatoId ? eq(oportunidade.contatoId, f.contatoId) : undefined,
             f.responsavelId ? eq(oportunidade.responsavelId, f.responsavelId) : undefined,
             f.status ? eq(oportunidade.status, f.status) : undefined,
+            f.motivoPerdaId ? eq(oportunidade.motivoPerdaId, f.motivoPerdaId) : undefined,
+            entre(oportunidade.fechadaEm, f.fechadaDe, f.fechadaAte),
+            entre(oportunidade.criadoEm, f.criadaDe, f.criadaAte),
             condicaoCursor(oportunidade.criadoEm, oportunidade.id, lerCursor(f.cursor)),
           ),
         )
