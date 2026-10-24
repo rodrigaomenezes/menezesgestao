@@ -151,6 +151,7 @@ export function Ranking({
   aoEscolher,
   vazio,
   numerar = true,
+  maximo,
 }: {
   itens: ItemRanking[];
   selecionado?: string;
@@ -159,9 +160,11 @@ export function Ranking({
   vazio: ReactNode;
   /** false para listas que não são posição (ex.: etapas do funil, na ordem do funil). */
   numerar?: boolean;
+  /** Escala fixa (ex.: 10 para notas); sem ela, a maior barra ocupa a linha toda. */
+  maximo?: number;
 }) {
   if (!itens.length) return <p className="lista-vazia">{vazio}</p>;
-  const max = Math.max(...itens.map((i) => i.valor), 1);
+  const max = maximo ?? Math.max(...itens.map((i) => i.valor), 1);
   return (
     <ol className="ranking-barras">
       {itens.map((i, n) => (

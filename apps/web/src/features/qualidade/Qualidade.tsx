@@ -229,6 +229,7 @@ export function Qualidade() {
             {painel && (
               <Ranking
                 itens={painel.pessoas.map((p) => ({ id: p.usuarioId, rotulo: p.nome, valor: p.notaMedia, texto: `${nota(p.notaMedia)} · ${p.avaliacoes} ${p.avaliacoes === 1 ? "avaliação" : "avaliações"}` }))}
+                maximo={10}
                 selecionado={f.avaliadoId}
                 aoEscolher={(id) => mudar({ avaliadoId: id === f.avaliadoId ? undefined : id })}
                 vazio="Ninguém foi avaliado no período."
@@ -242,6 +243,7 @@ export function Qualidade() {
             {painel && (
               <Ranking
                 numerar={false}
+                maximo={10}
                 itens={painel.criterios.map((c) => ({ id: c.criterioId, rotulo: c.nome, valor: c.notaMedia, texto: nota(c.notaMedia) }))}
                 vazio="Nenhuma avaliação no período."
               />
