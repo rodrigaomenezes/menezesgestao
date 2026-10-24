@@ -1,5 +1,5 @@
-import { useState } from "react";
 import { query } from "../../app/api";
+import { useFiltrosUrl } from "../../app/filtros-url";
 import { Campo, CarregarMais, Escolha, ListaVazia, Mensagem, Titulo, usePaginado } from "../../ui/ui";
 import { useDataHora } from "../../app/sessao";
 import { useVocabulario } from "../../app/vocabulario";
@@ -57,9 +57,14 @@ const ENTIDADES = [
 export function Auditoria() {
   const termos = useVocabulario();
   const formatarDataHora = useDataHora();
-  const [entidade, setEntidade] = useState("");
-  const [de, setDe] = useState("");
-  const [ate, setAte] = useState("");
+  // Filtros no endereço: dá para mandar o link de um recorte da auditoria.
+  const { valores: f, mudar } = useFiltrosUrl(["entidade", "de", "ate"] as const);
+  const entidade = f.entidade ?? "";
+  const de = /^\d{4}-\d{2}-\d{2}$/.test(f.de ?? "") ? f.de! : "";
+  const ate = /^\d{4}-\d{2}-\d{2}$/.test(f.ate ?? "") ? f.ate! : "";
+  const setEntidade = (v: string) => mudar({ entidade: v || undefined });
+  const setDe = (v: string) => mudar({ de: v || undefined }, { substituir: true });
+  const setAte = (v: string) => mudar({ ate: v || undefined }, { substituir: true });
   // "até" inclui o dia inteiro escolhido.
   const ateExclusivo = ate ? new Date(new Date(`${ate}T00:00:00`).getTime() + 86_400_000).toISOString() : "";
   const lista = usePaginado<Registro>(
@@ -76,7 +81,7 @@ export function Auditoria() {
           <Campo rotulo="Até" nome="auditoria-ate" tipo="date" valor={ate} aoMudar={setAte} />
         </div>
         <Mensagem tipo="erro">{lista.erro}</Mensagem>
-        {!lista.carregando && !lista.itens.length && <ListaVazia>Nenhum registro no período.</ListaVazia>}
+        {!lista.carregando && !lista.itens.length && <ListaVazia>{entidade || de || ate ? "Nenhum registro com esses filtros. Tire o assunto ou amplie as datas." : "Nenhum registro ainda."}</ListaVazia>}
         <ul className="lista">
           {lista.itens.map((r) => (
             <li key={r.id} className="item">

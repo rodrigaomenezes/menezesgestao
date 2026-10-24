@@ -1,7 +1,7 @@
 // Minhas tarefas (e as da equipe, conforme o escopo): abertas por vencimento ou concluídas.
-import { useState } from "react";
 import type { TarefaDto } from "@mg/shared";
 import { query } from "../../app/api";
+import { useFiltrosUrl } from "../../app/filtros-url";
 import { useTempoReal } from "../../app/tempo-real";
 import { CarregarMais, Escolha, ListaVazia, Mensagem, Titulo, usePaginado } from "../../ui/ui";
 import { LinhaTarefa } from "./Contato";
@@ -9,8 +9,12 @@ import { useConfigCrm } from "./comum";
 
 export function Tarefas() {
   const { config } = useConfigCrm();
-  const [situacao, setSituacao] = useState<"abertas" | "concluidas">("abertas");
-  const [responsavelId, setResponsavelId] = useState("");
+  // Filtros no endereço (dá para mandar o link de "concluídas da Ana" e o voltar funciona).
+  const { valores: f, mudar } = useFiltrosUrl(["situacao", "responsavelId"] as const);
+  const situacao = f.situacao === "concluidas" ? "concluidas" : "abertas";
+  const responsavelId = f.responsavelId ?? "";
+  const setSituacao = (s: "abertas" | "concluidas") => mudar({ situacao: s === "abertas" ? undefined : s });
+  const setResponsavelId = (v: string) => mudar({ responsavelId: v || undefined });
   const lista = usePaginado<TarefaDto>(`/tarefas${query({ situacao, responsavelId })}`);
   useTempoReal(["tarefa."], () => void lista.recarregar());
 
@@ -31,7 +35,7 @@ export function Tarefas() {
           </div>
         )}
         <Mensagem tipo="erro">{lista.erro}</Mensagem>
-        {!lista.carregando && !lista.itens.length && <ListaVazia>{situacao === "abertas" ? "Nenhuma tarefa aberta. Bom trabalho!" : "Nenhuma tarefa concluída ainda."}</ListaVazia>}
+        {!lista.carregando && !lista.itens.length && <ListaVazia>{responsavelId ? "Nenhuma tarefa com esse filtro. Escolha “Todos que vejo” em Responsável." : situacao === "abertas" ? "Nenhuma tarefa aberta. Bom trabalho!" : "Nenhuma tarefa concluída ainda."}</ListaVazia>}
         <ul className="lista">
           {lista.itens.map((t) => (
             <LinhaTarefa key={t.id} t={t} mostrarContato aoMudar={() => void lista.recarregar()} />

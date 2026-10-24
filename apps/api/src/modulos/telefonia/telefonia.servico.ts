@@ -28,6 +28,7 @@ import { filtroUsuariosVisiveis, usuariosVisiveis } from "../acesso/escopo.js";
 import { registrar, type Origem } from "../auditoria/registro.js";
 import { publicar } from "../eventos/publicar.js";
 import type { ProvedorArquivos } from "../arquivos/armazenamento.js";
+import { fusoDe, instantesDoPeriodo } from "../operacao/comum.js";
 
 export const LIMITE_GRAVACAO = 30 * 1024 * 1024;
 const VALIDADE_LINK_MS = 5 * 60_000;
@@ -331,9 +332,14 @@ export function criarServicoTelefonia(s: Servicos, arquivos: ProvedorArquivos) {
     });
   }
 
-  async function listar(ctx: ContextoEmpresa, escopo: Escopo, f: { contatoId?: string; usuarioId?: string; cursor?: string; limite: number }): Promise<Pagina<LigacaoDto>> {
+  async function listar(
+    ctx: ContextoEmpresa,
+    escopo: Escopo,
+    f: { contatoId?: string; usuarioId?: string; inicio?: string; fim?: string; resultadoId?: string; semResultado?: "sim"; situacao?: "atendida" | "nao_atendida"; cursor?: string; limite: number },
+  ): Promise<Pagina<LigacaoDto>> {
     return comEmpresa(banco, ctx.empresaId, async (tx) => {
       const cursor = lerCursor(f.cursor);
+      const periodo = f.inicio && f.fim ? instantesDoPeriodo(f.inicio, f.fim, fusoDe(ctx)) : null;
       const linhas = await consulta(tx)
         .where(
           and(
@@ -341,6 +347,10 @@ export function criarServicoTelefonia(s: Servicos, arquivos: ProvedorArquivos) {
             filtroUsuariosVisiveis(ctx, escopo, ligacao.usuarioId),
             f.contatoId ? eq(ligacao.contatoId, f.contatoId) : undefined,
             f.usuarioId ? eq(ligacao.usuarioId, f.usuarioId) : undefined,
+            periodo ? sql`${ligacao.iniciadaEm} >= ${periodo.de} AND ${ligacao.iniciadaEm} < ${periodo.ate}` : undefined,
+            f.resultadoId ? eq(ligacao.resultadoId, f.resultadoId) : undefined,
+            f.semResultado ? and(eq(ligacao.estado, "encerrada"), isNull(ligacao.resultadoId)) : undefined,
+            f.situacao === "atendida" ? isNotNull(ligacao.atendidaEm) : f.situacao === "nao_atendida" ? isNull(ligacao.atendidaEm) : undefined,
             cursor ? sql`(${ligacao.criadoEm}, ${ligacao.id}) < (${cursor.criadoEm}::timestamptz, ${cursor.id}::uuid)` : undefined,
           ),
         )

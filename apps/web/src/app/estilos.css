@@ -2739,6 +2739,16 @@ fieldset legend {
   background: var(--cor-primaria-suave);
 }
 
+/* Barra só de leitura (não filtra): sem cursor de clique nem destaque ao passar o mouse. */
+.barra-h-fixa {
+  min-height: 40px;
+  cursor: default;
+}
+
+.barra-h-fixa:hover {
+  background: transparent;
+}
+
 .barra-h.selecionada {
   box-shadow: inset 0 0 0 2px var(--cor-primaria);
 }

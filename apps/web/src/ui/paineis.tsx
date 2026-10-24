@@ -130,6 +130,20 @@ export interface ItemRanking {
   texto: string;
 }
 
+function ConteudoBarra({ item, posicao, max }: { item: ItemRanking; posicao: number | null; max: number }) {
+  return (
+    <>
+      <span className="barra-h-rotulo">
+        {posicao !== null && <span className="barra-h-posicao">{posicao}º</span>} {item.rotulo}
+      </span>
+      <span className="barra-h-trilho">
+        <span className="barra-h-valor" style={{ width: `${Math.max(2, (item.valor / max) * 100)}%` }} />
+      </span>
+      <span className="barra-h-numero">{item.texto}</span>
+    </>
+  );
+}
+
 /** Ranking em barras horizontais (maior primeiro). Clicar numa barra filtra pela pessoa/categoria. */
 export function Ranking({
   itens,
@@ -137,35 +151,39 @@ export function Ranking({
   aoEscolher,
   vazio,
   numerar = true,
+  maximo,
 }: {
   itens: ItemRanking[];
   selecionado?: string;
-  aoEscolher(id: string): void;
+  /** Sem ele, as barras só mostram (não filtram nada). */
+  aoEscolher?(id: string): void;
   vazio: ReactNode;
   /** false para listas que não são posição (ex.: etapas do funil, na ordem do funil). */
   numerar?: boolean;
+  /** Escala fixa (ex.: 10 para notas); sem ela, a maior barra ocupa a linha toda. */
+  maximo?: number;
 }) {
   if (!itens.length) return <p className="lista-vazia">{vazio}</p>;
-  const max = Math.max(...itens.map((i) => i.valor), 1);
+  const max = maximo ?? Math.max(...itens.map((i) => i.valor), 1);
   return (
     <ol className="ranking-barras">
       {itens.map((i, n) => (
         <li key={i.id}>
-          <button
-            type="button"
-            className={`barra-h${selecionado === i.id ? " selecionada" : ""}${selecionado && selecionado !== i.id ? " apagada" : ""}`}
-            aria-pressed={selecionado === i.id}
-            aria-label={`${numerar ? `${n + 1}º ` : ""}${i.rotulo}: ${i.texto}`}
-            onClick={() => aoEscolher(i.id)}
-          >
-            <span className="barra-h-rotulo">
-              {numerar && <span className="barra-h-posicao">{n + 1}º</span>} {i.rotulo}
-            </span>
-            <span className="barra-h-trilho">
-              <span className="barra-h-valor" style={{ width: `${Math.max(2, (i.valor / max) * 100)}%` }} />
-            </span>
-            <span className="barra-h-numero">{i.texto}</span>
-          </button>
+          {aoEscolher ? (
+            <button
+              type="button"
+              className={`barra-h${selecionado === i.id ? " selecionada" : ""}${selecionado && selecionado !== i.id ? " apagada" : ""}`}
+              aria-pressed={selecionado === i.id}
+              aria-label={`${numerar ? `${n + 1}º ` : ""}${i.rotulo}: ${i.texto}`}
+              onClick={() => aoEscolher(i.id)}
+            >
+              <ConteudoBarra item={i} posicao={numerar ? n + 1 : null} max={max} />
+            </button>
+          ) : (
+            <div className="barra-h barra-h-fixa">
+              <ConteudoBarra item={i} posicao={numerar ? n + 1 : null} max={max} />
+            </div>
+          )}
         </li>
       ))}
     </ol>

@@ -60,3 +60,4 @@ histórico do git.
 | 67 | Aceite de termos é exigido na tela, não em cada rota da API | BAIXA | `apps/web/src/main.tsx` | Exigir no servidor se houver integração externa usando sessão de pessoa |
 | 68 | Dados de exemplo envelhecem: o "hoje" (agenda, tarefas, retornos, ponto) é o dia da geração | BAIXA | `modulos/demonstracao/gerador.ts` | "Gerar de novo" antes de apresentar; se incomodar, deslocar as datas na hora de entrar |
 | 69 | Gerador insere direto no banco: tabela nova que precise de dados de exemplo exige ajuste no gerador | BAIXA | `modulos/demonstracao/gerador.ts` | Teste de integração confere os números principais; ampliar quando entrar módulo novo |
+| 70 | Painel de ligações filtra por `empresa_id` + `iniciada_em` sem índice próprio (os índices são por pessoa e contato, em `criado_em`) | BAIXA | `modulos/telefonia/painel-ligacoes.servico.ts` | Medir com volume real; se pesar, índice aditivo `ligacao (empresa_id, iniciada_em)` |

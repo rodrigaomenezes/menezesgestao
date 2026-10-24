@@ -10,7 +10,9 @@ import {
   CriterioEntrada,
   FiltroAvaliacoes,
   FiltroLista,
+  FiltroPainelQualidade,
   Ok,
+  PainelQualidadeDto,
   ParamId,
   ParamToken,
   PesquisaDto,
@@ -23,12 +25,14 @@ import {
 import type { Servicos } from "../../app.js";
 import { exigirEmpresa, exigirEscopo, origemDe } from "../acesso/acesso.js";
 import { criarServicoPesquisa } from "../pesquisa/pesquisa.servico.js";
+import { criarServicoPainelQualidade } from "./painel-qualidade.servico.js";
 import { criarServicoQualidade } from "./qualidade.servico.js";
 
 export const rotasQualidade =
   (s: Servicos): FastifyPluginAsyncZod =>
   async (app) => {
     const qualidade = criarServicoQualidade(s);
+    const painelQualidade = criarServicoPainelQualidade(s);
     const pesquisas = criarServicoPesquisa(s);
 
     {
@@ -46,6 +50,11 @@ export const rotasQualidade =
         "/api/qualidade/criterios/:id",
         { config: acesso("administrar"), schema: { tags, summary: "Alterar ou arquivar critério", params: ParamId, body: AtualizarCriterioEntrada, response: { 200: Ok } } },
         async (req) => qualidade.salvarCriterio(exigirEmpresa(req), origemDe(req), req.params.id, req.body),
+      );
+      app.get(
+        "/api/avaliacoes/painel",
+        { config: acesso("ver"), schema: { tags, summary: "Painel de qualidade: avaliações, nota média, por pessoa e por critério", querystring: FiltroPainelQualidade, response: { 200: PainelQualidadeDto } } },
+        async (req) => painelQualidade.painel(exigirEmpresa(req), exigirEscopo(req), req.query),
       );
       app.get(
         "/api/avaliacoes",

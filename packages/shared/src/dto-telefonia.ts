@@ -1,6 +1,7 @@
 // Contrato da fase 3: telefonia (ligações, ramais, gravação) e filas de discagem ativa.
 import { z } from "zod";
-import { DataIso, Id, IdOpcional, Paginacao } from "./dto.js";
+import { DataIso, Id, IdOpcional, MAX_DIAS_ANALISE, Paginacao, validarIntervalo } from "./dto.js";
+import { DataDia } from "./dto-operacao.js";
 
 const texto = (max: number, rotulo: string) =>
   z.string().trim().min(1, { error: `${rotulo}: preencha.` }).max(max, { error: `${rotulo}: no máximo ${max} caracteres.` });
@@ -88,7 +89,45 @@ export const FinalizarLigacaoEntrada = z.object({
   observacao: z.string().trim().max(2000).nullish(),
 });
 
-export const FiltroLigacoes = Paginacao.extend({ contatoId: Id.optional(), usuarioId: Id.optional() });
+export const SITUACOES_LIGACAO = ["atendida", "nao_atendida"] as const;
+export const FiltroLigacoes = Paginacao.extend({
+  contatoId: Id.optional(),
+  usuarioId: Id.optional(),
+  /** Intervalo de datas do início da ligação (no fuso da empresa). */
+  inicio: DataDia.optional(),
+  fim: DataDia.optional(),
+  resultadoId: Id.optional(),
+  /** Só as encerradas que ficaram sem resultado registrado. */
+  semResultado: z.enum(["sim"]).optional(),
+  situacao: z.enum(SITUACOES_LIGACAO).optional(),
+}).superRefine(validarIntervalo(MAX_DIAS_ANALISE));
+
+// Painel de ligações (do todo ao micro): feitas, atendidas, tempo falado, por dia, por resultado e por pessoa.
+export const FiltroPainelLigacoes = z
+  .object({ inicio: DataDia, fim: DataDia, usuarioId: Id.optional() })
+  .superRefine(validarIntervalo(MAX_DIAS_ANALISE));
+const TotaisLigacoes = z.object({
+  feitas: z.number().int(),
+  atendidas: z.number().int(),
+  /** Atendidas ÷ feitas, em %, com uma casa; null sem ligações. */
+  taxaAtendimento: z.number().nullable(),
+  segundosFalados: z.number().int(),
+  duracaoMediaSegundos: z.number().int().nullable(),
+});
+export const PainelLigacoesDto = z.object({
+  inicio: DataDia,
+  fim: DataDia,
+  anterior: z.object({ inicio: DataDia, fim: DataDia }),
+  totais: TotaisLigacoes,
+  totaisAnteriores: TotaisLigacoes,
+  /** Ligações feitas e atendidas por dia (com zeros). */
+  serie: z.array(z.object({ dia: DataDia, feitas: z.number().int(), atendidas: z.number().int() })),
+  /** Resultado registrado nas encerradas, mais frequente primeiro; resultadoId null = sem resultado. */
+  resultados: z.array(z.object({ resultadoId: Id.nullable(), nome: z.string(), quantidade: z.number().int() })),
+  /** Até 20, quem mais ligou primeiro (ignora o filtro de pessoa). */
+  pessoas: z.array(z.object({ usuarioId: Id, nome: z.string(), feitas: z.number().int(), atendidas: z.number().int(), segundosFalados: z.number().int() })),
+});
+export type PainelLigacoesDto = z.infer<typeof PainelLigacoesDto>;
 
 // Configuração e ramais ---------------------------------------------------------------------------
 

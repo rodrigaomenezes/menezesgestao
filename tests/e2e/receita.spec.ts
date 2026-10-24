@@ -41,8 +41,13 @@ test("venda registrada pela ficha do contato entra no histórico e na comissão 
 
   await page.goto("/comissoes");
   await page.getByRole("button", { name: "Próximo mês" }).click();
+  await expect(page).toHaveURL(/mes=/);
   await expect(page.getByRole("list", { name: "Comissões do mês" }).getByText(/^Dona A · /).first()).toBeVisible();
   await semRolagemLateral(page);
+  // Cada linha leva às vendas que geraram a comissão.
+  await page.getByRole("list", { name: "Comissões do mês" }).getByRole("link", { name: /^Dona A · .*Ver as vendas/ }).first().click();
+  await expect(page).toHaveURL(/\/vendas\?.*vendedorId=.*status=confirmada/);
+  await expect(page.getByRole("heading", { name: "Vendas", exact: true })).toBeVisible();
 });
 
 test("catálogo: entrega com vagas e participante incluído pela busca", async ({ page }, info) => {
@@ -83,7 +88,10 @@ test("qualidade: o gestor avalia a ligação do vendedor e a nota aparece", asyn
 
   await entrar(page, pessoa(a, "gestor").email);
   await page.goto("/ligacoes");
-  const item = page.getByRole("listitem").filter({ hasText: "Vendedor A1" }).first();
+  // Do todo ao micro: o número "Não atendidas" filtra a lista e fica no endereço.
+  await page.getByRole("button", { name: /^Não atendidas/ }).click();
+  await expect(page).toHaveURL(/situacao=nao_atendida/);
+  const item = page.getByRole("region", { name: "Não atendidas", exact: true }).getByRole("listitem").filter({ hasText: "Vendedor A1" }).first();
   await item.getByRole("button", { name: "Avaliar" }).click();
   const modal = page.getByRole("dialog", { name: "Avaliar atendimento" });
   await modal.getByLabel("Tratou objeções").selectOption("6");
@@ -94,6 +102,10 @@ test("qualidade: o gestor avalia a ligação do vendedor e a nota aparece", asyn
   await expect(page.getByText("Avaliação enviada: nota 9.")).toBeVisible();
   await page.goto("/qualidade");
   await expect(page.getByText("Nota 9 · Vendedor A1").first()).toBeVisible();
+  // Tocar na pessoa filtra a lista e os critérios por ela.
+  await page.getByRole("region", { name: "Nota média por pessoa" }).getByRole("button", { name: /Vendedor A1/ }).click();
+  await expect(page).toHaveURL(/avaliadoId=/);
+  await expect(page.getByRole("heading", { name: /^Avaliações · Vendedor A1/ })).toBeVisible();
   await semRolagemLateral(page);
 });
 

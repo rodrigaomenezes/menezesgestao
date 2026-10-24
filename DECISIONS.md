@@ -680,3 +680,9 @@ Mostrar o todo sem levar ao micro não ajuda a decidir. Biblioteca de gráficos 
 barras simples (política, item 13); barras como botões dão foco, toque grande e leitor de tela de graça. Uma chamada
 por mudança de filtro (e não uma por número) mantém a tela leve.
 
+Adendo (entregas 3 e 4): Ligações (`/api/ligacoes/painel`: feitas, atendidas, taxa, tempo falado, por dia, por
+resultado e por pessoa) e Qualidade (`/api/avaliacoes/painel`: avaliações, nota média, feedback não lido, por pessoa e
+por critério, este do mais baixo ao mais alto, só leitura — `Ranking` sem `aoEscolher`). O Início, a Rotina, o BPI e as
+Comissões não ganharam painel próprio: cada linha virou link para o painel que a explica, já filtrado. As listas com
+filtro (Contatos, Tarefas, Conversas, Auditoria, Comissões) guardam o filtro no endereço; abrir um item e voltar
+mantém o recorte, e a lista vazia diz como sair dele.

@@ -1,8 +1,9 @@
 // Caixa de entrada: lista (minhas, sem dono, todas) + conversa aberta. No celular, uma coisa de cada vez.
-import { useCallback, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useCallback, useEffect, useState } from "react";
+import { Link, useLocation, useParams } from "react-router-dom";
 import type { ConversaDto } from "@mg/shared";
 import { query } from "../../app/api";
+import { useFiltrosUrl } from "../../app/filtros-url";
 import { useDataHora } from "../../app/sessao";
 import { useTempoReal } from "../../app/tempo-real";
 import { Campo, CarregarMais, ListaVazia, Mensagem, usePaginado } from "../../ui/ui";
@@ -26,10 +27,17 @@ function horaCurta(iso: string | null, dataHora: (i: string) => string): string 
 export function Conversas() {
   const { id } = useParams();
   const dataHora = useDataHora();
-  const [caixa, setCaixa] = useState<(typeof CAIXAS)[number]["id"]>("todas");
-  const [resolvidas, setResolvidas] = useState(false);
-  const [busca, setBusca] = useState("");
-  const [buscaAplicada, setBuscaAplicada] = useState("");
+  // Filtros no endereço; abrir uma conversa e voltar mantém a caixa, a busca e as resolvidas.
+  const { search } = useLocation();
+  const { valores: f, mudar } = useFiltrosUrl(["caixa", "resolvidas", "busca"] as const);
+  const caixa = CAIXAS.find((c) => c.id === f.caixa)?.id ?? "todas";
+  const resolvidas = f.resolvidas === "sim";
+  const buscaAplicada = f.busca ?? "";
+  const [busca, setBusca] = useState(buscaAplicada);
+  useEffect(() => setBusca(buscaAplicada), [buscaAplicada]);
+  const setCaixa = (c: string) => mudar({ caixa: c === "todas" ? undefined : c });
+  const setResolvidas = (v: boolean) => mudar({ resolvidas: v ? "sim" : undefined });
+  const setBuscaAplicada = (v: string) => mudar({ busca: v.trim() || undefined });
   const lista = usePaginado<ConversaDto>(`/conversas${query({ caixa, status: resolvidas ? "resolvida" : "abertas", busca: buscaAplicada })}`);
   const recarregar = lista.recarregar;
   const atualizarLista = useCallback(() => void recarregar(), [recarregar]);
@@ -57,12 +65,25 @@ export function Conversas() {
         </label>
         <Mensagem tipo="erro">{lista.erro}</Mensagem>
         {!lista.carregando && !lista.itens.length && (
-          <ListaVazia>{caixa === "minhas" ? "Nenhuma conversa com você agora." : "Nenhuma conversa por aqui."}</ListaVazia>
+          <ListaVazia>
+            {buscaAplicada ? (
+              <>
+                Nenhuma conversa com essa busca.{" "}
+                <button type="button" className="botao-texto" onClick={() => mudar({ busca: undefined })}>
+                  Limpar busca
+                </button>
+              </>
+            ) : caixa === "minhas" ? (
+              "Nenhuma conversa com você agora."
+            ) : (
+              "Nenhuma conversa por aqui."
+            )}
+          </ListaVazia>
         )}
         <ul className="lista lista-conversas">
           {lista.itens.map((c) => (
             <li key={c.id} className={`item-conversa ${c.id === id ? "selecionada" : ""}`}>
-              <Link to={`/conversas/${c.id}`} className="item-link" aria-current={c.id === id ? "page" : undefined}>
+              <Link to={`/conversas/${c.id}${search}`} className="item-link" aria-current={c.id === id ? "page" : undefined}>
                 <span className="conversa-linha">
                   <strong>{c.contatoNome ?? formatarTelefone(c.telefone)}</strong>
                   <span className="item-detalhe">{horaCurta(c.ultimaMensagemEm, dataHora)}</span>

@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import type { ContatoDto, ResultadoAdicionarDto } from "@mg/shared";
 import { get, post, query } from "../../app/api";
+import { useFiltrosUrl } from "../../app/filtros-url";
 import { useSessao } from "../../app/sessao";
 import { useTempoReal } from "../../app/tempo-real";
 import { useAviso, useConfirmar } from "../../ui/sobreposicoes";
@@ -138,11 +139,19 @@ export function Contatos() {
   const navegar = useNavigate();
   const { config } = useConfigCrm();
   const [criando, setCriando] = useState(false);
-  const [arquivados, setArquivados] = useState(false);
-  const [busca, setBusca] = useState("");
-  const [buscaAplicada, setBuscaAplicada] = useState("");
-  const [etiquetaId, setEtiquetaId] = useState("");
-  const [responsavelId, setResponsavelId] = useState("");
+  // Filtros no endereço: o link guarda a busca e o "voltar" do navegador volta ao filtro anterior.
+  const { valores: f, mudar } = useFiltrosUrl(["busca", "etiquetaId", "responsavelId", "arquivados"] as const);
+  const arquivados = f.arquivados === "sim";
+  const buscaAplicada = f.busca ?? "";
+  const etiquetaId = f.etiquetaId ?? "";
+  const responsavelId = f.responsavelId ?? "";
+  const [busca, setBusca] = useState(buscaAplicada);
+  useEffect(() => setBusca(buscaAplicada), [buscaAplicada]);
+  const setArquivados = (v: boolean) => mudar({ arquivados: v ? "sim" : undefined });
+  const setBuscaAplicada = (v: string) => mudar({ busca: v.trim() || undefined });
+  const setEtiquetaId = (v: string) => mudar({ etiquetaId: v || undefined });
+  const setResponsavelId = (v: string) => mudar({ responsavelId: v || undefined });
+  const temFiltro = Boolean(buscaAplicada || etiquetaId || responsavelId);
   const [marcados, setMarcados] = useState<string[]>([]);
   const lista = usePaginado<ContatoDto>(
     `/contatos${query({ arquivados: arquivados ? "sim" : "nao", busca: buscaAplicada, etiquetaId, responsavelId })}`,
@@ -183,7 +192,20 @@ export function Contatos() {
         {marcados.length > 0 && <AcoesEmMassa ids={marcados} config={config} arquivados={arquivados} aoConcluir={() => (setMarcados([]), void lista.recarregar())} />}
         <Mensagem tipo="erro">{lista.erro}</Mensagem>
         {!lista.carregando && !lista.itens.length && (
-          <ListaVazia>{arquivados ? "A lixeira está vazia." : buscaAplicada ? "Ninguém encontrado com essa busca." : termos.t("{Nenhum contato} ainda. Cadastre ou importe uma planilha.")}</ListaVazia>
+          <ListaVazia>
+            {arquivados && !temFiltro ? (
+              "A lixeira está vazia."
+            ) : temFiltro ? (
+              <>
+                Ninguém encontrado com esses filtros.{" "}
+                <button type="button" className="botao-texto" onClick={() => mudar({ busca: undefined, etiquetaId: undefined, responsavelId: undefined })}>
+                  Limpar filtros
+                </button>
+              </>
+            ) : (
+              termos.t("{Nenhum contato} ainda. Cadastre ou importe uma planilha.")
+            )}
+          </ListaVazia>
         )}
         <ul className="lista">
           {lista.itens.map((c) => (
