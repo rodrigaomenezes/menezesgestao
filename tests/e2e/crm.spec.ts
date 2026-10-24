@@ -125,3 +125,27 @@ test("importação: a mesma planilha duas vezes não duplica ninguém", async ({
     }
   }
 });
+
+test("filtros das listas ficam no endereço: busca, ficha e voltar mantêm o recorte", async ({ page }, info) => {
+  const { a } = dados();
+  await entrar(page, pessoa(a, "dono").email);
+  const nome = `Busca Endereço ${info.project.name}`;
+  const csrf = (await page.context().cookies()).find((c) => c.name === "mg_csrf")?.value ?? "";
+  const r = await page.request.post("/api/contatos", { headers: { "x-csrf-token": csrf }, data: { nome, telefone: telefoneUnico(info.project.name, 7) } });
+  expect(r.status()).toBe(201);
+  await page.goto("/contatos");
+  await page.getByLabel("Buscar por nome, telefone ou e-mail").fill(nome);
+  await page.getByLabel("Buscar por nome, telefone ou e-mail").press("Enter");
+  await expect(page).toHaveURL(/busca=/);
+  await page.getByRole("link", { name: nome }).click();
+  await page.goBack();
+  await expect(page.getByLabel("Buscar por nome, telefone ou e-mail")).toHaveValue(nome);
+  await expect(page.getByRole("link", { name: nome })).toBeVisible();
+  // Sem resultado: a lista vazia oferece limpar os filtros.
+  await page.goto("/contatos?busca=ninguem-com-esse-nome-xyz");
+  await page.getByRole("button", { name: "Limpar filtros" }).click();
+  await expect(page).not.toHaveURL(/busca=/);
+  await page.goto("/tarefas?situacao=concluidas");
+  await expect(page.getByRole("tab", { name: "Concluídas" })).toHaveAttribute("aria-selected", "true");
+  await semRolagemLateral(page);
+});

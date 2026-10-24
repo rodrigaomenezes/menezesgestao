@@ -250,7 +250,12 @@ o link pode ser enviado e cada clique vira uma etiqueta removível. Gráficos co
 No **Funil → Painel**: quem entrou, ganhou e perdeu no período, conversão e dias até ganhar → abertas agora por
 etapa, motivos de perda, quem ganhou e ganhas por dia → a lista exata (ex.: perdidas por "Preço") → a ficha. Em
 **Vendas**: valor confirmado, quantidade, ticket médio, aguardando e canceladas → por dia, por oferta e por vendedor →
-a lista das vendas daquele recorte. Em números onde subir é ruim (perdas, cancelamentos, dias), a cor se inverte.
+a lista das vendas daquele recorte. Em **Ligações**: feitas, atendidas, não atendidas, taxa de atendimento e tempo
+falado → por dia, por resultado e quem mais ligou → a lista (com gravação e "Avaliar"). Em **Qualidade**: avaliações,
+nota média e feedback não lido → nota por pessoa e por critério (o mais fraco primeiro) → as avaliações. No **Início**,
+na **Rotina**, no **BPI** e em **Comissões**, cada linha abre o painel que a explica, já filtrado. Contatos, Tarefas,
+Conversas e Auditoria guardam o filtro no endereço (abrir e voltar mantém a busca). Em números onde subir é ruim
+(perdas, cancelamentos, não atendidas, dias), a cor se inverte.
 
 ## Testes
 

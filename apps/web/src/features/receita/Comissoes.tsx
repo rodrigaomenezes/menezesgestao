@@ -1,7 +1,10 @@
-// Comissões do mês (prévia ou retrato do fechamento), regras e fechamento — o fechamento é do financeiro.
+// Comissões do mês (prévia ou retrato do fechamento), regras e fechamento — o fechamento é do financeiro. O mês fica
+// no endereço e cada linha leva às vendas que geraram a comissão.
 import { useCallback, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import type { ComissoesDoMesDto, OfertaDto, Pagina, RegraComissaoDto } from "@mg/shared";
-import { ErroApi, get, patch, post } from "../../app/api";
+import { ErroApi, get, patch, post, query } from "../../app/api";
+import { useFiltrosUrl } from "../../app/filtros-url";
 import { useDataHora, useEu } from "../../app/sessao";
 import { useTempoReal } from "../../app/tempo-real";
 import { useAviso } from "../../ui/sobreposicoes";
@@ -16,6 +19,12 @@ const pct = (n: number) => `${n.toLocaleString("pt-BR", { maximumFractionDigits:
 function descreverRegra(r: RegraComissaoDto): string {
   if (r.tipo === "percentual") return pct(r.percentual ?? 0);
   return (r.faixas ?? []).map((f) => (f.ateCentavos === null ? `acima: ${pct(f.percentual)}` : `até ${formatarDinheiro(f.ateCentavos)}: ${pct(f.percentual)}`)).join(" · ");
+}
+
+/** Primeiro e último dia do mês AAAA-MM. */
+function diasDoMes(mes: string) {
+  const [a, m] = mes.split("-").map(Number);
+  return { inicio: `${mes}-01`, fim: new Date(Date.UTC(a, m, 0)).toISOString().slice(0, 10) };
 }
 
 function NovaRegra({ aoCriar }: { aoCriar(): void }) {
@@ -95,7 +104,10 @@ export function Comissoes() {
   const dataHora = useDataHora();
   const avisar = useAviso();
   const financeiro = eu.permissoes.vendas?.editar === "empresa";
-  const [mes, setMes] = useState(() => somarMeses(mesAtual(fuso), -1));
+  const mesPadrao = somarMeses(mesAtual(fuso), -1);
+  const { valores, mudar } = useFiltrosUrl(["mes"] as const, { mes: mesPadrao });
+  const mes = /^\d{4}-(0[1-9]|1[0-2])$/.test(valores.mes ?? "") ? valores.mes! : mesPadrao;
+  const setMes = (m: string) => mudar({ mes: m });
   const [dados, setDados] = useState<ComissoesDoMesDto | null>(null);
   const [regras, setRegras] = useState<RegraComissaoDto[]>([]);
   const [erro, setErro] = useState("");
@@ -109,6 +121,7 @@ export function Comissoes() {
   }, [mes]);
   useEffect(carregar, [carregar]);
   useTempoReal(["venda.", "comissao.", "regra_comissao."], carregar);
+  const ofertaDaRegra = new Map(regras.map((r) => [r.id, r.ofertaId]));
 
   const fechar = useEnvio(async () => {
     await post("/comissoes/fechamentos", { mes });
@@ -160,19 +173,24 @@ export function Comissoes() {
             <ul className="lista" aria-label="Comissões do mês">
               {dados.linhas.map((l) => (
                 <li key={`${l.vendedorId}-${l.regraId}`} className="item">
-                  <div className="item-principal">
+                  <Link
+                    className="link-bloco item-principal"
+                    to={`/vendas${query({ ...diasDoMes(mes), vendedorId: l.vendedorId, ofertaId: (l.regraId && ofertaDaRegra.get(l.regraId)) || undefined, status: "confirmada" })}`}
+                    aria-label={`${l.vendedorNome} · ${formatarDinheiro(l.valorCentavos)}. Ver as vendas.`}
+                  >
                     <strong>
                       {l.vendedorNome} · {formatarDinheiro(l.valorCentavos)}
                     </strong>
                     <span className="item-detalhe">
-                      {l.regraNome}: {l.vendas} venda(s), base {formatarDinheiro(l.baseCentavos)} × {pct(l.percentual)}
+                      {l.regraNome}: {l.vendas} venda(s), base {formatarDinheiro(l.baseCentavos)} × {pct(l.percentual)} ›
                     </span>
-                  </div>
+                  </Link>
                 </li>
               ))}
             </ul>
             <p className="numeros-venda">
-              Total: <strong>{formatarDinheiro(dados.totalCentavos)}</strong>
+              Total: <strong>{formatarDinheiro(dados.totalCentavos)}</strong> ·{" "}
+              <Link to={`/vendas${query({ ...diasDoMes(mes), status: "confirmada" })}`}>ver as vendas do mês</Link>
             </p>
             {financeiro && !dados.fechamento && (
               <button type="button" className="botao" disabled={fechar.enviando} onClick={() => void fechar.enviar()}>

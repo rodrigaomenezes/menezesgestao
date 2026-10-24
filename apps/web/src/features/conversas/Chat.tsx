@@ -1,7 +1,7 @@
 // Conversa aberta: cabeçalho (contato, dono, status), mensagens (com mídia e áudio) e campo de resposta
 // (texto, "/" para respostas rápidas, nota interna, arquivo e gravação de áudio).
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import {
   NOMES_STATUS_CONVERSA,
   preencherVariaveis,
@@ -222,9 +222,11 @@ function Cabecalho({ c, aoMudar }: { c: ConversaDetalheDto; aoMudar(): void }) {
     }
   };
   const podeEditar = pode("conversas", "editar");
+  // Voltar mantém os filtros da lista (caixa, busca, resolvidas), que ficam no endereço.
+  const voltarCom = useLocation().search;
   return (
     <header className="chat-topo">
-      <Link to="/conversas" className="botao botao-secundario botao-icone chat-voltar" aria-label="Voltar para a lista">
+      <Link to={`/conversas${voltarCom}`} className="botao botao-secundario botao-icone chat-voltar" aria-label="Voltar para a lista">
         ←
       </Link>
       <div className="chat-quem">

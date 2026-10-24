@@ -272,7 +272,38 @@ export const AvaliacaoEntrada = z
     feedback: textoOpcional(2000, "Feedback"),
   })
   .refine((a) => Boolean(a.conversaId) !== Boolean(a.ligacaoId), { error: "Avalie uma conversa ou uma ligação." });
-export const FiltroAvaliacoes = Paginacao.extend({ avaliadoId: Id.optional() });
+export const FiltroAvaliacoes = Paginacao.extend({
+  avaliadoId: Id.optional(),
+  /** Intervalo de datas da avaliação (no fuso da empresa). */
+  inicio: DataDia.optional(),
+  fim: DataDia.optional(),
+  /** Só os feedbacks que quem foi avaliado ainda não leu. */
+  naoLidas: z.enum(["sim"]).optional(),
+}).superRefine(validarIntervalo(MAX_DIAS_ANALISE));
+
+// Painel de qualidade (do todo ao micro): quantas avaliações, nota média, por pessoa e por critério.
+export const FiltroPainelQualidade = z
+  .object({ inicio: DataDia, fim: DataDia, avaliadoId: Id.optional() })
+  .superRefine(validarIntervalo(MAX_DIAS_ANALISE));
+const TotaisQualidade = z.object({
+  avaliacoes: z.number().int(),
+  /** Média das notas finais, com duas casas; null sem avaliações. */
+  notaMedia: z.number().nullable(),
+  /** Feedbacks ainda não lidos por quem foi avaliado. */
+  naoLidas: z.number().int(),
+});
+export const PainelQualidadeDto = z.object({
+  inicio: DataDia,
+  fim: DataDia,
+  anterior: z.object({ inicio: DataDia, fim: DataDia }),
+  totais: TotaisQualidade,
+  totaisAnteriores: TotaisQualidade,
+  /** Até 20, maior nota média primeiro (ignora o filtro de pessoa). */
+  pessoas: z.array(z.object({ usuarioId: Id, nome: z.string(), avaliacoes: z.number().int(), notaMedia: z.number() })),
+  /** Nota média de cada critério avaliado no período, da mais baixa para a mais alta (onde melhorar primeiro). */
+  criterios: z.array(z.object({ criterioId: Id, nome: z.string(), notaMedia: z.number(), avaliacoes: z.number().int() })),
+});
+export type PainelQualidadeDto = z.infer<typeof PainelQualidadeDto>;
 
 // Pesquisas -------------------------------------------------------------------------------------------
 

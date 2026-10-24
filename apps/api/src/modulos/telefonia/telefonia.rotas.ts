@@ -5,10 +5,12 @@ import {
   AtualizarResultadoEntrada,
   EstadoLigacaoEntrada,
   FiltroLigacoes,
+  FiltroPainelLigacoes,
   FinalizarLigacaoEntrada,
   LigacaoDto,
   MeuTelefoneDto,
   NovaLigacaoEntrada,
+  PainelLigacoesDto,
   ParamId,
   ParamUsuario,
   RamalDto,
@@ -23,12 +25,14 @@ import { invalido } from "../../infra/erros.js";
 import type { Servicos } from "../../app.js";
 import { exigirEmpresa, exigirEscopo, origemDe } from "../acesso/acesso.js";
 import type { ProvedorArquivos } from "../arquivos/armazenamento.js";
+import { criarServicoPainelLigacoes } from "./painel-ligacoes.servico.js";
 import { LIMITE_GRAVACAO, criarServicoTelefonia } from "./telefonia.servico.js";
 
 export const rotasTelefonia =
   (s: Servicos, arquivos: ProvedorArquivos): FastifyPluginAsyncZod =>
   async (app) => {
     const tel = criarServicoTelefonia(s, arquivos);
+    const painelLigacoes = criarServicoPainelLigacoes(s);
     const acesso = (acao: "ver" | "criar" | "editar" | "administrar") => ({ acesso: { modulo: "telefonia" as const, acao } });
     const tags = ["Telefonia"];
 
@@ -84,6 +88,14 @@ export const rotasTelefonia =
       async (req) => tel.salvarResultado(exigirEmpresa(req), origemDe(req), req.params.id, req.body),
     );
 
+    app.get(
+      "/api/ligacoes/painel",
+      {
+        config: acesso("ver"),
+        schema: { tags, summary: "Painel de ligações: feitas, atendidas, tempo falado, por dia, resultado e pessoa", querystring: FiltroPainelLigacoes, response: { 200: PainelLigacoesDto } },
+      },
+      async (req) => painelLigacoes.painel(exigirEmpresa(req), exigirEscopo(req), req.query),
+    );
     app.get(
       "/api/ligacoes",
       { config: acesso("ver"), schema: { tags, summary: "Ligações (minhas ou da equipe, conforme o perfil)", querystring: FiltroLigacoes, response: { 200: pagina(LigacaoDto) } } },

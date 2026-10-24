@@ -1,6 +1,6 @@
 // Monitoramento de qualidade: critérios com peso, avaliação de conversa ou ligação com nota por critério e
 // feedback para quem foi avaliado (aviso no sino).
-import { and, asc, desc, eq, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import type { AvaliacaoDto, CriterioDto, Escopo, Pagina } from "@mg/shared";
 import { comEmpresa, type Tx } from "../../infra/banco.js";
@@ -12,7 +12,7 @@ import type { ContextoEmpresa } from "../acesso/acesso.js";
 import { filtroUsuariosVisiveis } from "../acesso/escopo.js";
 import { registrar, type Origem } from "../auditoria/registro.js";
 import { notificar } from "../notificacoes/notificar.js";
-import { exigirPessoa } from "../operacao/comum.js";
+import { exigirPessoa, fusoDe, instantesDoPeriodo } from "../operacao/comum.js";
 
 const avaliado = alias(usuario, "avaliado");
 const avaliador = alias(usuario, "avaliador");
@@ -116,8 +116,9 @@ export function criarServicoQualidade(s: Servicos) {
     criadoEm: iso(l.criadoEm),
   });
 
-  async function listar(ctx: ContextoEmpresa, escopo: Escopo, f: { avaliadoId?: string; cursor?: string; limite: number }): Promise<Pagina<AvaliacaoDto>> {
+  async function listar(ctx: ContextoEmpresa, escopo: Escopo, f: { avaliadoId?: string; inicio?: string; fim?: string; naoLidas?: "sim"; cursor?: string; limite: number }): Promise<Pagina<AvaliacaoDto>> {
     return comEmpresa(banco, ctx.empresaId, async (tx) => {
+      const periodo = f.inicio && f.fim ? instantesDoPeriodo(f.inicio, f.fim, fusoDe(ctx)) : null;
       const linhas = await consulta(tx)
         .where(
           and(
@@ -125,6 +126,8 @@ export function criarServicoQualidade(s: Servicos) {
             isNull(avaliacao.arquivadoEm),
             filtroUsuariosVisiveis(ctx, escopo, avaliacao.avaliadoId),
             f.avaliadoId ? eq(avaliacao.avaliadoId, f.avaliadoId) : undefined,
+            periodo ? sql`${avaliacao.criadoEm} >= ${periodo.de} AND ${avaliacao.criadoEm} < ${periodo.ate}` : undefined,
+            f.naoLidas ? isNull(avaliacao.lidaEm) : undefined,
             condicaoCursor(avaliacao.criadoEm, avaliacao.id, lerCursor(f.cursor)),
           ),
         )

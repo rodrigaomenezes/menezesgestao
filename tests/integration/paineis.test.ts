@@ -231,3 +231,114 @@ describe("painel de vendas", () => {
     expect((await dono.get(`/api/vendas/painel?inicio=2025-01-01&fim=2026-06-30`)).statusCode).toBe(400);
   });
 });
+
+describe("painel de ligações e painel de qualidade", () => {
+  const ligacoes: Record<string, string> = {};
+  let interessado = "";
+  beforeAll(async () => {
+    const resultado = async (nome: string) => {
+      const r = await dono.post("/api/telefonia/resultados", { nome, acao: "nenhuma" });
+      expect(r.statusCode, r.body).toBe(201);
+      return r.json().id as string;
+    };
+    interessado = await resultado("Interessado painel");
+    const caixa = await resultado("Caixa postal painel");
+    const ligar = async (chave: string, quem: string, dia: string, segundos: number | null, resultadoId: string | null) => {
+      const { rows } = await comoSistema(t.banco, (tx) =>
+        tx.cliente.query<{ id: string }>(
+          `INSERT INTO ligacao (empresa_id, usuario_id, provedor, numero, estado, iniciada_em, atendida_em, encerrada_em, duracao_segundos, resultado_id)
+           VALUES ($1, $2, 'treino', '+5511966660000', 'encerrada', $3, $4, $3, $5, $6) RETURNING id`,
+          [e.a.empresaId, quem, meioDia(dia), segundos === null ? null : meioDia(dia), segundos ?? 0, resultadoId],
+        ),
+      );
+      ligacoes[chave] = rows[0].id;
+    };
+    // Hoje: A1 fez 3 (2 atendidas: 120 s com resultado e 60 s sem), A2 fez 1 não atendida sem resultado; ontem A1 fez 1.
+    await ligar("a1-interessado", id("vendedor"), hoje, 120, interessado);
+    await ligar("a1-sem", id("vendedor"), hoje, 60, null);
+    await ligar("a1-caixa", id("vendedor"), hoje, null, caixa);
+    await ligar("a2-nao", id("vendedor2"), hoje, null, null);
+    await ligar("a1-ontem", id("vendedor"), ontem, 300, null);
+
+    // Avaliações: A1 recebeu 8 e 6 hoje (uma não lida), A2 recebeu 10.
+    const avaliar = async (ligacao: string, avaliado: string, nota: number, lida: boolean) =>
+      comoSistema(t.banco, (tx) =>
+        tx.cliente.query(
+          `INSERT INTO avaliacao (empresa_id, avaliado_id, avaliador_id, ligacao_id, notas, nota_final, lida_em, criado_em) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+          [
+            e.a.empresaId,
+            avaliado,
+            id("gestor"),
+            ligacao,
+            JSON.stringify([
+              { criterioId: "00000000-0000-4000-8000-000000000001", nome: "Abertura", peso: 1, nota },
+              { criterioId: "00000000-0000-4000-8000-000000000002", nome: "Objeções", peso: 1, nota: nota - 2 },
+            ]),
+            nota - 1,
+            lida ? meioDia(hoje) : null,
+            meioDia(hoje),
+          ],
+        ),
+      );
+    await avaliar(ligacoes["a1-interessado"], id("vendedor"), 8, true);
+    await avaliar(ligacoes["a1-sem"], id("vendedor"), 6, false);
+    await avaliar(ligacoes["a2-nao"], id("vendedor2"), 10, true);
+  });
+
+  it("ligações: feitas, atendidas, taxa, tempo falado, por dia, por resultado e por pessoa", async () => {
+    const r = await dono.get(`/api/ligacoes/painel?inicio=${hoje}&fim=${hoje}`);
+    expect(r.statusCode, r.body).toBe(200);
+    const b = r.json();
+    expect(b.totais).toEqual({ feitas: 4, atendidas: 2, taxaAtendimento: 50, segundosFalados: 180, duracaoMediaSegundos: 90 });
+    expect(b.totaisAnteriores).toMatchObject({ feitas: 1, atendidas: 1, segundosFalados: 300 });
+    expect(b.serie).toEqual([{ dia: hoje, feitas: 4, atendidas: 2 }]);
+    expect(b.resultados.map((x: { nome: string; quantidade: number }) => [x.nome, x.quantidade])).toEqual([
+      ["Sem resultado registrado", 2],
+      ["Caixa postal painel", 1],
+      ["Interessado painel", 1],
+    ]);
+    expect(b.pessoas.map((x: { nome: string; feitas: number }) => [x.nome, x.feitas])).toEqual([
+      ["Vendedor A1", 3],
+      ["Vendedor A2", 1],
+    ]);
+  });
+
+  it("ligações: a lista desce ao micro (situação, resultado, sem resultado, pessoa) e respeita o escopo", async () => {
+    const lista = async (q: string) => (await dono.get(`/api/ligacoes?inicio=${hoje}&fim=${hoje}&${q}`)).json().itens.map((l: { id: string }) => l.id).sort();
+    expect(await lista("situacao=nao_atendida")).toEqual([ligacoes["a1-caixa"], ligacoes["a2-nao"]].sort());
+    expect(await lista("situacao=atendida")).toEqual([ligacoes["a1-interessado"], ligacoes["a1-sem"]].sort());
+    expect(await lista(`resultadoId=${interessado}`)).toEqual([ligacoes["a1-interessado"]]);
+    expect(await lista("semResultado=sim")).toEqual([ligacoes["a1-sem"], ligacoes["a2-nao"]].sort());
+    expect(await lista(`usuarioId=${id("vendedor2")}`)).toEqual([ligacoes["a2-nao"]]);
+    const v = (await vendedor.get(`/api/ligacoes/painel?inicio=${hoje}&fim=${hoje}`)).json();
+    expect(v.totais.feitas).toBe(3);
+    expect(v.pessoas).toHaveLength(1);
+    expect((await vendedor.get(`/api/ligacoes?inicio=${hoje}&fim=${hoje}&usuarioId=${id("vendedor2")}`)).json().itens).toEqual([]);
+    expect((await dono.get(`/api/ligacoes?inicio=${hoje}`)).statusCode).toBe(400);
+  });
+
+  it("qualidade: avaliações, nota média, não lidas, por pessoa e por critério (mais baixa primeiro)", async () => {
+    const r = await dono.get(`/api/avaliacoes/painel?inicio=${hoje}&fim=${hoje}`);
+    expect(r.statusCode, r.body).toBe(200);
+    const b = r.json();
+    // Notas finais 7, 5 e 9.
+    expect(b.totais).toEqual({ avaliacoes: 3, notaMedia: 7, naoLidas: 1 });
+    expect(b.pessoas.map((x: { nome: string; notaMedia: number; avaliacoes: number }) => [x.nome, x.notaMedia, x.avaliacoes])).toEqual([
+      ["Vendedor A2", 9, 1],
+      ["Vendedor A1", 6, 2],
+    ]);
+    expect(b.criterios.map((x: { nome: string; notaMedia: number }) => [x.nome, x.notaMedia])).toEqual([
+      ["Objeções", 6],
+      ["Abertura", 8],
+    ]);
+    const foco = (await dono.get(`/api/avaliacoes/painel?inicio=${hoje}&fim=${hoje}&avaliadoId=${id("vendedor")}`)).json();
+    expect(foco.totais).toEqual({ avaliacoes: 2, notaMedia: 6, naoLidas: 1 });
+    expect(foco.pessoas).toHaveLength(2); // o ranking ignora o filtro de pessoa
+    const naoLidas = (await dono.get(`/api/avaliacoes?inicio=${hoje}&fim=${hoje}&naoLidas=sim`)).json().itens;
+    expect(naoLidas.map((a: { notaFinal: number }) => a.notaFinal)).toEqual([5]);
+    // Quem vê só o próprio vê só as próprias notas.
+    const v = (await vendedor.get(`/api/avaliacoes/painel?inicio=${hoje}&fim=${hoje}`)).json();
+    expect(v.totais.avaliacoes).toBe(2);
+    expect(v.pessoas.map((x: { nome: string }) => x.nome)).toEqual(["Vendedor A1"]);
+  });
+});
