@@ -130,10 +130,11 @@ export function criarServicoVendas(s: Servicos) {
   async function listar(
     ctx: ContextoEmpresa,
     escopo: Escopo,
-    f: { mes?: string; vendedorId?: string; contatoId?: string; status?: StatusVendaId; cursor?: string; limite: number },
+    f: { mes?: string; inicio?: string; fim?: string; vendedorId?: string; contatoId?: string; ofertaId?: string; status?: StatusVendaId; cursor?: string; limite: number },
   ): Promise<Pagina<VendaDto>> {
     return comEmpresa(banco, ctx.empresaId, async (tx) => {
-      const mes = f.mes ? limitesPeriodo("mes", `${f.mes}-01`) : null;
+      // Intervalo livre (painel) vale no lugar do mês.
+      const mes = f.inicio && f.fim ? { inicio: f.inicio, fim: f.fim } : f.mes ? limitesPeriodo("mes", `${f.mes}-01`) : null;
       const linhas = await consulta(tx)
         .where(
           and(
@@ -142,6 +143,7 @@ export function criarServicoVendas(s: Servicos) {
             mes ? sql`${venda.dataVenda} BETWEEN ${mes.inicio}::date AND ${mes.fim}::date` : undefined,
             f.vendedorId ? eq(venda.vendedorId, f.vendedorId) : undefined,
             f.contatoId ? eq(venda.contatoId, f.contatoId) : undefined,
+            f.ofertaId ? eq(venda.ofertaId, f.ofertaId) : undefined,
             f.status ? eq(venda.status, f.status) : undefined,
             condicaoCursor(venda.criadoEm, venda.id, lerCursor(f.cursor)),
           ),

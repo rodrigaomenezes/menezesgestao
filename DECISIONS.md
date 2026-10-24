@@ -671,6 +671,11 @@ série diária com zeros, ranking de até 20) e a lista paginada das ações (`/
 escopo de permissão do painel. Intervalo livre até 92 dias.
 
 ## Por quê
+Funil e Vendas seguem o mesmo padrão (`/api/funil/painel`, `/api/vendas/painel`, intervalo até 366 dias): cada ranking
+ignora o próprio filtro (o escolhido continua visível no contexto) e respeita os demais; a lista abaixo é a rota de
+listagem de sempre, com filtros novos aditivos (período de fechamento e de criação, motivo de perda, oferta). O funil
+por etapa é retrato de agora (abertas hoje), não do período, e diz isso no título.
+
 Mostrar o todo sem levar ao micro não ajuda a decidir. Biblioteca de gráficos traria peso e dependência para
 barras simples (política, item 13); barras como botões dão foco, toque grande e leitor de tela de graça. Uma chamada
 por mudança de filtro (e não uma por número) mantém a tela leve.

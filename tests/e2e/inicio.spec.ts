@@ -60,3 +60,18 @@ test("barra de baixo no celular e no tablet; menu lateral fixo no computador", a
   await expect(page.getByRole("navigation", { name: "Menu principal" }).getByRole("link", { name: "Tarefas", exact: true })).toBeVisible();
   await semRolagemLateral(page);
 });
+
+test("blocos do Início levam ao detalhe: a etapa do funil abre o painel com a lista exata", async ({ page }) => {
+  const { a } = dados();
+  await entrar(page, pessoa(a, "dono").email);
+  await voltarAoPadrao(page);
+  await page.goto("/");
+  const funil = page.locator("section.bloco", { has: page.getByRole("heading", { name: "Seu funil" }) });
+  if (!(await funil.count())) test.skip(true, "o perfil não tem o bloco do funil no padrão");
+  await funil.getByRole("link", { name: /Ver a lista/ }).first().click();
+  await expect(page).toHaveURL(/ver=painel/);
+  await expect(page).toHaveURL(/lista=/);
+  await expect(page.getByRole("tab", { name: "Painel" })).toHaveAttribute("aria-selected", "true");
+  await semRolagemLateral(page);
+});
+

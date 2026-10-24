@@ -8,17 +8,21 @@ import {
   Ok,
   OportunidadeDto,
   OportunidadeEntrada,
+  FiltroPainelFunil,
+  PainelFunilDto,
   ParamId,
   pagina,
 } from "@mg/shared";
 import type { Servicos } from "../../app.js";
 import { exigirEmpresa, exigirEscopo, origemDe } from "../acesso/acesso.js";
 import { criarServicoOportunidades } from "./oportunidades.servico.js";
+import { criarServicoPainelFunil } from "./painel-funil.servico.js";
 
 export const rotasOportunidades =
   (s: Servicos): FastifyPluginAsyncZod =>
   async (app) => {
     const ops = criarServicoOportunidades(s);
+    const painelFunil = criarServicoPainelFunil(s);
     const acesso = (acao: "ver" | "criar" | "editar" | "arquivar") => ({ acesso: { modulo: "crm" as const, acao } });
     const tags = ["CRM — oportunidades"];
 
@@ -26,6 +30,15 @@ export const rotasOportunidades =
       "/api/funis/:id/kanban",
       { config: acesso("ver"), schema: { tags, summary: "Quadro kanban do funil", params: ParamId, querystring: FiltroKanban, response: { 200: KanbanDto } } },
       async (req) => ops.kanban(exigirEmpresa(req), exigirEscopo(req), req.params.id, req.query),
+    );
+
+    app.get(
+      "/api/funil/painel",
+      {
+        config: acesso("ver"),
+        schema: { tags, summary: "Painel do funil: entradas, ganhos, perdas, conversão, etapas, motivos e responsáveis", querystring: FiltroPainelFunil, response: { 200: PainelFunilDto } },
+      },
+      async (req) => painelFunil.painel(exigirEmpresa(req), exigirEscopo(req), req.query),
     );
 
     app.get(

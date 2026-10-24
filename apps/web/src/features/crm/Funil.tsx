@@ -11,6 +11,7 @@ import { Campo, Escolha, ListaVazia, Mensagem, Titulo, useEnvio } from "../../ui
 import { BotaoLigar } from "../telefonia/Telefone";
 import { CamposPersonalizados, centavosParaTexto, formatarDinheiro, lerDinheiro, useConfigCrm, type ValoresCampos } from "./comum";
 import { useVocabulario } from "../../app/vocabulario";
+import { PainelFunil } from "./PainelFunil";
 
 type Config = ReturnType<typeof useConfigCrm>["config"];
 
@@ -113,6 +114,7 @@ export function Funil() {
   const { config, carregada } = useConfigCrm();
   const [parametros, setParametros] = useSearchParams();
   const funilId = parametros.get("funil") || config.funis[0]?.id || "";
+  const verPainel = parametros.get("ver") === "painel";
   const [responsavelId, setResponsavelId] = useState("");
   const [busca, setBusca] = useState("");
   const [buscaAplicada, setBuscaAplicada] = useState("");
@@ -165,9 +167,35 @@ export function Funil() {
   }
 
   const podeMover = pode("crm", "editar");
+  // Quadro (trabalhar) ou painel (entender): a escolha fica no endereço, com o funil.
+  const abas = (
+    <div className="abas" role="tablist" aria-label="Ver o funil como">
+      <button type="button" role="tab" aria-selected={!verPainel} className={!verPainel ? "ativa" : ""} onClick={() => setParametros(funilId ? { funil: funilId } : {})}>
+        Quadro
+      </button>
+      <button type="button" role="tab" aria-selected={verPainel} className={verPainel ? "ativa" : ""} onClick={() => setParametros({ ...(funilId ? { funil: funilId } : {}), ver: "painel" })}>
+        Painel
+      </button>
+    </div>
+  );
+  if (verPainel) {
+    return (
+      <>
+        <Titulo>Funil</Titulo>
+        {abas}
+        {config.funis.length > 1 && (
+          <div className="filtros">
+            <Escolha rotulo="Funil" nome="funil" valor={funilId} aoMudar={(v) => setParametros({ funil: v, ver: "painel" })} opcoes={config.funis.map((f) => ({ valor: f.id, texto: f.nome }))} />
+          </div>
+        )}
+        {funilId && <PainelFunil key={funilId} funilId={funilId} />}
+      </>
+    );
+  }
   return (
     <>
       <Titulo>Funil</Titulo>
+      {abas}
       <form className="filtros" role="search" onSubmit={(e) => (e.preventDefault(), setBuscaAplicada(busca))}>
         {config.funis.length > 1 && (
           <Escolha rotulo="Funil" nome="funil" valor={funilId} aoMudar={(v) => setParametros({ funil: v })} opcoes={config.funis.map((f) => ({ valor: f.id, texto: f.nome }))} />

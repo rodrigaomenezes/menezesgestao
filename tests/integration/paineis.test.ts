@@ -124,3 +124,110 @@ describe("o que está por trás do número", () => {
     expect(b.itens).toHaveLength(0);
   });
 });
+
+describe("painel do funil", () => {
+  let funilId = "";
+  let motivoId = "";
+  let segunda = "";
+  beforeAll(async () => {
+    const config = (await dono.get("/api/crm/configuracao")).json();
+    const funil = config.funis[0];
+    funilId = funil.id;
+    motivoId = config.motivosPerda[0].id;
+    const ganha = funil.etapas.find((x: { tipo: string }) => x.tipo === "ganha").id;
+    const perdida = funil.etapas.find((x: { tipo: string }) => x.tipo === "perdida").id;
+    segunda = funil.etapas.filter((x: { tipo: string }) => x.tipo === "aberta")[1].id;
+    let n = 0;
+    const nova = async (responsavelId: string, valorCentavos: number) => {
+      const c = (await dono.post("/api/contatos", { nome: `Funil ${n}`, telefone: `(41) 9${String(8100_0000 + n++).padStart(8, "0")}`, responsavelId })).json();
+      const r = await dono.post("/api/oportunidades", { contatoId: c.id, funilId, titulo: `Op ${n}`, valorCentavos, responsavelId });
+      expect(r.statusCode, r.body).toBe(201);
+      return r.json().id as string;
+    };
+    const mover = async (id: string, etapaId: string, motivoPerdaId?: string) => {
+      const r = await dono.post(`/api/oportunidades/${id}/etapa`, { etapaId, motivoPerdaId: motivoPerdaId ?? null });
+      expect(r.statusCode, r.body).toBe(200);
+    };
+    await mover(await nova(id("vendedor"), 200_000), ganha);
+    await mover(await nova(id("vendedor"), 50_000), perdida, motivoId);
+    await mover(await nova(id("vendedor2"), 80_000), ganha);
+    await mover(await nova(id("vendedor"), 30_000), segunda);
+  });
+
+  it("entraram, ganhas, perdidas, conversão, etapas agora, motivos e responsáveis", async () => {
+    const r = await dono.get(`/api/funil/painel?funilId=${funilId}&inicio=${hoje}&fim=${hoje}`);
+    expect(r.statusCode, r.body).toBe(200);
+    const b = r.json();
+    expect(b.totais).toMatchObject({ entraram: 4, ganhas: 2, perdidas: 1, valorGanhoCentavos: 280_000, conversao: 66.7 });
+    expect(b.etapas.find((e: { etapaId: string }) => e.etapaId === segunda)).toMatchObject({ quantidade: 1, valorCentavos: 30_000 });
+    expect(b.motivos).toEqual([expect.objectContaining({ motivoPerdaId: motivoId, quantidade: 1 })]);
+    expect(b.responsaveis.map((x: { nome: string; valorCentavos: number }) => [x.nome, x.valorCentavos])).toEqual([
+      ["Vendedor A1", 200_000],
+      ["Vendedor A2", 80_000],
+    ]);
+    expect(b.serie).toEqual([{ dia: hoje, valor: 2 }]);
+  });
+
+  it("a lista leva ao micro: perdidas por aquele motivo no período", async () => {
+    const r = (await dono.get(`/api/oportunidades?funilId=${funilId}&status=perdida&motivoPerdaId=${motivoId}&fechadaDe=${hoje}&fechadaAte=${hoje}`)).json();
+    expect(r.itens).toHaveLength(1);
+    const amanha = somarDias(hoje, 1);
+    expect((await dono.get(`/api/oportunidades?funilId=${funilId}&status=ganha&fechadaDe=${amanha}&fechadaAte=${amanha}`)).json().itens).toHaveLength(0);
+  });
+
+  it("filtro de responsável e escopo: o vendedor só vê a própria carteira", async () => {
+    const foco = (await dono.get(`/api/funil/painel?funilId=${funilId}&inicio=${hoje}&fim=${hoje}&responsavelId=${id("vendedor2")}`)).json();
+    expect(foco.totais).toMatchObject({ ganhas: 1, valorGanhoCentavos: 80_000 });
+    expect(foco.responsaveis).toHaveLength(2); // o ranking mostra o time
+    const v = (await vendedor.get(`/api/funil/painel?funilId=${funilId}&inicio=${hoje}&fim=${hoje}`)).json();
+    expect(v.totais).toMatchObject({ ganhas: 1, perdidas: 1, valorGanhoCentavos: 200_000 });
+    expect(v.responsaveis.map((x: { nome: string }) => x.nome)).toEqual(["Vendedor A1"]);
+  });
+});
+
+describe("painel de vendas", () => {
+  let ofertaA = "";
+  beforeAll(async () => {
+    ofertaA = (await dono.post("/api/ofertas", { nome: "Plano Mensal" })).json().id;
+    const ofertaB = (await dono.post("/api/ofertas", { nome: "Plano Anual" })).json().id;
+    const contato = (await dono.post("/api/contatos", { nome: "Comprador", telefone: "(41) 98200-0001", responsavelId: id("vendedor") })).json().id;
+    const vender = async (ofertaId: string, vendedorId: string, valorCentavos: number, status: "confirmada" | "pendente") => {
+      const r = await dono.post("/api/vendas", { contatoId: contato, ofertaId, vendedorId, valorCentavos, formaPagamento: "pix", status });
+      expect(r.statusCode, r.body).toBe(201);
+      return r.json().id as string;
+    };
+    await vender(ofertaA, id("vendedor"), 10_000, "confirmada");
+    await vender(ofertaA, id("vendedor"), 10_000, "confirmada");
+    await vender(ofertaB, id("vendedor2"), 50_000, "confirmada");
+    await vender(ofertaB, id("vendedor"), 50_000, "pendente");
+    const cancelar = await vender(ofertaA, id("vendedor2"), 10_000, "confirmada");
+    expect((await dono.patch(`/api/vendas/${cancelar}`, { status: "cancelada", motivoCancelamento: "Desistiu" })).statusCode).toBe(200);
+  });
+
+  it("conta só as confirmadas; aguardando e canceladas à parte; por oferta e por vendedor", async () => {
+    const r = await dono.get(`/api/vendas/painel?inicio=${hoje}&fim=${hoje}`);
+    expect(r.statusCode, r.body).toBe(200);
+    const b = r.json();
+    expect(b.totais).toEqual({ quantidade: 3, valorCentavos: 70_000, ticketMedioCentavos: 23_333, aguardando: 1, canceladas: 1 });
+    expect(b.serie).toEqual([{ dia: hoje, valor: 700 }]);
+    expect(b.ofertas.map((o: { nome: string; valorCentavos: number }) => [o.nome, o.valorCentavos])).toEqual([
+      ["Plano Anual", 50_000],
+      ["Plano Mensal", 20_000],
+    ]);
+    expect(b.vendedores.map((o: { nome: string; quantidade: number }) => [o.nome, o.quantidade])).toEqual([
+      ["Vendedor A2", 1],
+      ["Vendedor A1", 2],
+    ]);
+  });
+
+  it("filtro de oferta leva ao micro (lista das vendas daquela oferta no período); vendedor vê só as dele", async () => {
+    const foco = (await dono.get(`/api/vendas/painel?inicio=${hoje}&fim=${hoje}&ofertaId=${ofertaA}`)).json();
+    expect(foco.totais.valorCentavos).toBe(20_000);
+    expect(foco.ofertas).toHaveLength(2); // o ranking de ofertas ignora o próprio filtro
+    const lista = (await dono.get(`/api/vendas?inicio=${hoje}&fim=${hoje}&ofertaId=${ofertaA}&status=confirmada`)).json();
+    expect(lista.itens).toHaveLength(2);
+    const v = (await vendedor.get(`/api/vendas/painel?inicio=${hoje}&fim=${hoje}`)).json();
+    expect(v.totais).toMatchObject({ quantidade: 2, valorCentavos: 20_000, aguardando: 1 });
+    expect((await dono.get(`/api/vendas/painel?inicio=2025-01-01&fim=2026-06-30`)).statusCode).toBe(400);
+  });
+});

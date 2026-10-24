@@ -1,6 +1,6 @@
 // Contrato da fase 5: ofertas e entregas, vendas e comissões, monitoramento de qualidade e pesquisas.
 import { z } from "zod";
-import { DataIso, Id, IdOpcional, Paginacao } from "./dto.js";
+import { DataIso, Id, IdOpcional, MAX_DIAS_ANALISE, Paginacao, validarIntervalo } from "./dto.js";
 import { DataDia, Mes } from "./dto-operacao.js";
 
 const texto = (max: number, rotulo: string) =>
@@ -144,10 +144,39 @@ export const AtualizarVendaEntrada = z.object({
 });
 export const FiltroVendas = Paginacao.extend({
   mes: Mes.optional(),
+  /** Intervalo livre de datas da venda (painel); vale no lugar do mês. */
+  inicio: DataDia.optional(),
+  fim: DataDia.optional(),
   vendedorId: Id.optional(),
   contatoId: Id.optional(),
+  ofertaId: Id.optional(),
   status: z.enum(STATUS_VENDA).optional(),
+}).superRefine(validarIntervalo(MAX_DIAS_ANALISE));
+
+// Painel de vendas (do todo ao micro): conta só as confirmadas; aguardando e canceladas aparecem à parte.
+export const FiltroPainelVendas = z
+  .object({ inicio: DataDia, fim: DataDia, vendedorId: Id.optional(), ofertaId: Id.optional() })
+  .superRefine(validarIntervalo(MAX_DIAS_ANALISE));
+const TotaisVendas = z.object({
+  quantidade: z.number().int(),
+  valorCentavos: z.number().int(),
+  ticketMedioCentavos: z.number().int().nullable(),
+  aguardando: z.number().int(),
+  canceladas: z.number().int(),
 });
+export const PainelVendasDto = z.object({
+  inicio: DataDia,
+  fim: DataDia,
+  anterior: z.object({ inicio: DataDia, fim: DataDia }),
+  totais: TotaisVendas,
+  totaisAnteriores: TotaisVendas,
+  /** Valor confirmado por dia, em reais (com zeros). */
+  serie: z.array(z.object({ dia: DataDia, valor: z.number() })),
+  /** Até 20, maior valor primeiro. O ranking de ofertas ignora o filtro de oferta; o de vendedores, o de vendedor. */
+  ofertas: z.array(z.object({ ofertaId: Id, nome: z.string(), quantidade: z.number().int(), valorCentavos: z.number().int() })),
+  vendedores: z.array(z.object({ usuarioId: Id, nome: z.string(), quantidade: z.number().int(), valorCentavos: z.number().int() })),
+});
+export type PainelVendasDto = z.infer<typeof PainelVendasDto>;
 
 // Comissões ---------------------------------------------------------------------------------------------
 

@@ -1,6 +1,7 @@
 // Motor BRE (fase 8.1): fila do dia, registro de 30 segundos, reentradas e limites da empresa.
 // O servidor aplica todas as regras; a tela só mostra o que ele permite e diz o motivo quando recusa.
 import { useCallback, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   CATEGORIAS_BREAK,
   CHECKLIST_ENCERRAMENTO,
@@ -30,6 +31,8 @@ import { useTempoReal } from "../../app/tempo-real";
 import { useVocabulario } from "../../app/vocabulario";
 import { Modal, useAviso } from "../../ui/sobreposicoes";
 import { AutomacaoBre } from "./Automacao";
+import { useFiltrosUrl } from "../../app/filtros-url";
+import { Ranking } from "../../ui/paineis";
 import { esperarResultado } from "./espera";
 import { CarregarMais, Campo, Escolha, ListaVazia, Mensagem, Titulo, useEnvio, usePaginado } from "../../ui/ui";
 
@@ -330,9 +333,23 @@ function Escalonamentos() {
 const numero = (n: number | null) => (n === null ? "sem dados" : n.toLocaleString("pt-BR", { maximumFractionDigits: 1 }));
 
 /** BPI do mês (D-14): ranking, pilares e quem está em coaching (BR-022). Lido do cálculo guardado, paginado. */
+/** Onde cada pilar do BPI se explica em detalhe (a lista que compõe o número), no mês e na pessoa. */
+function destinoDoPilar(pilar: string, usuarioId: string, mes: string): string | null {
+  const inicio = `${mes}-01`;
+  const fim = new Date(Date.UTC(Number(mes.slice(0, 4)), Number(mes.slice(5, 7)), 0)).toISOString().slice(0, 10);
+  if (pilar === "receita") return `/vendas?inicio=${inicio}&fim=${fim}&vendedorId=${usuarioId}&status=confirmada`;
+  if (pilar === "pipeline") return `/funil?ver=painel&inicio=${inicio}&fim=${fim}&responsavelId=${usuarioId}&lista=aberta`;
+  if (pilar === "relacionamento") return `/desempenho?inicio=${inicio}&fim=${fim}&indicador=tarefas_concluidas&usuarioId=${usuarioId}`;
+  if (pilar === "qualidade") return "/qualidade";
+  return null;
+}
+
+/** BPI do mês do todo ao micro: ranking → pilares da pessoa → a lista que compõe o pilar. Mês e pessoa no endereço. */
 function Desempenho() {
   const hora = useDataHora();
-  const [mes, setMes] = useState("");
+  const navegar = useNavigate();
+  const { valores: f, mudar } = useFiltrosUrl(["bpiMes", "bpiPessoa"] as const);
+  const mes = f.bpiMes ?? "";
   const [dados, setDados] = useState<BpiRespostaDto | null>(null);
   const [itens, setItens] = useState<BpiDto[]>([]);
   const [erro, setErro] = useState("");
@@ -355,10 +372,12 @@ function Desempenho() {
   );
   useEffect(() => void buscar(), [buscar]);
   const comDados = itens.filter((i) => i.bpi !== null);
+  const foco = comDados.find((i) => i.usuarioId === f.bpiPessoa);
+  const mesDados = dados?.mes ?? mes;
   return (
     <section className="cartao" aria-labelledby="titulo-desempenho-bre">
       <h2 id="titulo-desempenho-bre">Desempenho (BPI)</h2>
-      <Campo rotulo="Mês" nome="bre-mes" tipo="month" valor={mes || dados?.mes || ""} aoMudar={setMes} />
+      <Campo rotulo="Mês" nome="bre-mes" tipo="month" valor={mes || dados?.mes || ""} aoMudar={(v) => mudar({ bpiMes: v || undefined, bpiPessoa: undefined })} />
       {dados && (
         <p className="dica">
           Calculado em {hora(dados.calculadoEm)}.{" "}
@@ -369,19 +388,38 @@ function Desempenho() {
       )}
       <Mensagem tipo="erro">{erro}</Mensagem>
       {dados && !comDados.length && <ListaVazia>Ninguém atendeu pelo método BRE neste mês.</ListaVazia>}
-      <ol className="lista">
-        {comDados.map((i) => (
-          <li key={i.usuarioId} className="item">
-            <div className="item-principal">
-              <strong>
-                {i.posicao}º {i.nome} · BPI {numero(i.bpi)} ({i.faixa})
-              </strong>
-              <span className="item-detalhe">{PILARES_BPI.map((p) => `${p.nome}: ${numero(i.pilares[p.codigo])}`).join(" · ")}</span>
-              {i.coaching.length > 0 && <span className="item-detalhe">Coaching: abaixo de 70 há 2 semanas em {i.coaching.join(", ")}</span>}
-            </div>
-          </li>
-        ))}
-      </ol>
+      {comDados.length > 0 && (
+        <Ranking
+          itens={comDados.map((i) => ({ id: i.usuarioId, rotulo: i.nome, valor: i.bpi ?? 0, texto: `${numero(i.bpi)} · ${i.faixa ?? ""}` }))}
+          selecionado={f.bpiPessoa}
+          aoEscolher={(id) => mudar({ bpiPessoa: id === f.bpiPessoa ? undefined : id })}
+          vazio=""
+        />
+      )}
+      {!foco && comDados.length > 0 && <p className="dica">Toque numa pessoa para ver os pilares dela.</p>}
+      {foco && (
+        <div className="bpi-pessoa" aria-label={`Pilares de ${foco.nome}`} role="region">
+          <h3>
+            Pilares de {foco.nome} <span className="item-detalhe">· BPI {numero(foco.bpi)} ({foco.faixa})</span>
+          </h3>
+          <Ranking
+            numerar={false}
+            itens={PILARES_BPI.filter((p) => foco.pilares[p.codigo] !== null).map((p) => ({
+              id: p.codigo,
+              rotulo: `${p.nome} (peso ${p.peso})${destinoDoPilar(p.codigo, foco.usuarioId, mesDados) ? "" : " · sem lista"}`,
+              valor: foco.pilares[p.codigo] ?? 0,
+              texto: numero(foco.pilares[p.codigo]),
+            }))}
+            aoEscolher={(pilar) => {
+              const destino = destinoDoPilar(pilar, foco.usuarioId, mesDados);
+              if (destino) navegar(destino);
+            }}
+            vazio="Sem pilares calculados."
+          />
+          {foco.coaching.length > 0 && <p className="dica">Coaching: abaixo de 70 há 2 semanas em {foco.coaching.join(", ")}.</p>}
+          <p className="dica">Toque num pilar para abrir a lista que forma o número (vendas, funil, tarefas, qualidade).</p>
+        </div>
+      )}
       <CarregarMais visivel={Boolean(dados?.proximoCursor)} carregando={carregando} aoClicar={() => void buscar({ cursor: dados?.proximoCursor })} />
     </section>
   );

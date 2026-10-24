@@ -178,3 +178,43 @@ test("cobrança: conta de demonstração, Pix gerado e pagamento simulado confir
   await item.getByRole("button", { name: "Simular pagamento" }).click();
   await expect(item).toContainText("Confirmada");
 });
+
+test("painéis de vendas e do funil levam do todo à lista exata e o voltar mantém o filtro", async ({ page }, info) => {
+  const k = PROJETOS.indexOf(info.project.name) + 1;
+  const { a } = dados();
+  await entrar(page, pessoa(a, "dono").email);
+  const oferta = `Pacote painel ${info.project.name}`;
+  const ofertaId = (await api(page, "POST", "/api/ofertas", { nome: oferta })).json.id;
+  const nome = `Cliente painel ${info.project.name}`;
+  const contatoId = (await api(page, "POST", "/api/contatos", { nome, telefone: telefone(k, "555") })).json.id;
+  expect((await api(page, "POST", "/api/vendas", { contatoId, ofertaId, valorCentavos: 77_700, formaPagamento: "pix", status: "confirmada" })).status).toBe(201);
+
+  // Vendas: a oferta no ranking filtra a lista; o número "Aguardando pagamento" troca a lista.
+  await page.goto("/vendas");
+  await page.locator('section[aria-labelledby="titulo-vendas-ofertas"]').getByRole("button", { name: new RegExp(oferta) }).click();
+  await expect(page).toHaveURL(/ofertaId=/);
+  const lista = page.getByRole("region", { name: /Todas as vendas/ });
+  await expect(lista.getByText(nome)).toBeVisible();
+  await expect(page.getByRole("button", { name: `Tirar filtro: ${oferta}` })).toBeVisible();
+  await page.getByRole("button", { name: /^Aguardando pagamento/ }).click();
+  await expect(page).toHaveURL(/status=pendente/);
+  await expect(page.getByRole("region", { name: /Aguardando pagamento/ }).getByText("Nenhuma venda com esses filtros.")).toBeVisible();
+  await semRolagemLateral(page);
+
+  // Funil: oportunidade ganha → painel → quem ganhou → lista → ficha → voltar.
+  const config = await api<{ funis: { id: string; etapas: { id: string; tipo: string }[] }[] }>(page, "GET", "/api/crm/configuracao");
+  const funil = config.json.funis[0];
+  const op = (await api(page, "POST", "/api/oportunidades", { contatoId, funilId: funil.id, titulo: `Matrícula ${info.project.name}`, valorCentavos: 50_000 })).json.id;
+  expect((await api(page, "POST", `/api/oportunidades/${op}/etapa`, { etapaId: funil.etapas.find((e) => e.tipo === "ganha")!.id })).status).toBe(200);
+  await page.goto("/funil");
+  await page.getByRole("tab", { name: "Painel" }).click();
+  await expect(page).toHaveURL(/ver=painel/);
+  await page.getByRole("region", { name: "Quem ganhou" }).getByRole("button", { name: /Dona A/ }).click();
+  await expect(page).toHaveURL(/responsavelId=/);
+  await page.getByRole("region", { name: /ganh/ }).filter({ has: page.getByRole("link", { name: new RegExp(nome) }) }).getByRole("link", { name: new RegExp(nome) }).click();
+  await expect(page).toHaveURL(new RegExp(`/contatos/${contatoId}`));
+  await page.goBack();
+  await expect(page.getByRole("button", { name: "Tirar filtro: Dona A" })).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Painel" })).toHaveAttribute("aria-selected", "true");
+  await semRolagemLateral(page);
+});

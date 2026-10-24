@@ -262,3 +262,16 @@ export const NotificacaoDto = z.object({
 });
 export type NotificacaoDto = z.infer<typeof NotificacaoDto>;
 export const PaginaNotificacoes = pagina(NotificacaoDto).extend({ naoLidas: z.number().int() });
+
+/** Maior intervalo das análises de funil e de vendas (um ano). */
+export const MAX_DIAS_ANALISE = 366;
+/** Intervalo de datas (AAAA-MM-DD) dos painéis: os dois juntos, em ordem e até `max` dias. */
+export function validarIntervalo(max: number) {
+  return (f: { inicio?: string; fim?: string }, ctx: z.RefinementCtx) => {
+    if (!f.inicio !== !f.fim) ctx.addIssue({ code: "custom", message: "Informe o início e o fim do intervalo.", path: ["fim"] });
+    else if (f.inicio && f.fim && f.inicio > f.fim) ctx.addIssue({ code: "custom", message: "O início vem antes do fim.", path: ["fim"] });
+    else if (f.inicio && f.fim && (Date.parse(f.fim) - Date.parse(f.inicio)) / 86_400_000 >= max)
+      ctx.addIssue({ code: "custom", message: `Escolha um intervalo de até ${max} dias.`, path: ["fim"] });
+  };
+}
+

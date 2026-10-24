@@ -14,6 +14,8 @@ import {
   FiltroEntregas,
   FiltroOfertas,
   FiltroVendas,
+  FiltroPainelVendas,
+  PainelVendasDto,
   Id,
   OfertaDto,
   OfertaEntrada,
@@ -38,6 +40,7 @@ import { semPermissao } from "../../infra/erros.js";
 import { exigirEmpresa, exigirEscopo, origemDe, type ContextoEmpresa } from "../acesso/acesso.js";
 import { criarServicoOfertas } from "./ofertas.servico.js";
 import { criarServicoVendas } from "./vendas.servico.js";
+import { criarServicoPainelVendas } from "./painel-vendas.servico.js";
 
 const acesso = (modulo: Modulo, acao: Acao) => ({ acesso: { modulo, acao } });
 
@@ -52,6 +55,7 @@ export const rotasReceita =
   async (app) => {
     const ofertas = criarServicoOfertas(s);
     const vendas = criarServicoVendas(s);
+    const painelVendas = criarServicoPainelVendas(s);
 
     {
       const tags = ["Receita — ofertas e entregas"];
@@ -120,6 +124,14 @@ export const rotasReceita =
         "/api/vendas",
         { config: acesso("vendas", "ver"), schema: { tags, summary: "Vendas", querystring: FiltroVendas, response: { 200: pagina(VendaDto) } } },
         async (req) => vendas.listar(exigirEmpresa(req), exigirEscopo(req), req.query),
+      );
+      app.get(
+        "/api/vendas/painel",
+        {
+          config: acesso("vendas", "ver"),
+          schema: { tags, summary: "Painel de vendas: confirmado no período, por dia, por oferta e por vendedor", querystring: FiltroPainelVendas, response: { 200: PainelVendasDto } },
+        },
+        async (req) => painelVendas.painel(exigirEmpresa(req), exigirEscopo(req), req.query),
       );
       app.post(
         "/api/vendas",

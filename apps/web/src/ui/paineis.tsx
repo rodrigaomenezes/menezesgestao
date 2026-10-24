@@ -80,14 +80,13 @@ export function EtiquetasFiltro({ itens, aoLimpar }: { itens: Etiqueta[]; aoLimp
   );
 }
 
-/** Variação contra o período anterior, em texto (nunca só cor). */
-export function variacao(atual: number, anterior: number): { curto: string; texto: string; sentido: "sobe" | "desce" | "igual" } {
-  if (atual === anterior) return { curto: "igual", texto: "igual ao período anterior", sentido: "igual" };
-  if (!anterior) return { curto: "novo", texto: "novo no período", sentido: "sobe" };
+/** Variação contra o período anterior, em texto (nunca só cor): `curto` no celular, `curto + resto` a partir de 600 px. */
+export function variacao(atual: number, anterior: number): { curto: string; resto: string; sentido: "sobe" | "desce" | "igual" } {
+  if (atual === anterior) return { curto: "igual", resto: "ao período anterior", sentido: "igual" };
+  if (!anterior) return { curto: "novo", resto: "no período", sentido: "sobe" };
   const pct = Math.round(((atual - anterior) / anterior) * 100);
-  if (pct === 0) return { curto: "≈ 0%", texto: "quase igual ao período anterior", sentido: atual > anterior ? "sobe" : "desce" };
-  const curto = `${pct > 0 ? "+" : ""}${pct}%`;
-  return { curto, texto: `${curto} vs. período anterior`, sentido: pct > 0 ? "sobe" : "desce" };
+  if (pct === 0) return { curto: "≈ 0%", resto: "vs. período anterior", sentido: atual > anterior ? "sobe" : "desce" };
+  return { curto: `${pct > 0 ? "+" : ""}${pct}%`, resto: "vs. período anterior", sentido: pct > 0 ? "sobe" : "desce" };
 }
 
 /** Número em destaque, clicável: escolhe o indicador que os gráficos abaixo mostram. */
@@ -98,6 +97,7 @@ export function Destaque({
   anterior,
   selecionado,
   aoEscolher,
+  menorMelhor = false,
 }: {
   rotulo: string;
   valor: string;
@@ -105,16 +105,19 @@ export function Destaque({
   anterior: number;
   selecionado: boolean;
   aoEscolher(): void;
+  /** Quando subir é ruim (perdas, cancelamentos, dias até ganhar): a cor da variação se inverte; a seta não. */
+  menorMelhor?: boolean;
 }) {
   const v = variacao(atual, anterior);
+  const bom = v.sentido === "igual" ? "igual" : (v.sentido === "sobe") !== menorMelhor ? "sobe" : "desce";
   return (
     <button type="button" className={`destaque${selecionado ? " selecionado" : ""}${atual ? "" : " zerado"}`} aria-pressed={selecionado} onClick={aoEscolher}>
       <span className="destaque-rotulo">{rotulo}</span>
       <strong className="destaque-valor">{valor}</strong>
-      <span className={`destaque-variacao ${v.sentido}`} title={v.texto}>
+      <span className={`destaque-variacao ${bom}`} title={`${v.curto} ${v.resto}`}>
         <span aria-hidden="true">{v.sentido === "sobe" ? "↑ " : v.sentido === "desce" ? "↓ " : "= "}</span>
         {v.curto}
-        <span className="destaque-variacao-extra"> {v.texto.slice(v.curto.length).trim() || ""}</span>
+        <span className="destaque-variacao-extra"> {v.resto}</span>
       </span>
     </button>
   );
@@ -128,7 +131,20 @@ export interface ItemRanking {
 }
 
 /** Ranking em barras horizontais (maior primeiro). Clicar numa barra filtra pela pessoa/categoria. */
-export function Ranking({ itens, selecionado, aoEscolher, vazio }: { itens: ItemRanking[]; selecionado?: string; aoEscolher(id: string): void; vazio: ReactNode }) {
+export function Ranking({
+  itens,
+  selecionado,
+  aoEscolher,
+  vazio,
+  numerar = true,
+}: {
+  itens: ItemRanking[];
+  selecionado?: string;
+  aoEscolher(id: string): void;
+  vazio: ReactNode;
+  /** false para listas que não são posição (ex.: etapas do funil, na ordem do funil). */
+  numerar?: boolean;
+}) {
   if (!itens.length) return <p className="lista-vazia">{vazio}</p>;
   const max = Math.max(...itens.map((i) => i.valor), 1);
   return (
@@ -139,11 +155,11 @@ export function Ranking({ itens, selecionado, aoEscolher, vazio }: { itens: Item
             type="button"
             className={`barra-h${selecionado === i.id ? " selecionada" : ""}${selecionado && selecionado !== i.id ? " apagada" : ""}`}
             aria-pressed={selecionado === i.id}
-            aria-label={`${n + 1}º ${i.rotulo}: ${i.texto}`}
+            aria-label={`${numerar ? `${n + 1}º ` : ""}${i.rotulo}: ${i.texto}`}
             onClick={() => aoEscolher(i.id)}
           >
             <span className="barra-h-rotulo">
-              <span className="barra-h-posicao">{n + 1}º</span> {i.rotulo}
+              {numerar && <span className="barra-h-posicao">{n + 1}º</span>} {i.rotulo}
             </span>
             <span className="barra-h-trilho">
               <span className="barra-h-valor" style={{ width: `${Math.max(2, (i.valor / max) * 100)}%` }} />

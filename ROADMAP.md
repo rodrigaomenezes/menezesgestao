@@ -93,8 +93,8 @@ Marcos: **primeiro cliente pagante** ao fim da Fase 9 · **venda em escala** ao 
       Pronto quando: empresa nova se cadastra, paga por Pix ou cartão e a assinatura ativa sozinha; vencida, avisa e
       depois bloqueia a escrita; ninguém passa do limite do plano.
 - [~] Fase 9.1 — Painéis do todo ao micro (ADR-043; feito: base — filtros no endereço, barra de período, etiquetas,
-      números, ranking e barras por dia — e Desempenho com o detalhe de cada número; falta: Funil e Vendas, Início e
-      Motor BRE, Qualidade, Ligações, Comissões e filtros no endereço nas demais listas).
+      números, ranking e barras por dia —, Desempenho, painel do Funil e painel de Vendas com o detalhe de cada
+      número; falta: Início e Motor BRE, Qualidade, Ligações, Comissões e filtros no endereço nas demais listas).
 - [ ] Fase 10 — WhatsApp em escala (3 sprints): arquivos em S3/R2 (sem limite de 16 MB); mensagens modelo da API
       oficial fora da janela de 24 h; campanhas em massa só pela API oficial, com descadastro, limite de envio e
       "não contatar"; chatbot de triagem por menu; QR com mais de um servidor (trava por canal); mensagens enviadas

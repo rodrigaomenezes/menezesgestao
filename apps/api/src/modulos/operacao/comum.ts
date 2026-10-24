@@ -41,6 +41,17 @@ export function instantesDoPeriodo(inicio: string, fim: string, fuso: string) {
 
 export { somarDias };
 
+/** Intervalo do painel: livre (inicio/fim) ou o período que contém `data`; e o anterior, para a variação. */
+export function intervaloDoPainel(f: { periodo: PeriodoId; data?: string; inicio?: string; fim?: string }, hoje: string) {
+  if (f.inicio && f.fim) {
+    const dias = Math.round((Date.parse(f.fim) - Date.parse(f.inicio)) / 86_400_000) + 1;
+    return { inicio: f.inicio, fim: f.fim, anterior: { inicio: somarDias(f.inicio, -dias), fim: somarDias(f.inicio, -1) } };
+  }
+  const atual = limitesPeriodo(f.periodo, f.data ?? hoje);
+  return { ...atual, anterior: limitesPeriodo(f.periodo, somarDias(atual.inicio, -1)) };
+}
+
+
 export interface Pessoa {
   id: string;
   nome: string;

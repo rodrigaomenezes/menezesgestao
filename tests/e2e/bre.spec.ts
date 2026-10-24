@@ -65,6 +65,10 @@ test("SQ-BRE: o gestor pede a prévia da IA na conversa, ajusta e confirma; o de
   await page.goto("/bre");
   await expect(page.getByRole("heading", { name: "Desempenho (BPI)" })).toBeVisible();
   await expect(page.getByRole("region", { name: "Desempenho (BPI)" })).toContainText("Vendedor A1");
+  // Do todo ao micro: a pessoa no ranking abre os pilares dela (e fica no endereço).
+  await page.getByRole("region", { name: "Desempenho (BPI)" }).getByRole("button", { name: /Vendedor A1/ }).click();
+  await expect(page).toHaveURL(/bpiPessoa=/);
+  await expect(page.getByRole("region", { name: "Pilares de Vendedor A1" })).toBeVisible();
   await semRolagemLateral(page);
 });
 
