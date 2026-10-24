@@ -34,6 +34,7 @@ import { AutomacaoBre } from "./Automacao";
 import { useFiltrosUrl } from "../../app/filtros-url";
 import { Ranking } from "../../ui/paineis";
 import { esperarResultado } from "./espera";
+import { PainelBreaks } from "./PainelBreaks";
 import { CarregarMais, Campo, Escolha, ListaVazia, Mensagem, Titulo, useEnvio, usePaginado } from "../../ui/ui";
 
 const opcoes = (l: readonly { codigo: string; nome: string }[]) => l.map((i) => ({ valor: i.codigo, texto: i.nome }));
@@ -636,6 +637,7 @@ export function Bre() {
       </section>
       <Reentradas />
       <Desempenho />
+      <PainelBreaks />
       {pode("bre", "administrar") && <Concordancia />}
       {pode("bre", "administrar") && <AutomacaoBre />}
       {pode("bre", "administrar") && <MotivosBreak />}

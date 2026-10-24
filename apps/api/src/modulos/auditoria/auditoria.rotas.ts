@@ -1,5 +1,5 @@
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
-import { and, desc, eq, gte, like, lt } from "drizzle-orm";
+import { and, desc, eq, gte, like, lt, sql } from "drizzle-orm";
 import { AuditoriaDto, FiltroAuditoria, pagina, type Escopo } from "@mg/shared";
 import type { Servicos } from "../../app.js";
 import { comEmpresa } from "../../infra/banco.js";
@@ -7,11 +7,15 @@ import { auditoria, usuario } from "../../infra/esquema.js";
 import { condicaoCursor, iso, lerCursor, montarPagina } from "../../infra/paginacao.js";
 import { exigirEmpresa, exigirEscopo, type ContextoEmpresa } from "../acesso/acesso.js";
 import { filtroUsuariosVisiveis } from "../acesso/escopo.js";
+import { fusoDe, instantesDoPeriodo } from "../operacao/comum.js";
 
-type Filtro = { atorId?: string; entidade?: string; acao?: string; de?: Date; ate?: Date; cursor?: string; limite: number };
+type Filtro = { atorId?: string; entidade?: string; acao?: string; de?: Date; ate?: Date; deDia?: string; ateDia?: string; cursor?: string; limite: number };
 
 /** Consulta da auditoria: só da empresa, só de quem o escopo deixa ver. */
 async function listar(s: Servicos, ctx: ContextoEmpresa, escopo: Escopo, f: Filtro) {
+  // Dias na meia-noite do fuso da empresa (não na do aparelho de quem consulta).
+  const desde = f.deDia ? instantesDoPeriodo(f.deDia, f.deDia, fusoDe(ctx)).de : null;
+  const antes = f.ateDia ? instantesDoPeriodo(f.ateDia, f.ateDia, fusoDe(ctx)).ate : null;
   return comEmpresa(s.banco, ctx.empresaId, async (tx) => {
     const linhas = await tx.db
       .select({
@@ -38,6 +42,8 @@ async function listar(s: Servicos, ctx: ContextoEmpresa, escopo: Escopo, f: Filt
           f.acao ? like(auditoria.acao, `${f.acao.replace(/[%_]/g, "")}%`) : undefined,
           f.de ? gte(auditoria.criadoEm, f.de) : undefined,
           f.ate ? lt(auditoria.criadoEm, f.ate) : undefined,
+          desde ? sql`${auditoria.criadoEm} >= ${desde}` : undefined,
+          antes ? sql`${auditoria.criadoEm} < ${antes}` : undefined,
           condicaoCursor(auditoria.criadoEm, auditoria.id, lerCursor(f.cursor)),
         ),
       )

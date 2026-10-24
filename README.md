@@ -253,7 +253,8 @@ etapa, motivos de perda, quem ganhou e ganhas por dia → a lista exata (ex.: pe
 a lista das vendas daquele recorte. Em **Ligações**: feitas, atendidas, não atendidas, taxa de atendimento e tempo
 falado → por dia, por resultado e quem mais ligou → a lista (com gravação e "Avaliar"). Em **Qualidade**: avaliações,
 nota média e feedback não lido → nota por pessoa e por critério (o mais fraco primeiro) → as avaliações. No **Início**,
-na **Rotina**, no **BPI** e em **Comissões**, cada linha abre o painel que a explica, já filtrado. Contatos, Tarefas,
+na **Rotina**, no **BPI** e em **Comissões**, cada linha abre o painel que a explica, já filtrado. No **Motor BRE**,
+"Breaks: onde a venda quebra" mostra as quebras por categoria, motivo, dia e quem registrou, até o contato. Contatos, Tarefas,
 Conversas e Auditoria guardam o filtro no endereço (abrir e voltar mantém a busca). Em números onde subir é ruim
 (perdas, cancelamentos, não atendidas, dias), a cor se inverte.
 

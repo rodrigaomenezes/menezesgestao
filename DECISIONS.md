@@ -686,3 +686,9 @@ por critério, este do mais baixo ao mais alto, só leitura — `Ranking` sem `a
 Comissões não ganharam painel próprio: cada linha virou link para o painel que a explica, já filtrado. As listas com
 filtro (Contatos, Tarefas, Conversas, Auditoria, Comissões) guardam o filtro no endereço; abrir um item e voltar
 mantém o recorte, e a lista vazia diz como sair dele.
+
+Adendo (entrega 5): Breaks do Motor BRE (`/api/bre/breaks/painel`: quantos e em quantos clientes, por dia, categoria,
+motivo e quem registrou; a lista `/api/bre/breaks` ganhou período, categoria, motivo e autor, e o nome do contato e
+de quem registrou). Filtros com prefixo `brk` no endereço, para conviver com os da BPI na mesma tela. `usePaginado`
+passou a descartar respostas atrasadas e a recarregar sem encolher a lista. A auditoria aceita `deDia`/`ateDia`,
+resolvidos na meia-noite do fuso da empresa (antes, na do aparelho).

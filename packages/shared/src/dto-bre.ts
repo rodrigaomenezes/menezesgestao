@@ -2,7 +2,8 @@
 // empresa ajusta e as regras puras (estado do cliente, transições, ação padrão do Break). Os códigos nunca mudam;
 // os nomes exibidos podem passar pelo vocabulário da empresa.
 import { z } from "zod";
-import { DataIso, Id, IdOpcional, Paginacao } from "./dto.js";
+import { DataIso, Id, IdOpcional, MAX_DIAS_ANALISE, Paginacao, validarIntervalo } from "./dto.js";
+import { DataDia } from "./dto-operacao.js";
 
 const lista = <T extends string>(itens: readonly { codigo: T; nome: string }[]) => itens.map((i) => i.codigo) as [T, ...T[]];
 
@@ -280,8 +281,40 @@ export const BreakDto = z.object({
   marco: z.enum(CODIGOS_MARCOS).nullable(),
   acaoPadrao: z.string(),
   criadoEm: DataIso,
+  contatoNome: z.string(),
+  autorNome: z.string().nullable(),
 });
-export const FiltroBreaks = Paginacao.extend({ contatoId: Id.optional() });
+export type BreakDto = z.infer<typeof BreakDto>;
+export const FiltroBreaks = Paginacao.extend({
+  contatoId: Id.optional(),
+  /** Intervalo de datas do registro (no fuso da empresa). */
+  inicio: DataDia.optional(),
+  fim: DataDia.optional(),
+  categoria: z.enum(CODIGOS_CATEGORIAS).optional(),
+  motivoId: Id.optional(),
+  autorId: Id.optional(),
+}).superRefine(validarIntervalo(MAX_DIAS_ANALISE));
+
+// Painel de Breaks (do todo ao micro): quantos, por categoria, por motivo e por quem registrou.
+export const FiltroPainelBreaks = z
+  .object({ inicio: DataDia, fim: DataDia, categoria: z.enum(CODIGOS_CATEGORIAS).optional(), autorId: Id.optional() })
+  .superRefine(validarIntervalo(MAX_DIAS_ANALISE));
+const TotaisBreaks = z.object({ breaks: z.number().int(), contatos: z.number().int() });
+export const PainelBreaksDto = z.object({
+  inicio: DataDia,
+  fim: DataDia,
+  anterior: z.object({ inicio: DataDia, fim: DataDia }),
+  totais: TotaisBreaks,
+  totaisAnteriores: TotaisBreaks,
+  serie: z.array(z.object({ dia: DataDia, valor: z.number().int() })),
+  /** Categorias com Break no período, mais frequente primeiro (ignora o filtro de categoria). */
+  categorias: z.array(z.object({ categoria: z.enum(CODIGOS_CATEGORIAS), quantidade: z.number().int() })),
+  /** Até 20 motivos, mais frequente primeiro (dentro da categoria escolhida, se houver). */
+  motivos: z.array(z.object({ motivoId: Id, nome: z.string(), categoria: z.enum(CODIGOS_CATEGORIAS), quantidade: z.number().int() })),
+  /** Até 20 pessoas que registraram (ignora o filtro de pessoa). */
+  autores: z.array(z.object({ usuarioId: Id, nome: z.string(), quantidade: z.number().int() })),
+});
+export type PainelBreaksDto = z.infer<typeof PainelBreaksDto>;
 
 export const ReentradaDto = z.object({
   id: Id,

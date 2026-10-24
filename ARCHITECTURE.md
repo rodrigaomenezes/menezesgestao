@@ -24,8 +24,10 @@ Painéis (ADR-043): filtros de tela no endereço (`apps/web/src/app/filtros-url.
 gráficos (`apps/web/src/ui/paineis.tsx`); o servidor entrega um resumo por filtro (`/api/desempenho/resumo`) e o
 "por trás do número" paginado (`/api/desempenho/eventos`), sempre dos eventos e no escopo de quem pede. Os outros
 painéis ficam no módulo dono do dado, cada um num serviço próprio (`crm/painel-funil`, `receita/painel-vendas`,
-`telefonia/painel-ligacoes`, `qualidade/painel-qualidade`), e usam de `operacao/comum.ts` só o fuso e o intervalo
+`telefonia/painel-ligacoes`, `qualidade/painel-qualidade`, `bre/painel-breaks`), e usam de `operacao/comum.ts` só o fuso e o intervalo
 (`intervaloDoPainel`, `instantesDoPeriodo`); a lista abaixo de cada painel é a rota de listagem do módulo.
+Listas no front usam `usePaginado` (`ui/ui.tsx`): só a resposta do último pedido vale e recarregar (tempo real)
+traz de uma vez o que já estava na tela (até 100), para a lista não encolher nem a tela pular.
 
 Limite entre módulos (ADR-041): o repositório é interno do módulo dono; outro módulo chama o serviço. O lint barra
 importação do repositório de outro módulo, sem exceções; interfaces públicas: `crm/carteira.ts` (contato na carteira,

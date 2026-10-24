@@ -31,6 +31,7 @@ import { invalido, naoEncontrado } from "../../infra/erros.js";
 import { lerCursor } from "../../infra/paginacao.js";
 import type { ContextoEmpresa } from "../acesso/acesso.js";
 import { filtroUsuariosVisiveis } from "../acesso/escopo.js";
+import { fusoDe, instantesDoPeriodo } from "../operacao/comum.js";
 import { registrar, type Origem } from "../auditoria/registro.js";
 import { notificar } from "../notificacoes/notificar.js";
 import type { AnaliseBreDto, EncerramentoBreEntrada, ReentradaEntrada, SaidaIaBre } from "@mg/shared";
@@ -405,15 +406,35 @@ export function criarServicoBre(s: Servicos, ia?: ProvedorIaBre) {
 
   // Listas -----------------------------------------------------------------------------------------
 
-  async function breaks(ctx: ContextoEmpresa, escopo: Escopo, f: { contatoId?: string; cursor?: string; limite: number }) {
+  async function breaks(
+    ctx: ContextoEmpresa,
+    escopo: Escopo,
+    f: { contatoId?: string; inicio?: string; fim?: string; categoria?: CategoriaBreak; motivoId?: string; autorId?: string; cursor?: string; limite: number },
+  ) {
     const cursor = lerCursor(f.cursor);
+    const periodo = f.inicio && f.fim ? instantesDoPeriodo(f.inicio, f.fim, fusoDe(ctx)) : null;
     return comEmpresa(banco, ctx.empresaId, async (tx) => {
       const linhas = await tx.db
-        .execute<{ id: string; contato_id: string; categoria: CategoriaBreak; motivo: string; comentario: string; marco: MarcoBre | null; acao_padrao: string; criado_em: Date }>(sql`
-          SELECT b.id, b.contato_id, b.categoria, m.nome AS motivo, b.comentario, b.marco, b.acao_padrao, b.criado_em
-          FROM break_bre b JOIN motivo_break m ON m.id = b.motivo_id JOIN contato c ON c.id = b.contato_id
+        .execute<{
+          id: string;
+          contato_id: string;
+          contato_nome: string;
+          autor_nome: string | null;
+          categoria: CategoriaBreak;
+          motivo: string;
+          comentario: string;
+          marco: MarcoBre | null;
+          acao_padrao: string;
+          criado_em: Date;
+        }>(sql`
+          SELECT b.id, b.contato_id, c.nome AS contato_nome, u.nome AS autor_nome, b.categoria, m.nome AS motivo, b.comentario, b.marco, b.acao_padrao, b.criado_em
+          FROM break_bre b JOIN motivo_break m ON m.id = b.motivo_id JOIN contato c ON c.id = b.contato_id LEFT JOIN usuario u ON u.id = b.autor_id
           WHERE b.empresa_id = ${ctx.empresaId}
             ${f.contatoId ? sql`AND b.contato_id = ${f.contatoId}` : sql``}
+            ${periodo ? sql`AND b.criado_em >= ${periodo.de} AND b.criado_em < ${periodo.ate}` : sql``}
+            ${f.categoria ? sql`AND b.categoria = ${f.categoria}` : sql``}
+            ${f.motivoId ? sql`AND b.motivo_id = ${f.motivoId}::uuid` : sql``}
+            ${f.autorId ? sql`AND b.autor_id = ${f.autorId}::uuid` : sql``}
             AND (${escopo === "empresa"} OR ${filtroUsuariosVisiveis(ctx, escopo, sql.raw("c.responsavel_id"))})
             ${cursor ? sql`AND (b.criado_em, b.id) < (${cursor.criadoEm}::timestamptz, ${cursor.id}::uuid)` : sql``}
           ORDER BY b.criado_em DESC, b.id DESC LIMIT ${f.limite + 1}`)
@@ -421,6 +442,8 @@ export function criarServicoBre(s: Servicos, ia?: ProvedorIaBre) {
       return paginar(linhas, f.limite, (l) => ({
         id: l.id,
         contatoId: l.contato_id,
+        contatoNome: l.contato_nome,
+        autorNome: l.autor_nome,
         categoria: l.categoria,
         motivo: l.motivo,
         comentario: l.comentario,
