@@ -692,3 +692,9 @@ motivo e quem registrou; a lista `/api/bre/breaks` ganhou período, categoria, m
 de quem registrou). Filtros com prefixo `brk` no endereço, para conviver com os da BPI na mesma tela. `usePaginado`
 passou a descartar respostas atrasadas e a recarregar sem encolher a lista. A auditoria aceita `deDia`/`ateDia`,
 resolvidos na meia-noite do fuso da empresa (antes, na do aparelho).
+
+Adendo (entrega 6): conversão entre etapas do funil por coorte — de quem entrou no período, quantas chegaram a cada
+etapa aberta e quantas pararam ali. "Chegar" = a maior ordem de etapa aberta por onde passou (a atual e as dos eventos
+`oportunidade.etapa_alterada`, de onde saiu e para onde foi); ganhar conta como passar por todas; pular etapa conta
+como passar pelas do meio. A regra fica num lugar só (`crm/alcance-funil.ts`), usada pelo painel e pelo filtro
+`parouEm` da lista, para os dois contarem igual. Sem tabela nova: o histórico já estava nos eventos.

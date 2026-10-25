@@ -230,6 +230,8 @@ export const FiltroOportunidades = FiltroLista.extend({
   /** Painel do funil: criadas entre estas datas. */
   criadaDe: DataDia.optional(),
   criadaAte: DataDia.optional(),
+  /** Conversão do painel: só as que pararam nesta etapa (chegaram nela e não passaram da seguinte; nem ganharam). */
+  parouEm: Id.optional(),
 });
 
 // Painel do funil (do todo ao micro) ----------------------------------------------------------------------
@@ -263,6 +265,14 @@ export const PainelFunilDto = z.object({
   responsaveis: z.array(z.object({ usuarioId: Id, nome: z.string(), ganhas: z.number().int(), valorCentavos: z.number().int() })),
   /** Ganhas por dia (com zeros). */
   serie: z.array(z.object({ dia: DataDia, valor: z.number() })),
+  /**
+   * Conversão entre etapas de quem entrou no período (coorte): quantas chegaram a cada etapa aberta (passaram por ela
+   * ou por uma depois dela, ou ganharam) e quantas pararam ali. `ganharam` fecha o funil.
+   */
+  conversao: z.object({
+    etapas: z.array(z.object({ etapaId: Id, nome: z.string(), chegaram: z.number().int(), pararam: z.number().int() })),
+    ganharam: z.number().int(),
+  }),
 });
 export type PainelFunilDto = z.infer<typeof PainelFunilDto>;
 

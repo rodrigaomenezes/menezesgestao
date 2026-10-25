@@ -152,6 +152,7 @@ export function Ranking({
   vazio,
   numerar = true,
   maximo,
+  quebrarRotulo = false,
 }: {
   itens: ItemRanking[];
   selecionado?: string;
@@ -162,11 +163,13 @@ export function Ranking({
   numerar?: boolean;
   /** Escala fixa (ex.: 10 para notas); sem ela, a maior barra ocupa a linha toda. */
   maximo?: number;
+  /** Deixa o nome quebrar em mais de uma linha em vez de cortar com "…". */
+  quebrarRotulo?: boolean;
 }) {
   if (!itens.length) return <p className="lista-vazia">{vazio}</p>;
   const max = maximo ?? Math.max(...itens.map((i) => i.valor), 1);
   return (
-    <ol className="ranking-barras">
+    <ol className={`ranking-barras${quebrarRotulo ? " ranking-quebra" : ""}`}>
       {itens.map((i, n) => (
         <li key={i.id}>
           {aoEscolher ? (
