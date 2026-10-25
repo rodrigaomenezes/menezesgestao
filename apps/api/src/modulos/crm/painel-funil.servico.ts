@@ -9,6 +9,7 @@ import type { Servicos } from "../../app.js";
 import type { ContextoEmpresa } from "../acesso/acesso.js";
 import { filtroUsuariosVisiveis } from "../acesso/escopo.js";
 import { fusoDe, hojeNoFuso, instantesDoPeriodo, intervaloDoPainel } from "../operacao/comum.js";
+import { alcanceNoFunil } from "./alcance-funil.js";
 
 interface Filtro {
   funilId: string;
@@ -85,10 +86,29 @@ export function criarServicoPainelFunil(s: Servicos) {
       const serie: { dia: string; valor: number }[] = [];
       for (let d = inicio; d <= fim; d = new Date(Date.parse(`${d}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10)) serie.push({ dia: d, valor: mapa.get(d) ?? 0 });
 
+      // Conversão da coorte (quem entrou no período): até onde cada uma chegou → quantas chegaram a cada etapa.
+      const alcance = alcanceNoFunil({ id: sql`o.id`, status: sql`o.status`, etapaId: sql`o.etapa_id`, funilId: sql`o.funil_id`, empresaId: sql`o.empresa_id` });
+      const coorte = sql`SELECT o.id, o.status, ${alcance} AS alcance FROM oportunidade o
+        WHERE ${base(ctx, escopo, f)} AND o.criado_em >= ${atual.de} AND o.criado_em < ${atual.ate}`;
+      const chegaram = await tx.db.execute<{ etapa_id: string; nome: string; chegaram: string }>(sql`
+        WITH coorte AS (${coorte})
+        SELECT e.id AS etapa_id, e.nome, (SELECT count(*) FROM coorte c WHERE c.alcance >= e.ordem) AS chegaram
+        FROM etapa e
+        WHERE e.empresa_id = ${ctx.empresaId} AND e.funil_id = ${f.funilId} AND e.tipo = 'aberta' AND e.arquivado_em IS NULL
+        ORDER BY e.ordem, e.nome`);
+      const ganharam = num(
+        (await tx.db.execute<{ n: string }>(sql`WITH coorte AS (${coorte}) SELECT count(*) FILTER (WHERE status = 'ganha') AS n FROM coorte`)).rows[0].n,
+      );
+      const etapasConversao = chegaram.rows.map((r, i, todas) => {
+        const proxima = i + 1 < todas.length ? num(todas[i + 1].chegaram) : ganharam;
+        return { etapaId: r.etapa_id, nome: r.nome, chegaram: num(r.chegaram), pararam: Math.max(0, num(r.chegaram) - proxima) };
+      });
+
       return {
         inicio,
         fim,
         anterior,
+        conversao: { etapas: etapasConversao, ganharam },
         totais: await totais(tx, ctx, escopo, f, atual.de, atual.ate),
         totaisAnteriores: await totais(tx, ctx, escopo, f, antes.de, antes.ate),
         etapas: etapas.rows.map((r) => ({ etapaId: r.etapa_id, nome: r.nome, quantidade: num(r.quantidade), valorCentavos: num(r.valor) })),

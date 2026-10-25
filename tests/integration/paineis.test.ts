@@ -175,6 +175,24 @@ describe("painel do funil", () => {
     expect((await dono.get(`/api/oportunidades?funilId=${funilId}&status=ganha&fechadaDe=${amanha}&fechadaAte=${amanha}`)).json().itens).toHaveLength(0);
   });
 
+  it("conversão entre etapas de quem entrou: chegaram, pararam, ganharam; a lista mostra quem parou ali", async () => {
+    const b = (await dono.get(`/api/funil/painel?funilId=${funilId}&inicio=${hoje}&fim=${hoje}`)).json();
+    const etapas = b.conversao.etapas as { etapaId: string; chegaram: number; pararam: number }[];
+    // 4 entraram na 1ª etapa: 1 perdeu ali, 1 parou na 2ª e 2 ganharam (passaram por todas).
+    expect(etapas[0]).toMatchObject({ chegaram: 4, pararam: 1 });
+    expect(etapas[1]).toMatchObject({ etapaId: segunda, chegaram: 3, pararam: 1 });
+    for (const e of etapas.slice(2)) expect(e).toMatchObject({ chegaram: 2, pararam: 0 });
+    expect(b.conversao.ganharam).toBe(2);
+    const parou = async (etapaId: string) =>
+      (await dono.get(`/api/oportunidades?funilId=${funilId}&criadaDe=${hoje}&criadaAte=${hoje}&parouEm=${etapaId}`)).json().itens.map((o: { status: string }) => o.status);
+    expect(await parou(etapas[0].etapaId)).toEqual(["perdida"]);
+    expect(await parou(segunda)).toEqual(["aberta"]);
+    // O vendedor só vê a própria carteira também na conversão (A2 ganhou uma; A1 tem as outras três).
+    const v = (await vendedor.get(`/api/funil/painel?funilId=${funilId}&inicio=${hoje}&fim=${hoje}`)).json();
+    expect(v.conversao.etapas[0].chegaram).toBe(3);
+    expect(v.conversao.ganharam).toBe(1);
+  });
+
   it("filtro de responsável e escopo: o vendedor só vê a própria carteira", async () => {
     const foco = (await dono.get(`/api/funil/painel?funilId=${funilId}&inicio=${hoje}&fim=${hoje}&responsavelId=${id("vendedor2")}`)).json();
     expect(foco.totais).toMatchObject({ ganhas: 1, valorGanhoCentavos: 80_000 });

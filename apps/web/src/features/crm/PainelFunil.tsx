@@ -15,8 +15,9 @@ import { formatarDinheiro } from "./comum";
 
 const CHAVES = ["inicio", "fim", "responsavelId", "lista", "etapaId", "motivoPerdaId"] as const;
 /** O que a lista abaixo mostra: cada número e cada barra escolhe uma "lente". */
-type Lente = "entraram" | "ganha" | "perdida" | "aberta";
-const LENTES: Lente[] = ["entraram", "ganha", "perdida", "aberta"];
+type Lente = "entraram" | "ganha" | "perdida" | "aberta" | "parou";
+const LENTES: Lente[] = ["entraram", "ganha", "perdida", "aberta", "parou"];
+const pct = (parte: number, todo: number) => (todo ? `${Math.round((parte / todo) * 100)}%` : "—");
 
 export function PainelFunil({ funilId }: { funilId: string }) {
   const termos = useVocabulario();
@@ -46,6 +47,8 @@ export function PainelFunil({ funilId }: { funilId: string }) {
   const filtroLista =
     lente === "entraram"
       ? { criadaDe: intervalo.inicio, criadaAte: intervalo.fim }
+      : lente === "parou"
+        ? { criadaDe: intervalo.inicio, criadaAte: intervalo.fim, parouEm: f.etapaId }
       : lente === "aberta"
         ? { status: "aberta", etapaId: f.etapaId }
         : { status: lente, fechadaDe: intervalo.inicio, fechadaAte: intervalo.fim, motivoPerdaId: lente === "perdida" ? f.motivoPerdaId : undefined };
@@ -55,7 +58,7 @@ export function PainelFunil({ funilId }: { funilId: string }) {
   const t = painel?.totais;
   const a = painel?.totaisAnteriores;
   const escolher = (l: Lente, extra: { etapaId?: string; motivoPerdaId?: string } = {}) => mudar({ lista: l, etapaId: extra.etapaId, motivoPerdaId: extra.motivoPerdaId });
-  const nomeEtapa = painel?.etapas.find((e) => e.etapaId === f.etapaId)?.nome;
+  const nomeEtapa = painel?.etapas.find((e) => e.etapaId === f.etapaId)?.nome ?? painel?.conversao.etapas.find((e) => e.etapaId === f.etapaId)?.nome;
   const nomeMotivo = painel?.motivos.find((m) => (m.motivoPerdaId ?? "") === (f.motivoPerdaId ?? ""))?.nome;
   const nomeResponsavel = painel?.responsaveis.find((r) => r.usuarioId === f.responsavelId)?.nome ?? "Responsável";
   const periodoPadrao = intervalo.inicio === padrao.inicio && intervalo.fim === padrao.fim;
@@ -64,10 +67,12 @@ export function PainelFunil({ funilId }: { funilId: string }) {
     ganha: termos.t("{Oportunidades} ganh{os|as:oportunidades}"),
     perdida: termos.t("{Oportunidades} perdid{os|as:oportunidades}"),
     aberta: termos.t("Abert{os|as:oportunidades} agora"),
+    parou: "Pararam na etapa",
   };
   const etiquetas: Etiqueta[] = [
     { chave: "periodo", texto: nomeDoIntervalo(intervalo, hoje), aoTirar: periodoPadrao ? undefined : () => mudar({ inicio: undefined, fim: undefined }) },
     { chave: "lente", texto: TITULOS[lente] },
+    ...(f.etapaId && lente === "parou" ? [{ chave: "parou", texto: `Etapa: ${nomeEtapa ?? "…"}`, aoTirar: () => mudar({ lista: "entraram", etapaId: undefined }) }] : []),
     ...(f.etapaId && lente === "aberta" ? [{ chave: "etapa", texto: `Etapa: ${nomeEtapa ?? "…"}`, aoTirar: () => mudar({ etapaId: undefined }) }] : []),
     ...(f.motivoPerdaId && lente === "perdida" ? [{ chave: "motivo", texto: `Motivo: ${nomeMotivo ?? "…"}`, aoTirar: () => mudar({ motivoPerdaId: undefined }) }] : []),
     ...(f.responsavelId ? [{ chave: "responsavel", texto: nomeResponsavel, aoTirar: () => mudar({ responsavelId: undefined }) }] : []),
@@ -106,6 +111,34 @@ export function PainelFunil({ funilId }: { funilId: string }) {
           />
         </section>
         <p className="dica">Conversão = ganhas ÷ (ganhas + perdidas) no período. Toque num número ou numa barra para ver a lista abaixo.</p>
+
+        <section className="cartao" aria-labelledby="titulo-conversao-etapas">
+          <h2 id="titulo-conversao-etapas">
+            Conversão entre etapas <span className="item-detalhe">· de quem entrou no período</span>
+          </h2>
+          {painel && (
+            <>
+              <Ranking
+                numerar={false}
+                quebrarRotulo
+                maximo={painel.totais.entraram || 1}
+                itens={painel.conversao.etapas.map((e, i, todas) => ({
+                  id: e.etapaId,
+                  rotulo: e.nome,
+                  valor: e.chegaram,
+                  texto: `${e.chegaram}${i ? ` · ${pct(e.chegaram, todas[i - 1].chegaram)}` : ""}${e.pararam ? ` · ${e.pararam} pararam` : ""}`,
+                }))}
+                selecionado={lente === "parou" ? f.etapaId : undefined}
+                aoEscolher={(id) => escolher("parou", { etapaId: lente === "parou" && id === f.etapaId ? undefined : id })}
+                vazio={termos.t("{Nenhuma oportunidade} entrou no período.")}
+              />
+              <p className="dica">
+                {termos.t("Ganh{os|as:oportunidades}")}: <strong>{painel.conversao.ganharam}</strong> ({pct(painel.conversao.ganharam, painel.totais.entraram)} de quem entrou). Cada etapa mostra
+                quantas chegaram até ela e a porcentagem da etapa anterior; toque para ver quem parou ali.
+              </p>
+            </>
+          )}
+        </section>
 
         <div className="painel-colunas">
           <section className="cartao" aria-labelledby="titulo-etapas-agora">
@@ -156,7 +189,7 @@ export function PainelFunil({ funilId }: { funilId: string }) {
         <section className="cartao" aria-labelledby="titulo-lista-funil">
           <h2 id="titulo-lista-funil">
             {TITULOS[lente]}
-            {lente === "aberta" && nomeEtapa ? ` · ${nomeEtapa}` : ""}
+            {(lente === "aberta" || lente === "parou") && nomeEtapa ? ` · ${nomeEtapa}` : ""}
             {lente === "perdida" && f.motivoPerdaId && nomeMotivo ? ` · ${nomeMotivo}` : ""}{" "}
             {lente !== "aberta" && (
               <span className="item-detalhe">

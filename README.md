@@ -248,7 +248,8 @@ anterior) escolhem o indicador → o gráfico por dia aproxima o dia clicado →
 30 dias, Este mês, Mês passado, Outro até 92 dias). Os filtros ficam no endereço: o "voltar" desfaz o último clique,
 o link pode ser enviado e cada clique vira uma etiqueta removível. Gráficos com "Ver como tabela", teclado e 360 px.
 No **Funil → Painel**: quem entrou, ganhou e perdeu no período, conversão e dias até ganhar → abertas agora por
-etapa, motivos de perda, quem ganhou e ganhas por dia → a lista exata (ex.: perdidas por "Preço") → a ficha. Em
+etapa, conversão entre etapas de quem entrou (toque para ver quem parou em cada uma), motivos de perda, quem ganhou e
+ganhas por dia → a lista exata (ex.: perdidas por "Preço") → a ficha. Em
 **Vendas**: valor confirmado, quantidade, ticket médio, aguardando e canceladas → por dia, por oferta e por vendedor →
 a lista das vendas daquele recorte. Em **Ligações**: feitas, atendidas, não atendidas, taxa de atendimento e tempo
 falado → por dia, por resultado e quem mais ligou → a lista (com gravação e "Avaliar"). Em **Qualidade**: avaliações,

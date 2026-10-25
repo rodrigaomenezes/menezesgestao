@@ -2,7 +2,7 @@
 // arquivar e o quadro kanban. Mover de etapa publica oportunidade.etapa_alterada (e ganha/perdida).
 import { and, asc, count, desc, eq, ilike, inArray, isNotNull, isNull, sql, sum } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
-import type { AnyColumn } from "drizzle-orm";
+import type { AnyColumn, SQL } from "drizzle-orm";
 import type { Escopo, KanbanDto, OportunidadeDto, Pagina } from "@mg/shared";
 import { TRANSICOES_BRE, nomeMarco, transicaoPermitida } from "@mg/shared";
 import { comEmpresa, type Tx } from "../../infra/banco.js";
@@ -15,6 +15,7 @@ import { filtroUsuariosVisiveis, type QuemVe } from "../acesso/escopo.js";
 import { registrar, type Origem } from "../auditoria/registro.js";
 import { fusoDe, instantesDoPeriodo } from "../operacao/comum.js";
 import { marcarBpiVelho } from "../bre/bpi-cache.js";
+import { alcanceNoFunil } from "./alcance-funil.js";
 import { validarCampos, type DefinicaoCampo } from "./campos.js";
 import { validarResponsavel } from "./carteira.js";
 import { buscarEtapa, definicoesDeCampos, etapaDto } from "./configuracao.servico.js";
@@ -97,6 +98,30 @@ export function criarServicoOportunidades(s: Servicos) {
     }
   }
 
+  /** "Pararam nesta etapa": chegaram a ela e não à próxima etapa aberta do funil, nem ganharam (ver alcance-funil). */
+  async function condicaoParouEm(tx: Tx, ctx: ContextoEmpresa, etapaId: string): Promise<SQL> {
+    const [e] = await tx.db
+      .select({ funilId: etapa.funilId, ordem: etapa.ordem })
+      .from(etapa)
+      .where(and(eq(etapa.id, etapaId), eq(etapa.empresaId, ctx.empresaId), eq(etapa.tipo, "aberta")));
+    if (!e) throw invalido("Etapa não encontrada.");
+    const [proxima] = await tx.db
+      .select({ ordem: etapa.ordem })
+      .from(etapa)
+      .where(and(eq(etapa.funilId, e.funilId), eq(etapa.tipo, "aberta"), isNull(etapa.arquivadoEm), sql`${etapa.ordem} > ${e.ordem}`))
+      .orderBy(asc(etapa.ordem))
+      .limit(1);
+    const alcance = alcanceNoFunil({
+      id: sql`${oportunidade.id}`,
+      status: sql`${oportunidade.status}`,
+      etapaId: sql`${oportunidade.etapaId}`,
+      funilId: sql`${oportunidade.funilId}`,
+      empresaId: sql`${oportunidade.empresaId}`,
+    });
+    return sql`${oportunidade.funilId} = ${e.funilId} AND ${oportunidade.status} <> 'ganha' AND ${alcance} >= ${e.ordem}
+      ${proxima ? sql`AND ${alcance} < ${proxima.ordem}` : sql``}`;
+  }
+
   async function listar(
     ctx: ContextoEmpresa,
     escopo: Escopo,
@@ -113,12 +138,14 @@ export function criarServicoOportunidades(s: Servicos) {
       fechadaAte?: string;
       criadaDe?: string;
       criadaAte?: string;
+      parouEm?: string;
       cursor?: string;
       limite: number;
     },
   ): Promise<Pagina<OportunidadeDto>> {
     return comEmpresa(banco, ctx.empresaId, async (tx) => {
       const fuso = fusoDe(ctx);
+      const parou = f.parouEm ? await condicaoParouEm(tx, ctx, f.parouEm) : undefined;
       // Datas do painel (dias no fuso da empresa) viram instantes; um lado só vale como limite aberto.
       const entre = (col: AnyColumn, de?: string, ate?: string) => {
         if (!de && !ate) return undefined;
@@ -140,6 +167,7 @@ export function criarServicoOportunidades(s: Servicos) {
             f.motivoPerdaId ? eq(oportunidade.motivoPerdaId, f.motivoPerdaId) : undefined,
             entre(oportunidade.fechadaEm, f.fechadaDe, f.fechadaAte),
             entre(oportunidade.criadoEm, f.criadaDe, f.criadaAte),
+            parou,
             condicaoCursor(oportunidade.criadoEm, oportunidade.id, lerCursor(f.cursor)),
           ),
         )

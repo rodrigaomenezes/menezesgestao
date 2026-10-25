@@ -94,7 +94,7 @@ Marcos: **primeiro cliente pagante** ao fim da Fase 9 · **venda em escala** ao 
       depois bloqueia a escrita; ninguém passa do limite do plano.
 - [x] Fase 9.1 — Painéis do todo ao micro (ADR-043): filtros no endereço, barra de período, etiquetas, números com
       variação, ranking e barras por dia; Desempenho, Funil, Vendas, Ligações e Qualidade com o detalhe de cada número;
-      Início, Rotina, BPI e Comissões levando ao painel filtrado; Breaks do Motor BRE por categoria, motivo e pessoa;
+      Início, Rotina, BPI e Comissões levando ao painel filtrado; conversão entre etapas do funil (quem parou em cada uma); Breaks do Motor BRE por categoria, motivo e pessoa;
       filtros no endereço em Contatos, Tarefas, Conversas e Auditoria (dias no fuso da empresa); listas que recarregam
       sem encolher nem mostrar resposta de um filtro antigo.
 - [ ] Fase 10 — WhatsApp em escala (3 sprints): arquivos em S3/R2 (sem limite de 16 MB); mensagens modelo da API

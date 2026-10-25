@@ -2765,6 +2765,12 @@ fieldset legend {
   white-space: nowrap;
 }
 
+/* Nomes que não podem ser cortados (ex.: etapas do funil, onde o número ao lado é longo). */
+.ranking-quebra .barra-h-rotulo {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
 .barra-h-posicao {
   color: var(--texto-suave);
   font-size: 0.8rem;

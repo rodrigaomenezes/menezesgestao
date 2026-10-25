@@ -229,4 +229,9 @@ test("painéis de vendas e do funil levam do todo à lista exata e o voltar mant
   await expect(page.getByRole("button", { name: "Tirar filtro: Dona A" })).toBeVisible();
   await expect(page.getByRole("tab", { name: "Painel" })).toHaveAttribute("aria-selected", "true");
   await semRolagemLateral(page);
+  // Conversão entre etapas: tocar na 1ª etapa lista quem parou ali (filtro no endereço).
+  await page.getByRole("region", { name: /Conversão entre etapas/ }).getByRole("button").first().click();
+  await expect(page).toHaveURL(/lista=parou/);
+  await expect(page.getByRole("heading", { name: /^Pararam na etapa/ })).toBeVisible();
+  await semRolagemLateral(page);
 });
