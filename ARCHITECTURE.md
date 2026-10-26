@@ -30,6 +30,10 @@ chegou no funil fica em `crm/alcance-funil.ts`), e usam de `operacao/comum.ts` s
 Listas no front usam `usePaginado` (`ui/ui.tsx`): só a resposta do último pedido vale e recarregar (tempo real)
 traz de uma vez o que já estava na tela (até 100), para a lista não encolher nem a tela pular.
 
+Formulários (ADR-044): `useEnvio` (`ui/ui.tsx`) devolve o erro de cada campo vindo de `details.campos`
+(`ui/erros-campo.ts`), põe o foco no primeiro e fica desligado sem conexão (`ConexaoContexto`, informado pela Casca).
+Toda resposta da API leva `x-request-id`, o mesmo do log da requisição.
+
 Limite entre módulos (ADR-041): o repositório é interno do módulo dono; outro módulo chama o serviço. O lint barra
 importação do repositório de outro módulo, sem exceções; interfaces públicas: `crm/carteira.ts` (contato na carteira,
 responsável) e `permissoes/interface.ts` (permissões do perfil, criar perfil com permissões). Regras permanentes:

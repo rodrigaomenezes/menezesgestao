@@ -7,7 +7,7 @@ import { ErroApi, get, patch, post, put, query } from "../../app/api";
 import { useDataHora, useEu, useSessao } from "../../app/sessao";
 import { useTempoReal } from "../../app/tempo-real";
 import { useAviso, useConfirmar } from "../../ui/sobreposicoes";
-import { Campo, CarregarMais, Escolha, ListaVazia, Mensagem, Titulo, useEnvio, usePaginado } from "../../ui/ui";
+import { Campo, Carregando, CarregarMais, Titulo, ListaVazia, Mensagem, Escolha, useEnvio, usePaginado } from "../../ui/ui";
 import { BotaoLigar } from "../telefonia/Telefone";
 import { BotaoEncerrarBre } from "../bre/Bre";
 import { VendasDoContato } from "../receita/Vendas";
@@ -480,7 +480,7 @@ export function Contato() {
       </>
     );
   }
-  if (!contato) return <p className="carregando">Carregando…</p>;
+  if (!contato) return <Carregando />;
 
   return (
     <>

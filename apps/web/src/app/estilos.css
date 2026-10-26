@@ -16,6 +16,8 @@
   --sucesso: #1e6b34;
   --sucesso-fundo: #e6f4ea;
   --info-fundo: #e8f0fe;
+  --aviso: #7a4f01;
+  --aviso-fundo: #fff4d6;
   --raio: 14px;
   --raio-pequeno: 10px;
   --sombra: 0 1px 2px rgb(16 24 40 / 4%);
@@ -39,6 +41,8 @@
     --sucesso: #a8dab5;
     --sucesso-fundo: #1b3323;
     --info-fundo: #1d2a40;
+    --aviso: #f5d58a;
+    --aviso-fundo: #3a2e12;
   }
 }
 
@@ -93,6 +97,58 @@ a {
 .carregando {
   padding: 2rem;
   text-align: center;
+}
+
+/* Esqueleto enquanto carrega (RC-11): linhas cinza que pulsam; o texto aparece depois de 300 ms. */
+.esqueleto {
+  display: grid;
+  gap: 0.6rem;
+  padding: 1rem 0;
+}
+
+.esqueleto-linha {
+  display: block;
+  height: 0.9rem;
+  border-radius: 6px;
+  background: var(--borda);
+  animation: esqueleto-pulso 1.2s ease-in-out infinite;
+}
+
+.esqueleto-linha:nth-child(2) {
+  width: 80%;
+}
+
+.esqueleto-linha:nth-child(3) {
+  width: 60%;
+}
+
+.esqueleto-texto {
+  color: var(--texto-suave);
+  font-size: 0.9rem;
+}
+
+@keyframes esqueleto-pulso {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .esqueleto-linha {
+    animation: none;
+  }
+}
+
+/* Erro no próprio campo (RC-01): borda e texto vermelhos logo abaixo. */
+.campo-com-erro input,
+.campo-com-erro select,
+.campo-com-erro textarea {
+  border-color: var(--erro);
+}
+
+.erro-campo {
+  color: var(--erro);
+  font-size: 0.85rem;
 }
 
 /* Formulários */
@@ -202,6 +258,12 @@ fieldset {
 
 .mensagem-info {
   background: var(--info-fundo);
+}
+
+/* Aviso que não é erro (ex.: registro que já existe, D-18). */
+.mensagem-aviso {
+  background: var(--aviso-fundo);
+  color: var(--aviso);
 }
 
 /* Telas de acesso */

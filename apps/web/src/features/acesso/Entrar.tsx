@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import type { EntrarResposta, MarcaPublicaDto } from "@mg/shared";
-import { get, post } from "../../app/api";
+import { ErroApi, get, post } from "../../app/api";
 import { Campo, Mensagem, useEnvio } from "../../ui/ui";
 import { useSessao } from "../../app/sessao";
 import { Logo } from "../whitelabel/Logo";
@@ -14,6 +14,20 @@ export function useMarcaPublica(): MarcaPublicaDto | null {
   }, []);
   return m;
 }
+
+/** Segundos até `ate` (instante em ms), atualizados a cada segundo; 0 quando passou. */
+function useContagem(ate: number | null): number {
+  const [agora, setAgora] = useState(() => Date.now());
+  const restante = ate ? Math.max(0, Math.ceil((ate - agora) / 1000)) : 0;
+  useEffect(() => {
+    if (!restante) return;
+    const t = window.setTimeout(() => setAgora(Date.now()), 1000);
+    return () => window.clearTimeout(t);
+  }, [restante, agora]);
+  return restante;
+}
+
+const tempo = (s: number) => (s >= 60 ? `${Math.floor(s / 60)} min ${String(s % 60).padStart(2, "0")} s` : `${s} s`);
 
 /** Segunda etapa: código do app autenticador, do e-mail ou de recuperação. */
 function Codigo({ desafio, aoVoltar }: { desafio: NonNullable<EntrarResposta["duasEtapas"]>; aoVoltar(): void }) {
@@ -77,8 +91,16 @@ export function Entrar() {
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [desafio, setDesafio] = useState<EntrarResposta["duasEtapas"] | null>(null);
+  // Login bloqueado por tentativas: contagem regressiva e botão desligado até zerar (RC-07).
+  const [liberaEm, setLiberaEm] = useState<number | null>(null);
+  const bloqueio = useContagem(liberaEm);
   const { enviando, erro, enviar } = useEnvio(async () => {
-    const r = await post<EntrarResposta>("/auth/entrar", { email, senha });
+    setLiberaEm(null);
+    const r = await post<EntrarResposta>("/auth/entrar", { email, senha }).catch((e: unknown) => {
+      const s = e instanceof ErroApi && e.codigo === "LOGIN_BLOQUEADO" ? e.detalhes.tenteEmSegundos : undefined;
+      setLiberaEm(typeof s === "number" ? Date.now() + s * 1000 : null);
+      throw e;
+    });
     if (r.duasEtapas) {
       setSenha("");
       setDesafio(r.duasEtapas);
@@ -102,9 +124,9 @@ export function Entrar() {
         <p className="subtitulo">{marca?.empresa ? `Entre na ${marca.empresa} com seu e-mail e senha.` : "Entre com seu e-mail e senha."}</p>
         <Campo rotulo="E-mail" nome="email" tipo="email" valor={email} aoMudar={setEmail} obrigatorio autoComplete="username" />
         <Campo rotulo="Senha" nome="senha" tipo="password" valor={senha} aoMudar={setSenha} obrigatorio autoComplete="current-password" />
-        <Mensagem tipo="erro">{erro}</Mensagem>
-        <button type="submit" className="botao botao-largo" disabled={enviando}>
-          {enviando ? "Entrando…" : "Entrar"}
+        <Mensagem tipo="erro">{bloqueio ? `Muitas tentativas erradas. Tente de novo em ${tempo(bloqueio)} ou use “Esqueci a senha”.` : liberaEm ? "" : erro}</Mensagem>
+        <button type="submit" className="botao botao-largo" disabled={enviando || bloqueio > 0}>
+          {enviando ? "Entrando…" : bloqueio ? `Aguarde ${tempo(bloqueio)}` : "Entrar"}
         </button>
         <Link to="/esqueci-senha" className="link-secundario">
           Esqueci a senha

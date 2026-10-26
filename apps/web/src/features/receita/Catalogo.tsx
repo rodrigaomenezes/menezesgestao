@@ -6,7 +6,7 @@ import { ErroApi, get, patch, post, query } from "../../app/api";
 import { useSessao } from "../../app/sessao";
 import { useTempoReal } from "../../app/tempo-real";
 import { useAviso } from "../../ui/sobreposicoes";
-import { BotaoAlternar, CarregarMais, Campo, Escolha, FiltroArquivados, ListaVazia, Mensagem, Titulo, useEnvio, usePaginado } from "../../ui/ui";
+import { BotaoAlternar, Campo, Carregando, CarregarMais, FiltroArquivados, Titulo, ListaVazia, Mensagem, Escolha, useEnvio, usePaginado } from "../../ui/ui";
 import { formatarDinheiro } from "../crm/comum";
 import { EscolherContato, paraCentavos, paraReais } from "./comum";
 import { useVocabulario } from "../../app/vocabulario";
@@ -236,7 +236,7 @@ export function Entrega() {
     }
   };
   if (erro) return <Mensagem tipo="erro">{erro}</Mensagem>;
-  if (!e) return <p className="carregando">Carregando…</p>;
+  if (!e) return <Carregando />;
   const ativos = lista.itens.filter((p) => p.status === "ativo");
   return (
     <>

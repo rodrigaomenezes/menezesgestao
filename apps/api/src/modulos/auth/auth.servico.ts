@@ -65,12 +65,15 @@ export function criarServicoAuth(s: Servicos) {
       const u = await repo.buscarUsuarioPorEmail(tx, dados.email);
 
       if (u?.bloqueadoAte && u.bloqueadoAte > new Date()) {
-        const minutos = Math.max(1, Math.ceil((u.bloqueadoAte.getTime() - Date.now()) / 60_000));
+        const segundos = Math.max(1, Math.ceil((u.bloqueadoAte.getTime() - Date.now()) / 1000));
+        const minutos = Math.ceil(segundos / 60);
         return {
           erro: new ErroApp(
             429,
             "LOGIN_BLOQUEADO",
             `Muitas tentativas erradas. Tente de novo em ${minutos} minuto(s) ou use "Esqueci a senha".`,
+            // A tela conta o tempo e libera o botão sozinha quando zera.
+            { tenteEmSegundos: segundos },
           ),
         };
       }

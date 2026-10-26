@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import type { PesquisaPublicaDto } from "@mg/shared";
 import { ErroApi, get, post } from "../../app/api";
-import { Mensagem, useEnvio } from "../../ui/ui";
+import { Carregando, Mensagem, useEnvio } from "../../ui/ui";
 
 export function PesquisaPublica() {
   const { token = "" } = useParams();
@@ -25,7 +25,7 @@ export function PesquisaPublica() {
     <main className="tela-acesso pesquisa-publica">
       <div className="cartao">
         {erro && <Mensagem tipo="erro">{erro}</Mensagem>}
-        {!p && !erro && <p className="carregando">Carregando…</p>}
+        {!p && !erro && <Carregando />}
         {p && (
           <>
             <p className="subtitulo">{p.empresa}</p>

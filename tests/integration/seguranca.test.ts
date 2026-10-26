@@ -151,3 +151,14 @@ describe("regra da empresa", () => {
     expect((await dono.pedir("PUT", "/api/empresa/seguranca", { exigirDuasEtapas: "nao" })).statusCode).toBe(200);
   });
 });
+
+describe("identificador de correlação (RNF-024)", () => {
+  it("toda resposta devolve x-request-id; o do proxy vale só se tiver formato seguro", async () => {
+    const gerado = await t.app.inject({ method: "GET", url: "/api/health" });
+    expect(gerado.headers["x-request-id"]).toMatch(/^[0-9a-f-]{36}$/);
+    const recebido = await t.app.inject({ method: "GET", url: "/api/health", headers: { "x-request-id": "proxy-abc-12345" } });
+    expect(recebido.headers["x-request-id"]).toBe("proxy-abc-12345");
+    const perigoso = await t.app.inject({ method: "GET", url: "/api/health", headers: { "x-request-id": "x\nlinha falsa no log" } });
+    expect(perigoso.headers["x-request-id"]).toMatch(/^[0-9a-f-]{36}$/);
+  });
+});

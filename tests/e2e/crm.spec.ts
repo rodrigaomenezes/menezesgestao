@@ -149,3 +149,39 @@ test("filtros das listas ficam no endereço: busca, ficha e voltar mantêm o rec
   await expect(page.getByRole("tab", { name: "Concluídas" })).toHaveAttribute("aria-selected", "true");
   await semRolagemLateral(page);
 });
+
+test("telefone repetido não cria outro cadastro: aviso com “Abrir o existente” (D-18)", async ({ page }, info) => {
+  const { a } = dados();
+  await entrar(page, pessoa(a, "dono").email);
+  const telefone = telefoneUnico(info.project.name, 8);
+  const csrf = (await page.context().cookies()).find((c) => c.name === "mg_csrf")?.value ?? "";
+  const r = await page.request.post("/api/contatos", { headers: { "x-csrf-token": csrf }, data: { nome: `Original ${info.project.name}`, telefone } });
+  expect(r.status()).toBe(201);
+  const existente = (await r.json()).id as string;
+
+  await irPara(page, "Alunos", "Alunos");
+  await page.getByRole("button", { name: "Novo aluno" }).click();
+  await page.getByLabel("Nome", { exact: true }).fill(`Repetido ${info.project.name}`);
+  // Mesmo número em outro formato: continua sendo o mesmo telefone.
+  await page.getByLabel("Telefone (WhatsApp)").fill(`+55 ${telefone}`);
+  await page.getByRole("button", { name: "Cadastrar aluno" }).click();
+  const aviso = page.locator(".mensagem-aviso");
+  await expect(aviso).toContainText("Já existe");
+  await semRolagemLateral(page);
+  await aviso.getByRole("link", { name: "Abrir o existente" }).click();
+  await expect(page).toHaveURL(new RegExp(`/contatos/${existente}`));
+});
+
+test("erro do servidor aparece no próprio campo e o foco vai para ele (RC-01)", async ({ page }) => {
+  const { a } = dados();
+  await entrar(page, pessoa(a, "dono").email);
+  await irPara(page, "Alunos", "Alunos");
+  await page.getByRole("button", { name: "Novo aluno" }).click();
+  // Só espaços passa pelo "obrigatório" do navegador, mas o servidor recusa o nome vazio.
+  await page.getByLabel("Nome", { exact: true }).fill("   ");
+  await page.getByRole("button", { name: "Cadastrar aluno" }).click();
+  const nome = page.getByLabel("Nome", { exact: true });
+  await expect(nome).toHaveAttribute("aria-invalid", "true");
+  await expect(nome).toBeFocused();
+  await expect(page.locator(".erro-campo").first()).toBeVisible();
+});

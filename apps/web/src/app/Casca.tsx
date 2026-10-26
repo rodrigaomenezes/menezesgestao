@@ -9,6 +9,7 @@ import { useVocabulario } from "./vocabulario";
 import { ProvedorTelefoneSistema } from "../features/telefonia/Telefone";
 import { Logo } from "../features/whitelabel/Logo";
 import { Icone, type NomeIcone } from "../ui/Icone";
+import { ConexaoContexto } from "../ui/ui";
 import { AvisoAssinatura } from "../features/plataforma/AvisoAssinatura";
 
 interface ItemMenu {
@@ -225,7 +226,7 @@ export function Casca({ children }: { children: ReactNode }) {
             </p>
           )}
           <AvisoAssinatura />
-          {children}
+          <ConexaoContexto.Provider value={conectado}>{children}</ConexaoContexto.Provider>
         </main>
       </div>
     </ProvedorTelefoneSistema>

@@ -49,7 +49,7 @@ export const NOMES_ESCOPOS: Record<Escopo, string> = {
 /** permissoes[modulo][acao] = escopo. Ausente = sem acesso. */
 export type Permissoes = Partial<Record<Modulo, Partial<Record<Acao, Escopo>>>>;
 
-export const PERFIS_BASE = ["dono", "gestor", "vendedor", "operacao", "financeiro"] as const;
+export const PERFIS_BASE = ["dono", "gestor", "vendedor", "operacao", "financeiro", "empresario", "supervisor", "auditor"] as const;
 export type PerfilBase = (typeof PERFIS_BASE)[number];
 
 export const INFO_PERFIS_BASE: Record<PerfilBase, { nome: string; escopo: Escopo }> = {
@@ -58,34 +58,39 @@ export const INFO_PERFIS_BASE: Record<PerfilBase, { nome: string; escopo: Escopo
   vendedor: { nome: "Vendedor / Atendente", escopo: "proprio" },
   operacao: { nome: "Operação / Prestador", escopo: "proprio" },
   financeiro: { nome: "Financeiro", escopo: "empresa" },
+  empresario: { nome: "Empresário", escopo: "empresa" },
+  supervisor: { nome: "Supervisor", escopo: "equipe" },
+  auditor: { nome: "Auditor", escopo: "empresa" },
 };
 
-// Matriz padrão da especificação. A administra · E edita · V vê · P só o próprio · - sem acesso.
-// Colunas: dono, gestor, vendedor, operacao, financeiro.
-type Nivel = "A" | "E" | "V" | "P" | "-";
-const MATRIZ: Record<Modulo, [Nivel, Nivel, Nivel, Nivel, Nivel]> = {
-  usuarios: ["A", "V", "-", "-", "-"],
-  configuracoes: ["A", "-", "-", "-", "-"],
-  crm: ["A", "E", "P", "-", "V"],
-  conversas: ["A", "E", "P", "-", "-"],
-  telefonia: ["A", "E", "P", "-", "-"],
-  fila: ["A", "E", "P", "-", "-"],
-  agenda: ["A", "E", "P", "P", "V"],
-  rotina: ["A", "E", "P", "P", "-"],
-  desempenho: ["A", "E", "P", "P", "V"],
-  mapa: ["A", "E", "P", "P", "-"],
-  scripts: ["A", "E", "V", "V", "-"],
-  qualidade: ["A", "E", "P", "-", "-"],
-  vendas: ["A", "E", "P", "-", "E"],
-  servicos: ["A", "E", "V", "P", "V"],
-  pesquisa: ["A", "E", "V", "-", "-"],
-  bre: ["A", "E", "P", "-", "-"],
-  auditoria: ["A", "V", "-", "-", "V"],
+// Matriz padrão da especificação. A administra · E edita · T trabalha (edita, sem exportar nem administrar) · V vê ·
+// P só o próprio · - sem acesso. Colunas: dono, gestor, vendedor, operacao, financeiro, empresario, supervisor, auditor.
+// Empresário vê a empresa toda e trabalha nos contatos; supervisor trabalha na equipe sem administrar; auditor só lê.
+type Nivel = "A" | "E" | "T" | "V" | "P" | "-";
+const MATRIZ: Record<Modulo, [Nivel, Nivel, Nivel, Nivel, Nivel, Nivel, Nivel, Nivel]> = {
+  usuarios: ["A", "V", "-", "-", "-", "V", "V", "V"],
+  configuracoes: ["A", "-", "-", "-", "-", "V", "-", "V"],
+  crm: ["A", "E", "P", "-", "V", "T", "T", "V"],
+  conversas: ["A", "E", "P", "-", "-", "V", "T", "V"],
+  telefonia: ["A", "E", "P", "-", "-", "V", "T", "V"],
+  fila: ["A", "E", "P", "-", "-", "V", "T", "V"],
+  agenda: ["A", "E", "P", "P", "V", "V", "T", "V"],
+  rotina: ["A", "E", "P", "P", "-", "V", "T", "V"],
+  desempenho: ["A", "E", "P", "P", "V", "V", "V", "V"],
+  mapa: ["A", "E", "P", "P", "-", "V", "V", "V"],
+  scripts: ["A", "E", "V", "V", "-", "V", "V", "V"],
+  qualidade: ["A", "E", "P", "-", "-", "V", "T", "V"],
+  vendas: ["A", "E", "P", "-", "E", "V", "T", "V"],
+  servicos: ["A", "E", "V", "P", "V", "V", "V", "V"],
+  pesquisa: ["A", "E", "V", "-", "-", "V", "V", "V"],
+  bre: ["A", "E", "P", "-", "-", "V", "T", "V"],
+  auditoria: ["A", "V", "-", "-", "V", "V", "-", "V"],
 };
 
 const ACOES_POR_NIVEL: Record<Exclude<Nivel, "-">, readonly Acao[]> = {
   A: ACOES,
   E: ["ver", "criar", "editar", "arquivar", "exportar"],
+  T: ["ver", "criar", "editar", "arquivar"],
   V: ["ver"],
   P: ["ver", "criar", "editar", "arquivar"],
 };

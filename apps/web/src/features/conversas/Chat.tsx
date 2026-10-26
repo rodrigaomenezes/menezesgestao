@@ -14,7 +14,7 @@ import { ErroApi, enviarArquivo, get, post } from "../../app/api";
 import { useDataHora, useSessao } from "../../app/sessao";
 import { useTempoReal } from "../../app/tempo-real";
 import { useAviso } from "../../ui/sobreposicoes";
-import { Mensagem as Aviso } from "../../ui/ui";
+import { Carregando, Mensagem as Aviso } from "../../ui/ui";
 import { formatarTelefone, useConfigCrm } from "../crm/comum";
 import { Audio, Gravador } from "./Gravador";
 import { BotaoLigar } from "../telefonia/Telefone";
@@ -353,7 +353,7 @@ export function Chat({ id, aoMudarLista }: { id: string; aoMudarLista(): void })
 
   const ordenadas = useMemo(() => mensagens, [mensagens]);
   if (erro) return <Aviso tipo="erro">{erro}</Aviso>;
-  if (!conversa) return <p className="carregando">Carregando…</p>;
+  if (!conversa) return <Carregando />;
 
   return (
     <section className="chat" aria-label={`Conversa com ${conversa.contatoNome ?? termos.contato}`}>

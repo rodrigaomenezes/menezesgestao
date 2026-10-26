@@ -1,7 +1,7 @@
 // Configuração do CRM por empresa: funis e etapas, motivos de perda, etiquetas e campos personalizados.
 // Nada disso é código: cada empresa monta o seu (princípio 004). Ler é crm:ver; alterar é crm:administrar.
 import { randomUUID } from "node:crypto";
-import { and, asc, eq, inArray, isNull } from "drizzle-orm";
+import { and, asc, count, eq, inArray, isNull } from "drizzle-orm";
 import type {
   CampoPersonalizadoDto,
   ConfiguracaoCrmDto,
@@ -12,6 +12,7 @@ import type {
   MotivoPerdaDto,
   TipoCampo,
 } from "@mg/shared";
+import { MAX_CAMPOS_POR_TIPO, MAX_ETIQUETAS } from "@mg/shared";
 import { comEmpresa, type Tx } from "../../infra/banco.js";
 import { campoPersonalizado, etapa, etiqueta, funil, motivoPerda, usuario, vinculo } from "../../infra/esquema.js";
 import { codigoPg, conflito, invalido, naoEncontrado } from "../../infra/erros.js";
@@ -245,9 +246,29 @@ export function criarServicoConfiguracaoCrm(s: Servicos) {
     });
   }
 
+  /** Limite de ativos (o arquivado não conta): explica por que não dá para criar ou restaurar mais um. */
+  async function exigirVagaEtiqueta(tx: Tx, ctx: ContextoEmpresa) {
+    const [{ n }] = await tx.db.select({ n: count() }).from(etiqueta).where(and(eq(etiqueta.empresaId, ctx.empresaId), isNull(etiqueta.arquivadoEm)));
+    if (n >= MAX_ETIQUETAS) throw invalido(`A empresa já tem ${MAX_ETIQUETAS} etiquetas ativas, o limite. Arquive uma que não usa mais para criar outra.`);
+  }
+
+  async function exigirVagaCampo(tx: Tx, ctx: ContextoEmpresa, entidade: "contato" | "oportunidade") {
+    const [{ n }] = await tx.db
+      .select({ n: count() })
+      .from(campoPersonalizado)
+      .where(and(eq(campoPersonalizado.empresaId, ctx.empresaId), eq(campoPersonalizado.entidade, entidade), isNull(campoPersonalizado.arquivadoEm)));
+    if (n >= MAX_CAMPOS_POR_TIPO) throw invalido(`Este tipo já tem ${MAX_CAMPOS_POR_TIPO} campos ativos, o limite. Arquive um que não usa mais para criar outro.`);
+  }
+
   async function salvarEtiqueta(ctx: ContextoEmpresa, origem: Origem, id: string | null, dados: { nome?: string; cor?: string; arquivado?: boolean }) {
     return comEmpresa(banco, ctx.empresaId, async (tx) => {
       const { arquivado, ...resto } = dados;
+      // Criar ou restaurar uma arquivada ocupa uma vaga; editar a que já está ativa, não.
+      const restaurando =
+        id && arquivado === false
+          ? (await tx.db.select({ a: etiqueta.arquivadoEm }).from(etiqueta).where(and(eq(etiqueta.id, id), eq(etiqueta.empresaId, ctx.empresaId))))[0]?.a
+          : null;
+      if (!id || restaurando) await exigirVagaEtiqueta(tx, ctx);
       try {
         let linha;
         if (id) {
@@ -278,6 +299,7 @@ export function criarServicoConfiguracaoCrm(s: Servicos) {
   ): Promise<CampoPersonalizadoDto> {
     if (dados.tipo === "lista" && !dados.opcoes.length) throw invalido("Campo do tipo lista precisa de pelo menos uma opção.");
     return comEmpresa(banco, ctx.empresaId, async (tx) => {
+      await exigirVagaCampo(tx, ctx, dados.entidade);
       try {
         const [c] = await tx.db.insert(campoPersonalizado).values({ empresaId: ctx.empresaId, ...dados, criadoPor: ctx.usuarioId }).returning();
         await registrar(tx, origem, { acao: "campo_personalizado.criado", entidade: "campo_personalizado", entidadeId: c.id, depois: dados });
@@ -301,6 +323,7 @@ export function criarServicoConfiguracaoCrm(s: Servicos) {
       if (!antes) throw naoEncontrado("Campo");
       if (antes.tipo === "lista" && dados.opcoes && !dados.opcoes.length) throw invalido("Campo do tipo lista precisa de pelo menos uma opção.");
       const { arquivado, ...resto } = dados;
+      if (arquivado === false && antes.arquivadoEm) await exigirVagaCampo(tx, ctx, antes.entidade);
       const [depois] = await tx.db
         .update(campoPersonalizado)
         .set({ ...resto, ...(arquivado === undefined ? {} : { arquivadoEm: arquivado ? new Date() : null }), atualizadoEm: new Date() })

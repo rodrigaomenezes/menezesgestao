@@ -15,7 +15,7 @@ import { formatarBytes } from "../plataforma/formato";
 import { ErroApi, get, post, put } from "../../app/api";
 import { useSessao } from "../../app/sessao";
 import { useAviso, useConfirmar } from "../../ui/sobreposicoes";
-import { ListaVazia, Mensagem, Titulo } from "../../ui/ui";
+import { Carregando, Titulo, ListaVazia, Mensagem } from "../../ui/ui";
 import { formatarDinheiro } from "../crm/comum";
 import { useVocabulario } from "../../app/vocabulario";
 
@@ -83,7 +83,7 @@ export function Plano() {
   };
 
   if (erro) return <Mensagem tipo="erro">{erro}</Mensagem>;
-  if (!a) return <p className="carregando">Carregando…</p>;
+  if (!a) return <Carregando />;
   return (
     <>
       <Titulo>Plano e cobrança</Titulo>

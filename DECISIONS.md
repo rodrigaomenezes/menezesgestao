@@ -698,3 +698,32 @@ etapa aberta e quantas pararam ali. "Chegar" = a maior ordem de etapa aberta por
 `oportunidade.etapa_alterada`, de onde saiu e para onde foi); ganhar conta como passar por todas; pular etapa conta
 como passar pelas do meio. A regra fica num lugar só (`crm/alcance-funil.ts`), usada pelo painel e pelo filtro
 `parouEm` da lista, para os dois contarem igual. Sem tabela nova: o histórico já estava nos eventos.
+
+# ADR-044 — O que vem da Konecta (requisitos v1.1) para o Menezes Gestão
+
+## Decisão
+O documento de requisitos da Konecta (`docs/konecta/REQUISITOS_KONECTA_v1.1.md`) passa a ser referência de
+princípios para o Menezes Gestão, em entregas pequenas. Entrega 1 (princípios de DEV, sem mudar o modelo):
+- **Erro no próprio campo** (critérios transversais, seção 10): o `details.campos` do 400 vira o erro de cada `<Campo>`
+  e `<Escolha>` (borda e texto vermelhos, `aria-invalid`), com foco no primeiro; o resumo do topo só some quando até 3
+  erros estão todos em campos que a tela mostra (`resumo(exibidos)`), para nenhuma mensagem sumir.
+- **Bloqueio progressivo com contagem** (RF-SEC-002): o 429 traz `tenteEmSegundos`; a tela conta e libera sozinha.
+- **Sem conexão, sem envio** (RNF-009): `useEnvio` desliga os formulários offline (contexto da Casca).
+- **Carregando com esqueleto** (seção 7.4); **duplicidade aponta o existente** (RF-CRM-004, aviso âmbar com "Abrir o
+  existente"); **limites visíveis** (RF-SAA-002): 50 campos personalizados por tipo e 200 etiquetas ativas, com
+  contador na tela e recusa no servidor (arquivar libera vaga; restaurar ocupa).
+- **Identificador de correlação** (RNF-024): `x-request-id` em toda resposta e em todo log da requisição; o do proxy
+  só é aceito com formato seguro (sem quebra de linha no log).
+- **Perfis da seção 3**: Empresário (vê tudo, trabalha nos contatos, sem exportar nem administrar), Supervisor (trabalha
+  na equipe, sem administrar) e Auditor (só leitura, com auditoria). Nível novo "T" na matriz. Empresas novas nascem com
+  eles; as existentes recebem pela migração 0021, gerada da própria matriz (idempotente).
+
+## Onde o Menezes Gestão diverge da Konecta, de propósito
+- **Vermelho de erro** `#b3261e` (não `#D93F2B`): o da Konecta em texto sobre fundo claro fica abaixo do contraste AA
+  que o próprio documento exige (RNF-020).
+- **Texto base 16 px** (não 14 px): o Menezes Gestão é celular primeiro, e 16 px evita o zoom automático do iOS nos
+  campos. A Konecta é computador primeiro (seção 7.8).
+
+## Próximas entregas (aprovadas)
+2: documento CPF/CNPJ mascarado com revelação auditada e exportação com finalidade registrada (RF-MIG-002).
+3: vários telefones, e-mails e endereços por registro (RF-CRM-002). 4: duplicados e fusão registrada (RF-CRM-008).

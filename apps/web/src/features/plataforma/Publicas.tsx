@@ -4,7 +4,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { DOCUMENTOS_LEGAIS, type DocumentoLegalDto, type DocumentoLegalId, type StatusPublicoDto } from "@mg/shared";
 import { ErroApi, get, post } from "../../app/api";
 import { useSessao } from "../../app/sessao";
-import { Mensagem } from "../../ui/ui";
+import { Carregando, Mensagem } from "../../ui/ui";
 import { Markdown } from "./Markdown";
 
 function PaginaAberta({ titulo, children }: { titulo: string; children: React.ReactNode }) {
@@ -30,7 +30,7 @@ export function Documento({ id }: { id: DocumentoLegalId }) {
   return (
     <PaginaAberta titulo={titulo}>
       <Mensagem tipo="erro">{erro}</Mensagem>
-      {doc ? <Markdown texto={doc.texto} /> : !erro && <p className="carregando">Carregando…</p>}
+      {doc ? <Markdown texto={doc.texto} /> : !erro && <Carregando />}
       <nav aria-label="Outros documentos" className="form-linha">
         {DOCUMENTOS_LEGAIS.filter((d) => d.id !== id).map((d) => (
           <Link key={d.id} to={d.rota}>

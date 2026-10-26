@@ -5,7 +5,7 @@ import { ErroApi, get, patch, post, query } from "../../app/api";
 import { useSessao } from "../../app/sessao";
 import { useTempoReal } from "../../app/tempo-real";
 import { Modal, useAviso } from "../../ui/sobreposicoes";
-import { BotaoAlternar, CarregarMais, Campo, Escolha, FiltroArquivados, ListaVazia, Mensagem, Titulo, useEnvio, usePaginado } from "../../ui/ui";
+import { BotaoAlternar, Campo, Carregando, CarregarMais, FiltroArquivados, Titulo, ListaVazia, Mensagem, Escolha, useEnvio, usePaginado } from "../../ui/ui";
 import { useConfigCrm } from "../crm/comum";
 
 /** Abre os roteiros sugeridos para o contato (os da etapa dele primeiro). */
@@ -31,7 +31,7 @@ export function BotaoScripts(props: { contatoId?: string | null; uso: "conversa"
         <Modal aberto titulo="Scripts" aoFechar={() => setAberto(false)}>
           <Mensagem tipo="erro">{erro}</Mensagem>
           {itens && !itens.length && <ListaVazia>Nenhum script para este momento. O gestor cadastra em Scripts.</ListaVazia>}
-          {!itens && !erro && <p className="carregando">Carregando…</p>}
+          {!itens && !erro && <Carregando />}
           <ul className="lista scripts">
             {itens?.map((s) => {
               const texto = preencherVariaveis(s.texto, props.variaveis);

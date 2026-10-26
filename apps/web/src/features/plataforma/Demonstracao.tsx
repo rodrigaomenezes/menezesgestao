@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { PAPEIS_DEMONSTRACAO, type EmpresaDemonstracaoDto, type PainelDemonstracaoDto, type PapelDemonstracao } from "@mg/shared";
 import { ErroApi, get, post } from "../../app/api";
 import { useSessao } from "../../app/sessao";
-import { Campo, Mensagem, useEnvio } from "../../ui/ui";
+import { Campo, Carregando, Mensagem, useEnvio } from "../../ui/ui";
 
 const NOMES_RESUMO: Record<string, string> = {
   pessoas: "pessoas",
@@ -147,7 +147,7 @@ export function Demonstracao() {
       </main>
     );
   }
-  if (!painel) return <p className="carregando">Carregando…</p>;
+  if (!painel) return <Carregando />;
   return (
     <main className="pagina-aberta" id="conteudo">
       <h1>Demonstração</h1>

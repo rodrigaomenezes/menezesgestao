@@ -54,7 +54,7 @@ function FormularioConvite({ opcoes, aoConvidar }: { opcoes: Opcoes; aoConvidar(
   const [unidadeId, setUnidadeId] = useState("");
   const [equipeId, setEquipeId] = useState("");
   const [ok, setOk] = useState("");
-  const { enviando, erro, enviar } = useEnvio(async () => {
+  const { enviando, resumo, campos, enviar } = useEnvio(async () => {
     await post("/convites", { email, nome, perfilId, unidadeId: unidadeId || null, equipeId: equipeId || null });
     setOk(`Convite enviado para ${email}.`);
     setEmail("");
@@ -65,13 +65,13 @@ function FormularioConvite({ opcoes, aoConvidar }: { opcoes: Opcoes; aoConvidar(
   return (
     <form className="cartao" onSubmit={enviar}>
       <div className="grade-campos">
-        <Campo rotulo="Nome" nome="convite-nome" valor={nome} aoMudar={setNome} obrigatorio />
-        <Campo rotulo="E-mail" nome="convite-email" tipo="email" valor={email} aoMudar={setEmail} obrigatorio />
-        <Escolha rotulo="Perfil" nome="convite-perfil" valor={perfilId} aoMudar={setPerfilId} opcoes={paraOpcoes(opcoes.perfis)} vazio="Escolha…" obrigatorio />
+        <Campo rotulo="Nome" nome="convite-nome" valor={nome} aoMudar={setNome} obrigatorio erro={campos.nome} />
+        <Campo rotulo="E-mail" nome="convite-email" tipo="email" valor={email} aoMudar={setEmail} obrigatorio erro={campos.email} />
+        <Escolha rotulo="Perfil" nome="convite-perfil" valor={perfilId} aoMudar={setPerfilId} opcoes={paraOpcoes(opcoes.perfis)} vazio="Escolha…" obrigatorio erro={campos.perfilId} />
         <Escolha rotulo="Unidade" nome="convite-unidade" valor={unidadeId} aoMudar={setUnidadeId} opcoes={paraOpcoes(opcoes.unidades)} vazio="Nenhuma" />
         <Escolha rotulo="Equipe" nome="convite-equipe" valor={equipeId} aoMudar={setEquipeId} opcoes={paraOpcoes(opcoes.equipes)} vazio="Nenhuma" />
       </div>
-      <Mensagem tipo="erro">{erro}</Mensagem>
+      <Mensagem tipo="erro">{resumo(["nome", "email", "perfilId"])}</Mensagem>
       <Mensagem tipo="sucesso">{ok}</Mensagem>
       <button type="submit" className="botao" disabled={enviando}>
         {enviando ? "Enviando…" : "Enviar convite"}

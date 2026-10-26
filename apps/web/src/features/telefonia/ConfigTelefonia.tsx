@@ -11,7 +11,7 @@ import {
 } from "@mg/shared";
 import { ErroApi, get, patch, post, put } from "../../app/api";
 import { useAviso } from "../../ui/sobreposicoes";
-import { Campo, Escolha, ListaVazia, Mensagem, Titulo, useEnvio } from "../../ui/ui";
+import { Campo, Carregando, Titulo, ListaVazia, Mensagem, Escolha, useEnvio } from "../../ui/ui";
 import { useVocabulario } from "../../app/vocabulario";
 
 function Configuracao() {
@@ -26,7 +26,7 @@ function Configuracao() {
     setC(await put<TelefoniaConfigDto>("/telefonia/config", { ...c, sipServidor: c.sipServidor || null, sipDominio: c.sipDominio || null }));
     avisar("Configuração salva.");
   });
-  if (!c) return <p className="carregando">Carregando…</p>;
+  if (!c) return <Carregando />;
   const mudar = (campo: keyof TelefoniaConfigDto, valor: unknown) => setC({ ...c, [campo]: valor });
   return (
     <form className="cartao" onSubmit={enviar} aria-labelledby="titulo-config-tel">

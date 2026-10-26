@@ -5,7 +5,7 @@ import { DESTINOS_FIXOS, NOMES_DESTINOS, type FilaDto, type ImportacaoDto, type 
 import { ErroApi, enviarArquivo, get, post } from "../../app/api";
 import { useDataHora, useSessao } from "../../app/sessao";
 import { useTempoReal } from "../../app/tempo-real";
-import { Campo, CarregarMais, Escolha, ListaVazia, Mensagem, Titulo, useEnvio, usePaginado } from "../../ui/ui";
+import { Campo, Carregando, CarregarMais, Titulo, ListaVazia, Mensagem, Escolha, useEnvio, usePaginado } from "../../ui/ui";
 import { EscolhaEtiquetas, useConfigCrm } from "./comum";
 import { useVocabulario } from "../../app/vocabulario";
 
@@ -189,7 +189,7 @@ function Relatorio({ id }: { id: string }) {
   useEffect(carregar, [carregar]);
   useTempoReal(["importacao."], (a) => (a.entidadeId === id ? carregar() : undefined));
   if (erro) return <Mensagem tipo="erro">{erro}</Mensagem>;
-  if (!imp) return <p className="carregando">Carregando…</p>;
+  if (!imp) return <Carregando />;
   const andamento = imp.status === "PENDENTE" || imp.status === "PROCESSANDO";
 
   return (

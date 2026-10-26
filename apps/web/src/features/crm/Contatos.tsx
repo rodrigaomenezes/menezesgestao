@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import type { ContatoDto, ResultadoAdicionarDto } from "@mg/shared";
-import { get, post, query } from "../../app/api";
+import { ErroApi, get, post, query } from "../../app/api";
 import { useFiltrosUrl } from "../../app/filtros-url";
 import { useSessao } from "../../app/sessao";
 import { useTempoReal } from "../../app/tempo-real";
@@ -21,7 +21,10 @@ function NovoContato({ config, aoCriar }: { config: Config; aoCriar(id: string):
   const [responsavelId, setResponsavelId] = useState("");
   const [etiquetaIds, setEtiquetaIds] = useState<string[]>([]);
   const [campos, setCampos] = useState<ValoresCampos>({});
-  const { enviando, erro, enviar } = useEnvio(async () => {
+  // Telefone repetido nunca cria outro registro: o aviso mostra quem já existe e leva até ele (D-18).
+  const [repetido, setRepetido] = useState<{ mensagem: string; contatoId: string | null } | null>(null);
+  const envio = useEnvio(async () => {
+    setRepetido(null);
     const criado = await post<ContatoDto>("/contatos", {
       nome,
       telefone: telefone || null,
@@ -29,17 +32,32 @@ function NovoContato({ config, aoCriar }: { config: Config; aoCriar(id: string):
       responsavelId: responsavelId || null,
       etiquetaIds,
       campos,
+    }).catch((e: unknown) => {
+      if (e instanceof ErroApi && e.codigo === "CONFLITO") {
+        setRepetido({ mensagem: e.message, contatoId: typeof e.detalhes.contatoId === "string" ? e.detalhes.contatoId : null });
+        return null;
+      }
+      throw e;
     });
-    aoCriar(criado.id);
+    if (criado) aoCriar(criado.id);
   });
   const definicoes = config.campos.filter((c) => c.entidade === "contato");
 
   return (
-    <form className="cartao" onSubmit={enviar} aria-label={termos.t("{Novo contato}")}>
+    <form className="cartao" onSubmit={envio.enviar} aria-label={termos.t("{Novo contato}")}>
       <div className="grade-campos">
-        <Campo rotulo="Nome" nome="contato-nome" valor={nome} aoMudar={setNome} obrigatorio />
-        <Campo rotulo="Telefone (WhatsApp)" nome="contato-telefone" tipo="tel" valor={telefone} aoMudar={setTelefone} dica="Com DDD. Ex.: (11) 98888-7777" autoComplete="off" />
-        <Campo rotulo="E-mail" nome="contato-email" tipo="email" valor={email} aoMudar={setEmail} />
+        <Campo rotulo="Nome" nome="contato-nome" valor={nome} aoMudar={setNome} obrigatorio erro={envio.campos.nome} />
+        <Campo
+          rotulo="Telefone (WhatsApp)"
+          nome="contato-telefone"
+          tipo="tel"
+          valor={telefone}
+          aoMudar={setTelefone}
+          dica="Com DDD. Ex.: (11) 98888-7777"
+          autoComplete="off"
+          erro={envio.campos.telefone}
+        />
+        <Campo rotulo="E-mail" nome="contato-email" tipo="email" valor={email} aoMudar={setEmail} erro={envio.campos.email} />
         {config.responsaveis.length > 1 && (
           <Escolha
             rotulo="Responsável"
@@ -53,9 +71,15 @@ function NovoContato({ config, aoCriar }: { config: Config; aoCriar(id: string):
         <CamposPersonalizados definicoes={definicoes} valores={campos} aoMudar={setCampos} prefixo="novo" />
       </div>
       <EscolhaEtiquetas etiquetas={config.etiquetas} marcadas={etiquetaIds} aoMudar={setEtiquetaIds} />
-      <Mensagem tipo="erro">{erro}</Mensagem>
-      <button type="submit" className="botao" disabled={enviando}>
-        {enviando ? "Salvando…" : termos.t("Cadastrar {contato}")}
+      {repetido && (
+        <p className="mensagem mensagem-aviso" role="alert">
+          {repetido.mensagem}{" "}
+          {repetido.contatoId && <Link to={`/contatos/${repetido.contatoId}`}>Abrir o existente</Link>}
+        </p>
+      )}
+      <Mensagem tipo="erro">{envio.resumo(["nome", "telefone", "email"])}</Mensagem>
+      <button type="submit" className="botao" disabled={envio.enviando}>
+        {envio.enviando ? "Salvando…" : termos.t("Cadastrar {contato}")}
       </button>
     </form>
   );

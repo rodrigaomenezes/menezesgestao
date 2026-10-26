@@ -74,6 +74,8 @@ describe("login", () => {
     const bloqueado = await c.post("/api/auth/entrar", { email: alvo, senha: SENHA_TESTE });
     expect(bloqueado.statusCode).toBe(429);
     expect(bloqueado.json().error.message).toMatch(/Esqueci a senha/);
+    // A tela usa os segundos que faltam para a contagem regressiva (RC-07).
+    expect(bloqueado.json().error.details.tenteEmSegundos).toBeGreaterThan(0);
     expect(await acoesAuditadas(null, e.a.pessoas.vendedor2.usuarioId)).toEqual(Array(5).fill("login.falhou"));
     await t.banco.pool.query("UPDATE usuario SET bloqueado_ate = NULL, tentativas_falhas = 0 WHERE id = $1", [
       e.a.pessoas.vendedor2.usuarioId,

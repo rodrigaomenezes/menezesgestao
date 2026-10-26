@@ -8,6 +8,8 @@ export class ErroApi extends Error {
     public readonly status: number,
     public readonly codigo: CodigoErro | "SEM_CONEXAO",
     mensagem: string,
+    /** O `details` da resposta (ex.: `campos` com o erro de cada campo, `contatoId` do registro repetido). */
+    public readonly detalhes: Record<string, unknown> = {},
   ) {
     super(mensagem);
   }
@@ -38,7 +40,7 @@ export async function api<T>(metodo: Metodo, caminho: string, corpo?: unknown): 
   const dados = (await res.json().catch(() => null)) as unknown;
   if (!res.ok) {
     const erro = (dados as Partial<RespostaErro> | null)?.error;
-    throw new ErroApi(res.status, erro?.code ?? "ERRO_INTERNO", erro?.message ?? "Não foi possível concluir. Tente de novo em instantes.");
+    throw new ErroApi(res.status, erro?.code ?? "ERRO_INTERNO", erro?.message ?? "Não foi possível concluir. Tente de novo em instantes.", erro?.details ?? {});
   }
   return dados as T;
 }

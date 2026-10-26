@@ -13,7 +13,7 @@ import { ErroApi, get, patch, post, put, query } from "../../app/api";
 import { useDataHora, useEu, useSessao } from "../../app/sessao";
 import { useTempoReal } from "../../app/tempo-real";
 import { Modal, useAviso } from "../../ui/sobreposicoes";
-import { CarregarMais, Campo, ListaVazia, Mensagem, Titulo, useEnvio, usePaginado } from "../../ui/ui";
+import { Campo, Carregando, CarregarMais, Titulo, ListaVazia, Mensagem, useEnvio, usePaginado } from "../../ui/ui";
 import { hojeNoFuso, horaNoFuso, instante, mesAtual, nomeDoMes, somarMeses, useFuso } from "./comum";
 import { Ponto } from "./Rotina";
 
@@ -172,7 +172,7 @@ function EditorEscala({ pessoa, aoFechar }: { pessoa: { id: string; nome: string
   return (
     <Modal aberto titulo={`Escala de ${pessoa.nome}`} aoFechar={aoFechar}>
       {!intervalos ? (
-        <p className="carregando">Carregando…</p>
+        <Carregando />
       ) : (
         <form onSubmit={envio.enviar}>
           {!intervalos.length && <ListaVazia>Sem escala. Adicione os horários de trabalho da semana.</ListaVazia>}

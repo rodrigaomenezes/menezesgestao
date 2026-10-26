@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import Fastify, { type FastifyInstance, type FastifyReply } from "fastify";
@@ -117,6 +118,16 @@ export async function criarApp(servicos: Servicos): Promise<AppMontado> {
     bodyLimit: LIMITE_JSON,
     // Em produção há exatamente um proxy na frente (Railway): confia só nele para descobrir o IP real.
     trustProxy: config.producao ? (_endereco: string, salto: number) => salto === 0 : false,
+    // Identificador de correlação (RNF-024 da Konecta): vem do proxy quando ele manda um seguro, senão é gerado;
+    // aparece em todo log da requisição e volta no cabeçalho x-request-id para o suporte achar o caso.
+    requestIdHeader: false,
+    genReqId: (req) => {
+      const recebido = req.headers["x-request-id"];
+      return typeof recebido === "string" && /^[A-Za-z0-9._-]{8,64}$/.test(recebido) ? recebido : randomUUID();
+    },
+  });
+  app.addHook("onSend", async (req, reply) => {
+    reply.header("x-request-id", req.id);
   });
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
