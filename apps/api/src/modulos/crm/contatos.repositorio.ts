@@ -6,6 +6,7 @@ import type { Tx } from "../../infra/banco.js";
 import { contato, contatoEtiqueta, etiqueta, evento, usuario } from "../../infra/esquema.js";
 import { condicaoCursor, lerCursor } from "../../infra/paginacao.js";
 import { filtroUsuariosVisiveis, type QuemVe } from "../acesso/escopo.js";
+import { temTelefone } from "./telefones.js";
 
 const responsavel = alias(usuario, "responsavel");
 const organizacao = alias(contato, "organizacao");
@@ -69,6 +70,9 @@ function condicoes(empresaId: string, quem: QuemVe, escopo: Escopo, f: Omit<Filt
           ilike(contato.nome, `%${f.busca}%`),
           ilike(contato.email, `%${f.busca}%`),
           digitos.length >= 4 ? ilike(contato.telefone, `%${digitos}%`) : undefined,
+          // Telefones e e-mails extras também acham o contato.
+          sql`EXISTS (SELECT 1 FROM contato_canal cc WHERE cc.contato_id = ${contato.id} AND cc.arquivado_em IS NULL AND (
+            (cc.tipo = 'email' AND cc.valor ILIKE ${`%${f.busca}%`})${digitos.length >= 4 ? sql` OR (cc.tipo = 'telefone' AND cc.valor LIKE ${`%${digitos}%`})` : sql``}))`,
           f.documentoHash ? eq(contato.documentoHash, f.documentoHash) : undefined,
         )
       : undefined,
@@ -124,12 +128,12 @@ export function idsVisiveis(tx: Tx, empresaId: string, quem: QuemVe, escopo: Esc
     .where(and(eq(contato.empresaId, empresaId), inArray(contato.id, ids), visivel(quem, escopo)));
 }
 
-/** Contato com o mesmo telefone (normalizado) — inclusive arquivado. */
+/** Contato com o mesmo telefone (normalizado), como principal ou extra — inclusive arquivado. */
 export function buscarPorTelefone(tx: Tx, empresaId: string, telefone: string) {
   return tx.db
     .select({ id: contato.id, responsavelId: contato.responsavelId })
     .from(contato)
-    .where(and(eq(contato.empresaId, empresaId), eq(contato.telefone, telefone)))
+    .where(and(eq(contato.empresaId, empresaId), temTelefone(empresaId, [telefone])))
     .then((r) => r[0] ?? null);
 }
 

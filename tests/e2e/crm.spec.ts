@@ -215,3 +215,41 @@ test("CPF mascarado na ficha, “Mostrar” para quem pode, e exportação com f
   expect(arquivo.suggestedFilename()).toMatch(/^contatos-\d{4}-\d{2}-\d{2}\.csv$/);
   await expect(page.getByText("Planilha gerada.")).toBeVisible();
 });
+
+test("outros telefones e endereços na ficha: incluir, tornar principal e endereço principal (RF-CRM-002)", async ({ page }, info) => {
+  const { a } = dados();
+  await entrar(page, pessoa(a, "dono").email);
+  const csrf = (await page.context().cookies()).find((c) => c.name === "mg_csrf")?.value ?? "";
+  const principal = telefoneUnico(info.project.name, 7);
+  const extra = telefoneUnico(info.project.name, 8);
+  const r = await page.request.post("/api/contatos", { headers: { "x-csrf-token": csrf }, data: { nome: `Extras ${info.project.name}`, telefone: principal } });
+  expect(r.status(), await r.text()).toBe(201);
+  await page.goto(`/contatos/${(await r.json()).id}`);
+
+  const canais = page.getByRole("region", { name: "Outros telefones e e-mails" });
+  await expect(canais.getByText("Só o telefone e o e-mail principais.")).toBeVisible();
+  await canais.getByLabel("Número").fill(extra);
+  await canais.getByRole("button", { name: "Incluir" }).click();
+  await expect(canais.getByText("Telefone · Celular")).toBeVisible();
+  await expect(canais.getByText("1 de 10")).toBeVisible();
+  await canais.getByRole("button", { name: "Tornar principal" }).click();
+  await expect(page.getByText("Agora este é o telefone principal.")).toBeVisible();
+  // O principal de antes virou o extra.
+  await expect(canais.getByText(principal, { exact: true })).toBeVisible();
+
+  const enderecos = page.getByRole("region", { name: "Endereços" });
+  await enderecos.getByRole("button", { name: "Incluir endereço" }).click();
+  await enderecos.getByLabel("Rua ou avenida").fill("Rua das Acácias");
+  await enderecos.getByLabel("Número").fill("42");
+  await enderecos.getByLabel("Cidade").fill("Curitiba");
+  await enderecos.getByLabel("Estado (UF)").selectOption("PR");
+  await enderecos.getByLabel("CEP").fill("8001");
+  await enderecos.getByRole("button", { name: "Salvar endereço" }).click();
+  // CEP incompleto: erro no próprio campo.
+  await expect(enderecos.getByLabel("CEP")).toHaveAttribute("aria-invalid", "true");
+  await enderecos.getByLabel("CEP").fill("80010-000");
+  await enderecos.getByRole("button", { name: "Salvar endereço" }).click();
+  await expect(enderecos.getByText("Rua das Acácias, 42")).toBeVisible();
+  await expect(enderecos.getByText("Residencial · principal")).toBeVisible();
+  await semRolagemLateral(page);
+});

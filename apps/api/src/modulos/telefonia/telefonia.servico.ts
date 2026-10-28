@@ -2,7 +2,7 @@
 // As ligações acontecem no navegador (treino, celular ou SIP/WebRTC); o servidor registra cada mudança de estado,
 // confere as transições e grava o histórico do contato sem ninguém digitar.
 import { createHmac } from "node:crypto";
-import { aliasedTable, and, asc, desc, eq, inArray, isNotNull, isNull, lt, sql } from "drizzle-orm";
+import { aliasedTable, and, asc, desc, eq, isNotNull, isNull, lt, sql } from "drizzle-orm";
 import {
   normalizarTelefone,
   variantesTelefone,
@@ -29,6 +29,7 @@ import { registrar, type Origem } from "../auditoria/registro.js";
 import { publicar } from "../eventos/publicar.js";
 import type { ProvedorArquivos } from "../arquivos/armazenamento.js";
 import { fusoDe, instantesDoPeriodo } from "../operacao/comum.js";
+import { temTelefone } from "../crm/telefones.js";
 
 export const LIMITE_GRAVACAO = 30 * 1024 * 1024;
 const VALIDADE_LINK_MS = 5 * 60_000;
@@ -243,7 +244,7 @@ export function criarServicoTelefonia(s: Servicos, arquivos: ProvedorArquivos) {
         const [dono] = await tx.db
           .select({ naoContatar: contato.naoContatar })
           .from(contato)
-          .where(and(eq(contato.empresaId, ctx.empresaId), inArray(contato.telefone, variantesTelefone(numero)), eq(contato.naoContatar, true)))
+          .where(and(eq(contato.empresaId, ctx.empresaId), temTelefone(ctx.empresaId, variantesTelefone(numero)), eq(contato.naoContatar, true)))
           .limit(1);
         if (dono) throw invalido("Este número é de {um contato} que pediu para não ser contatad{o|a:contato} (LGPD). A ligação não foi feita.");
       }

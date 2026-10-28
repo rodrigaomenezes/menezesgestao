@@ -170,6 +170,9 @@ export class Cliente {
   patch(url: string, corpo: unknown = {}) {
     return this.pedir("PATCH", url, corpo);
   }
+  put(url: string, corpo: unknown = {}) {
+    return this.pedir("PUT", url, corpo);
+  }
   delete(url: string) {
     return this.pedir("DELETE", url);
   }

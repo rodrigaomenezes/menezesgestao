@@ -188,6 +188,79 @@ export const FiltroExportacaoContatos = FiltroContatos.omit({ cursor: true, limi
   finalidade: z.enum(FINALIDADES_EXPORTACAO, { error: "Escolha a finalidade da exportação." }),
 });
 
+// Telefones, e-mails e endereços extras (Konecta RF-CRM-002) ------------------------------------------------
+// O telefone e o e-mail principais continuam no contato (o telefone é a chave contra duplicidade); estes são os outros.
+
+export const TIPOS_CANAL = ["telefone", "email"] as const;
+export const ROTULOS_CANAL = ["celular", "whatsapp", "comercial", "residencial", "pessoal", "outro"] as const;
+export const NOMES_ROTULOS_CANAL: Record<(typeof ROTULOS_CANAL)[number], string> = {
+  celular: "Celular",
+  whatsapp: "WhatsApp",
+  comercial: "Comercial",
+  residencial: "Residencial",
+  pessoal: "Pessoal",
+  outro: "Outro",
+};
+export const CanalContatoDto = z.object({
+  id: Id,
+  tipo: z.enum(TIPOS_CANAL),
+  /** Telefone em E.164; e-mail em minúsculas. */
+  valor: z.string(),
+  rotulo: z.enum(ROTULOS_CANAL),
+  criadoEm: DataIso,
+});
+export type CanalContatoDto = z.infer<typeof CanalContatoDto>;
+export const CanalContatoEntrada = z.object({
+  tipo: z.enum(TIPOS_CANAL),
+  valor: texto(200, "Número ou e-mail"),
+  rotulo: z.enum(ROTULOS_CANAL).default("outro"),
+});
+export const ParamCanal = z.object({ id: Id, canalId: Id });
+
+export const ROTULOS_ENDERECO = ["residencial", "comercial", "entrega", "cobranca", "outro"] as const;
+export const NOMES_ROTULOS_ENDERECO: Record<(typeof ROTULOS_ENDERECO)[number], string> = {
+  residencial: "Residencial",
+  comercial: "Comercial",
+  entrega: "Entrega",
+  cobranca: "Cobrança",
+  outro: "Outro",
+};
+export const UFS = [
+  "AC", "AL", "AM", "AP", "BA", "CE", "DF", "ES", "GO", "MA", "MG", "MS", "MT", "PA", "PB", "PE", "PI", "PR", "RJ", "RN", "RO", "RR", "RS", "SC", "SE", "SP", "TO",
+] as const;
+export const EnderecoContatoDto = z.object({
+  id: Id,
+  rotulo: z.enum(ROTULOS_ENDERECO),
+  cep: z.string().nullable(),
+  logradouro: z.string(),
+  numero: z.string().nullable(),
+  complemento: z.string().nullable(),
+  bairro: z.string().nullable(),
+  cidade: z.string(),
+  uf: z.string(),
+  principal: z.boolean(),
+  criadoEm: DataIso,
+  atualizadoEm: DataIso,
+});
+export type EnderecoContatoDto = z.infer<typeof EnderecoContatoDto>;
+const textoOpcional = (max: number, rotulo: string) =>
+  opcional(z.string().trim().max(max, { error: `${rotulo}: no máximo ${max} caracteres.` })).transform((v) => v || null);
+export const EnderecoContatoEntrada = z.object({
+  rotulo: z.enum(ROTULOS_ENDERECO).default("residencial"),
+  /** CEP com ou sem traço; guardado só com os 8 dígitos. */
+  cep: opcional(z.string().trim().max(10))
+    .transform((v) => (v ? v.replace(/\D/g, "") : null))
+    .refine((v) => v === null || v.length === 8, { error: "CEP: use os 8 números, por exemplo 01310-100." }),
+  logradouro: texto(200, "Rua ou avenida"),
+  numero: textoOpcional(20, "Número"),
+  complemento: textoOpcional(120, "Complemento"),
+  bairro: textoOpcional(120, "Bairro"),
+  cidade: texto(120, "Cidade"),
+  uf: z.enum(UFS, { error: "Escolha o estado (UF)." }),
+  principal: z.boolean().default(false),
+});
+export const ParamEndereco = z.object({ id: Id, enderecoId: Id });
+
 export const ACOES_EM_MASSA = ["transferir", "arquivar", "restaurar", "etiquetar", "desetiquetar"] as const;
 export const AcaoEmMassaEntrada = z.object({
   ids: z.array(Id).min(1, { error: "Selecione ao menos {um contato}." }).max(200, { error: "Selecione no máximo 200 {contatos} por vez." }),

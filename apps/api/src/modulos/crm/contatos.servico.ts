@@ -31,6 +31,8 @@ import { montarCsv } from "./csv.js";
 import { validarResponsavel } from "./carteira.js";
 import { definicoesDeCampos } from "./configuracao.servico.js";
 import * as repo from "./contatos.repositorio.js";
+import { canaisDeVarios } from "./canais.repositorio.js";
+import { donoDoTelefone, travarTelefone } from "./telefones.js";
 
 export interface DadosContato {
   tipo?: "pessoa" | "empresa";
@@ -64,6 +66,20 @@ export function telefoneOuErro(entrada: string | null | undefined): string | nul
   const e164 = normalizarTelefone(entrada);
   if (!e164) throw invalido("Telefone inválido. Use DDD + número, por exemplo (11) 98765-4321, ou +código do país.", { campo: "telefone" });
   return e164;
+}
+
+/** Telefone repetido (principal ou extra): explica e, se a pessoa pode ver o contato existente, aponta para ele. */
+export async function erroTelefoneRepetido(tx: Tx, ctx: ContextoEmpresa, escopo: Escopo, telefone: string): Promise<ErroApp> {
+  const existente = await repo.buscarPorTelefone(tx, ctx.empresaId, telefone);
+  const visivel = existente ? await repo.buscarVisivel(tx, ctx.empresaId, ctx, escopo, existente.id) : null;
+  return new ErroApp(
+    409,
+    "CONFLITO",
+    visivel
+      ? `Já existe {um contato} com este telefone: ${visivel.nome}${visivel.arquivadoEm ? " (arquivado — restaure em vez de cadastrar de novo)" : ""}.`
+      : "Já existe {um contato} com este telefone na empresa, na carteira de outra pessoa. Peça ao gestor para transferir.",
+    visivel ? { contatoId: visivel.id } : undefined,
+  );
 }
 
 export function criarServicoContatos(s: Servicos) {
@@ -112,20 +128,6 @@ export function criarServicoContatos(s: Servicos) {
     return dto(c, (await repo.etiquetasDe(tx, [c.id])).get(c.id) ?? []);
   }
 
-  /** Telefone repetido: explica e, se a pessoa pode ver o contato existente, aponta para ele. */
-  async function erroTelefoneRepetido(tx: Tx, ctx: ContextoEmpresa, escopo: Escopo, telefone: string): Promise<ErroApp> {
-    const existente = await repo.buscarPorTelefone(tx, ctx.empresaId, telefone);
-    const visivel = existente ? await repo.buscarVisivel(tx, ctx.empresaId, ctx, escopo, existente.id) : null;
-    return new ErroApp(
-      409,
-      "CONFLITO",
-      visivel
-        ? `Já existe {um contato} com este telefone: ${visivel.nome}${visivel.arquivadoEm ? " (arquivado — restaure em vez de cadastrar de novo)" : ""}.`
-        : "Já existe {um contato} com este telefone na empresa, na carteira de outra pessoa. Peça ao gestor para transferir.",
-      visivel ? { contatoId: visivel.id } : undefined,
-    );
-  }
-
   async function validarOrganizacao(tx: Tx, ctx: ContextoEmpresa, escopo: Escopo, organizacaoId: string | null | undefined, proprioId?: string) {
     if (!organizacaoId) return;
     if (organizacaoId === proprioId) throw invalido("{Um contato} não pode ser a própria empresa.");
@@ -165,6 +167,11 @@ export function criarServicoContatos(s: Servicos) {
       await validarOrganizacao(tx, ctx, escopo, dados.organizacaoId);
       const campos = validarCampos(await definicoesDeCampos(tx, ctx.empresaId, "contato"), dados.campos ?? {}, { exigirObrigatorios: true });
       const etiquetaIds = (await repo.etiquetasValidas(tx, ctx.empresaId, dados.etiquetaIds ?? [])).map((e) => e.id);
+      if (telefone) {
+        // O índice único só vê os principais: sob a trava, confere também os telefones extras.
+        await travarTelefone(tx, ctx.empresaId, telefone);
+        if (await donoDoTelefone(tx, ctx.empresaId, telefone)) throw await erroTelefoneRepetido(tx, ctx, escopo, telefone);
+      }
       let id: string;
       try {
         await tx.cliente.query("SAVEPOINT novo_contato");
@@ -235,6 +242,14 @@ export function criarServicoContatos(s: Servicos) {
           exigirObrigatorios: true,
           atuais: antes.campos,
         });
+      }
+      if (mudancas.telefone && mudancas.telefone !== antes.telefone) {
+        await travarTelefone(tx, ctx.empresaId, mudancas.telefone);
+        const dono = await donoDoTelefone(tx, ctx.empresaId, mudancas.telefone);
+        if (dono?.contatoId === id && dono.extra) {
+          throw invalido("Este número já está entre os outros telefones {deste contato}. Use “Tornar principal” nele.", { campo: "telefone" });
+        }
+        if (dono) throw await erroTelefoneRepetido(tx, ctx, escopo, mudancas.telefone);
       }
       try {
         await tx.cliente.query("SAVEPOINT altera_contato");
@@ -450,15 +465,19 @@ export function criarServicoContatos(s: Servicos) {
         throw invalido(`O filtro traz mais de ${LIMITE_EXPORTACAO_CONTATOS.toLocaleString("pt-BR")} registros. Filtre mais (etiqueta, responsável ou busca) e exporte em partes.`);
       }
       const etiquetas = await repo.etiquetasDe(tx, linhas.map((l) => l.id));
+      const extras = await canaisDeVarios(tx, ctx.empresaId, linhas.map((l) => l.id));
       const csv = montarCsv(
-        ["Nome", "Tipo", "Telefone", "E-mail", "CPF/CNPJ", "Organização", "Responsável", "Origem", "Etiquetas", "Não contatar", "Criado em"],
+        ["Nome", "Tipo", "Telefone", "Outros telefones", "E-mail", "Outros e-mails", "CPF/CNPJ", "Organização", "Responsável", "Origem", "Etiquetas", "Não contatar", "Criado em"],
         linhas.map((l) => {
           const c = dto(l, etiquetas.get(l.id) ?? []);
+          const outros = extras.get(l.id);
           return [
             c.nome,
             c.tipo === "empresa" ? "Empresa" : "Pessoa",
             c.telefone ? formatarTelefone(c.telefone) : "",
+            outros?.telefones.map(formatarTelefone).join(", ") ?? "",
             c.email,
+            outros?.emails.join(", ") ?? "",
             c.documentoMascarado,
             c.organizacaoNome,
             c.responsavelNome,

@@ -20,6 +20,7 @@ import { validarResponsavel } from "./carteira.js";
 import { definicoesDeCampos } from "./configuracao.servico.js";
 import { lerPlanilha } from "./planilha.js";
 import * as contatos from "./contatos.repositorio.js";
+import { temTelefone } from "./telefones.js";
 
 export const FILA_IMPORTACAO = "crm.importacao";
 const TAMANHO_LOTE = 500;
@@ -254,7 +255,7 @@ export function criarServicoImportacao(s: Servicos, arquivos: ProvedorArquivos) 
             const existente = await tx.db
               .select({ id: contato.id, nome: contato.nome, email: contato.email, origem: contato.origem, campos: contato.campos, responsavelId: contato.responsavelId, arquivadoEm: contato.arquivadoEm })
               .from(contato)
-              .where(and(eq(contato.empresaId, empresaId), eq(contato.telefone, telefone)))
+              .where(and(eq(contato.empresaId, empresaId), temTelefone(empresaId, [telefone])))
               .then((r) => r[0]);
 
             if (!existente) {

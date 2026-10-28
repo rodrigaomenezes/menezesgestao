@@ -265,7 +265,9 @@ O documento de requisitos da Konecta está em `docs/konecta/`. Já valem no Mene
 foco nele, contagem regressiva no login bloqueado, formulários desligados sem internet, esqueleto ao carregar, aviso de
 cadastro repetido com "Abrir o existente", limites visíveis (50 campos por tipo, 200 etiquetas), `x-request-id` em toda
 resposta e os perfis Empresário, Supervisor e Auditor. O contato aceita CPF/CNPJ (cifrado; na tela só o final, com
-"Mostrar" para quem pode exportar, auditado) e a lista exporta planilha com finalidade obrigatória.
+"Mostrar" para quem pode exportar, auditado) e a lista exporta planilha com finalidade obrigatória. A ficha guarda
+outros telefones e e-mails (com rótulo e "Tornar principal") e vários endereços, um deles principal; um telefone extra
+vale como o principal na busca, no WhatsApp e na importação, e não pode ser de outro cadastro.
 
 ## Testes
 
