@@ -44,5 +44,10 @@ describe("logs", () => {
     expect(ocultarTokens("/p/segredo?x=1")).toBe("/p/***?x=1");
     expect(ocultarTokens("/api/crm/p/1")).toBe("/api/crm/p/1");
     expect(ocultarTokens("/api/publico/pesquisas/segredo/respostas")).toBe("/api/publico/pesquisas/***/respostas");
+    // CPF e CNPJ na busca (dado pessoal) também não vão para o log; telefone e outros números continuam.
+    expect(ocultarTokens("/api/contatos?busca=529.982.247-25")).toBe("/api/contatos?busca=***");
+    expect(ocultarTokens("/api/contatos?busca=52998224725&limite=30")).toBe("/api/contatos?busca=***&limite=30");
+    expect(ocultarTokens("/api/contatos?busca=11.222.333%2F0001-81")).toBe("/api/contatos?busca=***");
+    expect(ocultarTokens("/api/contatos?limite=30&cursor=abc")).toBe("/api/contatos?limite=30&cursor=abc");
   });
 });

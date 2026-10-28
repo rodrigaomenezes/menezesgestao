@@ -93,6 +93,8 @@ export function ocultarTokens(url: string): string {
       .replace(/([?&][\w.]*token=)[^&]*/gi, "$1***")
       // Token no caminho: link da gravação e da pesquisa pública (tela /p/… e API) dão acesso sem login.
       .replace(/^(\/(?:api\/gravacoes|api\/publico\/pesquisas|p)\/)[^/?]+/i, "$1***")
+      // CPF (11 dígitos) ou CNPJ (14), com ou sem pontuação (a barra do CNPJ pode vir como %2F): dado pessoal, fora do log.
+      .replace(/\d{2,3}\.?\d{3}\.?\d{3}(?:\/|%2F)?\d{0,4}-?\d{2}/gi, (m) => ([11, 14].includes(m.replace(/\D|2F/gi, "").length) ? "***" : m))
   );
 }
 

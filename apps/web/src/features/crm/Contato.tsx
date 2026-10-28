@@ -2,7 +2,7 @@
 import { Privacidade } from "./Privacidade";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { CRITERIOS_ENCERRAMENTO, type ContatoDto, type HistoricoDto, type NotaDto, type OportunidadeDto, type TarefaDto } from "@mg/shared";
+import { CRITERIOS_ENCERRAMENTO, mascararDigitando, type ContatoDto, type DocumentoReveladoDto, type HistoricoDto, type NotaDto, type OportunidadeDto, type TarefaDto } from "@mg/shared";
 import { ErroApi, get, patch, post, put, query } from "../../app/api";
 import { useDataHora, useEu, useSessao } from "../../app/sessao";
 import { useTempoReal } from "../../app/tempo-real";
@@ -31,16 +31,20 @@ function EditarContato({ c, config, aoSalvar }: { c: ContatoDto; config: Config;
   const [nome, setNome] = useState(c.nome);
   const [telefone, setTelefone] = useState(formatarTelefone(c.telefone));
   const [email, setEmail] = useState(c.email ?? "");
+  // O documento atual nunca vem inteiro: vazio mantém, digitar troca, "remover" tira.
+  const [documento, setDocumento] = useState("");
+  const [removerDocumento, setRemoverDocumento] = useState(false);
   const [origem, setOrigem] = useState(c.origem ?? "");
   const [responsavelId, setResponsavelId] = useState(c.responsavelId ?? "");
   const [naoContatar, setNaoContatar] = useState(c.naoContatar);
   const [campos, setCampos] = useState<ValoresCampos>(c.campos as ValoresCampos);
   const [etiquetaIds, setEtiquetaIds] = useState(c.etiquetas.map((e) => e.id));
-  const { enviando, erro, enviar } = useEnvio(async () => {
+  const { enviando, resumo, campos: erros, enviar } = useEnvio(async () => {
     await patch(`/contatos/${c.id}`, {
       nome,
       telefone: telefone || null,
       email: email || null,
+      ...(removerDocumento ? { documento: null } : documento ? { documento } : {}),
       origem: origem || null,
       responsavelId: responsavelId || null,
       naoContatar,
@@ -52,9 +56,18 @@ function EditarContato({ c, config, aoSalvar }: { c: ContatoDto; config: Config;
   return (
     <form className="item-edicao" onSubmit={enviar}>
       <div className="grade-campos">
-        <Campo rotulo="Nome" nome="editar-nome" valor={nome} aoMudar={setNome} obrigatorio />
-        <Campo rotulo="Telefone (WhatsApp)" nome="editar-telefone" tipo="tel" valor={telefone} aoMudar={setTelefone} />
-        <Campo rotulo="E-mail" nome="editar-email" tipo="email" valor={email} aoMudar={setEmail} />
+        <Campo rotulo="Nome" nome="editar-nome" valor={nome} aoMudar={setNome} obrigatorio erro={erros.nome} />
+        <Campo rotulo="Telefone (WhatsApp)" nome="editar-telefone" tipo="tel" valor={telefone} aoMudar={setTelefone} erro={erros.telefone} />
+        <Campo rotulo="E-mail" nome="editar-email" tipo="email" valor={email} aoMudar={setEmail} erro={erros.email} />
+        <Campo
+          rotulo="CPF ou CNPJ"
+          nome="editar-documento"
+          valor={documento}
+          aoMudar={(v) => (setDocumento(mascararDigitando(v)), setRemoverDocumento(false))}
+          dica={c.documentoMascarado ? `Atual: ${c.documentoMascarado}. Deixe em branco para manter.` : "Opcional."}
+          autoComplete="off"
+          erro={erros.documento}
+        />
         <Campo rotulo="Origem" nome="editar-origem" valor={origem} aoMudar={setOrigem} dica="Ex.: Instagram, indicação, site" />
         {config.responsaveis.length > 0 && (
           <Escolha rotulo="Responsável" nome="editar-responsavel" valor={responsavelId} aoMudar={setResponsavelId} opcoes={config.responsaveis.map((r) => ({ valor: r.id, texto: r.nome }))} vazio="Sem responsável" />
@@ -65,8 +78,14 @@ function EditarContato({ c, config, aoSalvar }: { c: ContatoDto; config: Config;
         <input type="checkbox" checked={naoContatar} onChange={(e) => setNaoContatar(e.target.checked)} />
         Não deseja ser contatado (LGPD)
       </label>
+      {c.documentoMascarado && (
+        <label className="marcar">
+          <input type="checkbox" checked={removerDocumento} onChange={(e) => (setRemoverDocumento(e.target.checked), setDocumento(""))} />
+          Remover o CPF/CNPJ
+        </label>
+      )}
       <EscolhaEtiquetas etiquetas={config.etiquetas} marcadas={etiquetaIds} aoMudar={setEtiquetaIds} />
-      <Mensagem tipo="erro">{erro}</Mensagem>
+      <Mensagem tipo="erro">{resumo(["nome", "telefone", "email", "documento"])}</Mensagem>
       <button type="submit" className="botao" disabled={enviando}>
         {enviando ? "Salvando…" : "Salvar"}
       </button>
@@ -443,6 +462,37 @@ function ConversarNoCanal({ contatoId, telefone }: { contatoId: string; telefone
   );
 }
 
+/** CPF/CNPJ mascarado; "Mostrar" só para quem pode exportar, e cada visualização fica na auditoria. */
+function DocumentoDaFicha({ contato, podeVer }: { contato: ContatoDto; podeVer: boolean }) {
+  const [inteiro, setInteiro] = useState<string | null>(null);
+  const avisar = useAviso();
+  useEffect(() => setInteiro(null), [contato.id, contato.documentoMascarado]);
+  const mostrar = async () => {
+    try {
+      setInteiro((await post<DocumentoReveladoDto>(`/contatos/${contato.id}/documento/revelar`)).documento);
+    } catch (e) {
+      avisar(e instanceof ErroApi ? e.message : "Não foi possível mostrar o documento.", "erro");
+    }
+  };
+  return (
+    <div>
+      <dt>{contato.documentoTipo === "cnpj" ? "CNPJ" : "CPF"}</dt>
+      <dd>
+        <span aria-label={inteiro ? undefined : "Documento oculto"}>{inteiro ?? contato.documentoMascarado}</span>
+        {podeVer && !inteiro && (
+          <>
+            {" "}
+            <button type="button" className="botao-texto" onClick={() => void mostrar()}>
+              Mostrar
+            </button>
+          </>
+        )}
+        {inteiro && <span className="item-detalhe"> · visualização registrada na auditoria</span>}
+      </dd>
+    </div>
+  );
+}
+
 export function Contato() {
   const { id = "" } = useParams();
   const { pode } = useSessao();
@@ -508,6 +558,7 @@ export function Contato() {
                 <dd>{contato.email}</dd>
               </div>
             )}
+            {contato.documentoMascarado && contato.documentoTipo && <DocumentoDaFicha contato={contato} podeVer={pode("crm", "exportar")} />}
             <div>
               <dt>Responsável</dt>
               <dd>{contato.responsavelNome ?? "Sem responsável"}</dd>

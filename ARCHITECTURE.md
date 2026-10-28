@@ -32,7 +32,8 @@ traz de uma vez o que já estava na tela (até 100), para a lista não encolher 
 
 Formulários (ADR-044): `useEnvio` (`ui/ui.tsx`) devolve o erro de cada campo vindo de `details.campos`
 (`ui/erros-campo.ts`), põe o foco no primeiro e fica desligado sem conexão (`ConexaoContexto`, informado pela Casca).
-Toda resposta da API leva `x-request-id`, o mesmo do log da requisição.
+Toda resposta da API leva `x-request-id`, o mesmo do log da requisição. CPF/CNPJ do contato: cifrado + HMAC + final
+(`contato.documento_*`); regras puras em `@mg/shared/documento.ts`; CSV em `crm/csv.ts`.
 
 Limite entre módulos (ADR-041): o repositório é interno do módulo dono; outro módulo chama o serviço. O lint barra
 importação do repositório de outro módulo, sem exceções; interfaces públicas: `crm/carteira.ts` (contato na carteira,

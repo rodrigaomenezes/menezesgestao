@@ -36,6 +36,12 @@ export const conflito = (mensagem: string) => new ErroApp(409, "CONFLITO", mensa
 export const invalido = (mensagem: string, detalhes?: Record<string, unknown>) =>
   new ErroApp(400, "DADOS_INVALIDOS", mensagem, detalhes);
 
+/** Nome da restrição violada (índice único etc.), para dizer qual dado repetiu. */
+export function restricaoPg(err: unknown): string | undefined {
+  const e = err as { constraint?: string; cause?: { constraint?: string } };
+  return e?.constraint ?? e?.cause?.constraint;
+}
+
 /** Código de erro do PostgreSQL (o Drizzle embrulha o erro original em `cause`). */
 export function codigoPg(err: unknown): string | undefined {
   const e = err as { code?: string; cause?: { code?: string } };

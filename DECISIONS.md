@@ -727,3 +727,12 @@ princípios para o Menezes Gestão, em entregas pequenas. Entrega 1 (princípios
 ## Próximas entregas (aprovadas)
 2: documento CPF/CNPJ mascarado com revelação auditada e exportação com finalidade registrada (RF-MIG-002).
 3: vários telefones, e-mails e endereços por registro (RF-CRM-002). 4: duplicados e fusão registrada (RF-CRM-008).
+
+Adendo (entrega 2): **documento CPF/CNPJ** (RF-CRM-002, RNF-022) guardado cifrado (AES-256-GCM, `CRM_CHAVE`), com HMAC
+para impedir o repetido (índice único, como o telefone) e achar pela busca, e só o final em claro para a máscara
+(`•••.•••.123-45`). O número inteiro aparece por `POST /api/contatos/:id/documento/revelar`, que exige a mesma
+permissão de exportar (`crm:exportar`, sem ação nova na matriz) e grava `contato.documento_revelado` a cada vez; no
+pacote do titular (LGPD) vai inteiro. CPF/CNPJ não vai para o log nem para a auditoria (máscara em `ocultarTokens` e
+na busca registrada). **Exportação** (RF-MIG-002): `GET /api/contatos/exportar` gera CSV para o Excel brasileiro
+(`;`, BOM, proteção contra fórmula) com os mesmos filtros e carteira da lista, finalidade obrigatória, limite de 10 mil
+linhas (acima, recusa e pede para filtrar) e registro `contatos.exportados` com finalidade, filtros e quantidade.
