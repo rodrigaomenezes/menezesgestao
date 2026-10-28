@@ -149,3 +149,69 @@ test("filtros das listas ficam no endereço: busca, ficha e voltar mantêm o rec
   await expect(page.getByRole("tab", { name: "Concluídas" })).toHaveAttribute("aria-selected", "true");
   await semRolagemLateral(page);
 });
+
+test("telefone repetido não cria outro cadastro: aviso com “Abrir o existente” (D-18)", async ({ page }, info) => {
+  const { a } = dados();
+  await entrar(page, pessoa(a, "dono").email);
+  const telefone = telefoneUnico(info.project.name, 8);
+  const csrf = (await page.context().cookies()).find((c) => c.name === "mg_csrf")?.value ?? "";
+  const r = await page.request.post("/api/contatos", { headers: { "x-csrf-token": csrf }, data: { nome: `Original ${info.project.name}`, telefone } });
+  expect(r.status()).toBe(201);
+  const existente = (await r.json()).id as string;
+
+  await irPara(page, "Alunos", "Alunos");
+  await page.getByRole("button", { name: "Novo aluno" }).click();
+  await page.getByLabel("Nome", { exact: true }).fill(`Repetido ${info.project.name}`);
+  // Mesmo número em outro formato: continua sendo o mesmo telefone.
+  await page.getByLabel("Telefone (WhatsApp)").fill(`+55 ${telefone}`);
+  await page.getByRole("button", { name: "Cadastrar aluno" }).click();
+  const aviso = page.locator(".mensagem-aviso");
+  await expect(aviso).toContainText("Já existe");
+  await semRolagemLateral(page);
+  await aviso.getByRole("link", { name: "Abrir o existente" }).click();
+  await expect(page).toHaveURL(new RegExp(`/contatos/${existente}`));
+});
+
+test("erro do servidor aparece no próprio campo e o foco vai para ele (RC-01)", async ({ page }) => {
+  const { a } = dados();
+  await entrar(page, pessoa(a, "dono").email);
+  await irPara(page, "Alunos", "Alunos");
+  await page.getByRole("button", { name: "Novo aluno" }).click();
+  // Só espaços passa pelo "obrigatório" do navegador, mas o servidor recusa o nome vazio.
+  await page.getByLabel("Nome", { exact: true }).fill("   ");
+  await page.getByRole("button", { name: "Cadastrar aluno" }).click();
+  const nome = page.getByLabel("Nome", { exact: true });
+  await expect(nome).toHaveAttribute("aria-invalid", "true");
+  await expect(nome).toBeFocused();
+  await expect(page.locator(".erro-campo").first()).toBeVisible();
+});
+
+test("CPF mascarado na ficha, “Mostrar” para quem pode, e exportação com finalidade baixa a planilha", async ({ page }, info) => {
+  const { a } = dados();
+  await entrar(page, pessoa(a, "dono").email);
+  const csrf = (await page.context().cookies()).find((c) => c.name === "mg_csrf")?.value ?? "";
+  // CPFs válidos diferentes por largura (o documento também não pode repetir).
+  const cpfs = ["52998224725", "11144477735", "39053344705", "15350946056", "71428793860"];
+  const cpf = cpfs[["celular-360", "celular-390", "tablet-768", "notebook-1024", "computador-1440"].indexOf(info.project.name)]!;
+  const nome = `Documento ${info.project.name}`;
+  const r = await page.request.post("/api/contatos", { headers: { "x-csrf-token": csrf }, data: { nome, telefone: telefoneUnico(info.project.name, 9), documento: cpf } });
+  expect(r.status(), await r.text()).toBe(201);
+
+  await page.goto(`/contatos/${(await r.json()).id}`);
+  await expect(page.getByText(`•••.•••.${cpf.slice(6, 9)}-${cpf.slice(9)}`)).toBeVisible();
+  await page.getByRole("button", { name: "Mostrar" }).click();
+  await expect(page.getByText(`${cpf.slice(0, 3)}.${cpf.slice(3, 6)}.${cpf.slice(6, 9)}-${cpf.slice(9)}`)).toBeVisible();
+  await expect(page.getByText("visualização registrada na auditoria")).toBeVisible();
+  await semRolagemLateral(page);
+
+  await page.goto(`/contatos?busca=${encodeURIComponent(nome)}`);
+  await page.getByRole("button", { name: "Exportar" }).click();
+  const modal = page.getByRole("dialog", { name: "Exportar alunos" });
+  await expect(modal.getByRole("button", { name: "Baixar planilha" })).toBeDisabled();
+  await modal.getByLabel("Para que é esta exportação?").selectOption({ label: "Relatório interno" });
+  const download = page.waitForEvent("download");
+  await modal.getByRole("button", { name: "Baixar planilha" }).click();
+  const arquivo = await download;
+  expect(arquivo.suggestedFilename()).toMatch(/^contatos-\d{4}-\d{2}-\d{2}\.csv$/);
+  await expect(page.getByText("Planilha gerada.")).toBeVisible();
+});

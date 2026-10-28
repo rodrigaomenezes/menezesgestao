@@ -1,12 +1,12 @@
 // Lista de contatos da carteira: busca, filtro por etiqueta e responsável, lixeira e ações em massa.
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import type { ContatoDto, ResultadoAdicionarDto } from "@mg/shared";
-import { get, post, query } from "../../app/api";
+import { FINALIDADES_EXPORTACAO, LIMITE_EXPORTACAO_CONTATOS, NOMES_FINALIDADES_EXPORTACAO, mascararDigitando, type ContatoDto, type ResultadoAdicionarDto } from "@mg/shared";
+import { ErroApi, baixarArquivo, get, post, query } from "../../app/api";
 import { useFiltrosUrl } from "../../app/filtros-url";
 import { useSessao } from "../../app/sessao";
 import { useTempoReal } from "../../app/tempo-real";
-import { useAviso, useConfirmar } from "../../ui/sobreposicoes";
+import { Modal, useAviso, useConfirmar } from "../../ui/sobreposicoes";
 import { BotaoAlternar, Campo, CarregarMais, Escolha, FiltroArquivados, ListaVazia, Mensagem, Titulo, useEnvio, usePaginado } from "../../ui/ui";
 import { CamposPersonalizados, EscolhaEtiquetas, Etiquetas, formatarTelefone, useConfigCrm, type ValoresCampos } from "./comum";
 import { useVocabulario } from "../../app/vocabulario";
@@ -18,28 +18,57 @@ function NovoContato({ config, aoCriar }: { config: Config; aoCriar(id: string):
   const [nome, setNome] = useState("");
   const [telefone, setTelefone] = useState("");
   const [email, setEmail] = useState("");
+  const [documento, setDocumento] = useState("");
   const [responsavelId, setResponsavelId] = useState("");
   const [etiquetaIds, setEtiquetaIds] = useState<string[]>([]);
   const [campos, setCampos] = useState<ValoresCampos>({});
-  const { enviando, erro, enviar } = useEnvio(async () => {
+  // Telefone repetido nunca cria outro registro: o aviso mostra quem já existe e leva até ele (D-18).
+  const [repetido, setRepetido] = useState<{ mensagem: string; contatoId: string | null } | null>(null);
+  const envio = useEnvio(async () => {
+    setRepetido(null);
     const criado = await post<ContatoDto>("/contatos", {
       nome,
       telefone: telefone || null,
       email: email || null,
+      documento: documento || null,
       responsavelId: responsavelId || null,
       etiquetaIds,
       campos,
+    }).catch((e: unknown) => {
+      if (e instanceof ErroApi && e.codigo === "CONFLITO") {
+        setRepetido({ mensagem: e.message, contatoId: typeof e.detalhes.contatoId === "string" ? e.detalhes.contatoId : null });
+        return null;
+      }
+      throw e;
     });
-    aoCriar(criado.id);
+    if (criado) aoCriar(criado.id);
   });
   const definicoes = config.campos.filter((c) => c.entidade === "contato");
 
   return (
-    <form className="cartao" onSubmit={enviar} aria-label={termos.t("{Novo contato}")}>
+    <form className="cartao" onSubmit={envio.enviar} aria-label={termos.t("{Novo contato}")}>
       <div className="grade-campos">
-        <Campo rotulo="Nome" nome="contato-nome" valor={nome} aoMudar={setNome} obrigatorio />
-        <Campo rotulo="Telefone (WhatsApp)" nome="contato-telefone" tipo="tel" valor={telefone} aoMudar={setTelefone} dica="Com DDD. Ex.: (11) 98888-7777" autoComplete="off" />
-        <Campo rotulo="E-mail" nome="contato-email" tipo="email" valor={email} aoMudar={setEmail} />
+        <Campo rotulo="Nome" nome="contato-nome" valor={nome} aoMudar={setNome} obrigatorio erro={envio.campos.nome} />
+        <Campo
+          rotulo="Telefone (WhatsApp)"
+          nome="contato-telefone"
+          tipo="tel"
+          valor={telefone}
+          aoMudar={setTelefone}
+          dica="Com DDD. Ex.: (11) 98888-7777"
+          autoComplete="off"
+          erro={envio.campos.telefone}
+        />
+        <Campo rotulo="E-mail" nome="contato-email" tipo="email" valor={email} aoMudar={setEmail} erro={envio.campos.email} />
+        <Campo
+          rotulo="CPF ou CNPJ"
+          nome="contato-documento"
+          valor={documento}
+          aoMudar={(v) => setDocumento(mascararDigitando(v))}
+          dica="Opcional. Fica guardado cifrado; na tela aparece só o final."
+          autoComplete="off"
+          erro={envio.campos.documento}
+        />
         {config.responsaveis.length > 1 && (
           <Escolha
             rotulo="Responsável"
@@ -53,11 +82,67 @@ function NovoContato({ config, aoCriar }: { config: Config; aoCriar(id: string):
         <CamposPersonalizados definicoes={definicoes} valores={campos} aoMudar={setCampos} prefixo="novo" />
       </div>
       <EscolhaEtiquetas etiquetas={config.etiquetas} marcadas={etiquetaIds} aoMudar={setEtiquetaIds} />
-      <Mensagem tipo="erro">{erro}</Mensagem>
-      <button type="submit" className="botao" disabled={enviando}>
-        {enviando ? "Salvando…" : termos.t("Cadastrar {contato}")}
+      {repetido && (
+        <p className="mensagem mensagem-aviso" role="alert">
+          {repetido.mensagem}{" "}
+          {repetido.contatoId && <Link to={`/contatos/${repetido.contatoId}`}>Abrir o existente</Link>}
+        </p>
+      )}
+      <Mensagem tipo="erro">{envio.resumo(["nome", "telefone", "email", "documento"])}</Mensagem>
+      <button type="submit" className="botao" disabled={envio.enviando}>
+        {envio.enviando ? "Salvando…" : termos.t("Cadastrar {contato}")}
       </button>
     </form>
+  );
+}
+
+/** Exporta o que a lista mostra (mesmos filtros), com finalidade obrigatória registrada na auditoria (LGPD). */
+function ExportarContatos({ filtro }: { filtro: Record<string, string | undefined> }) {
+  const termos = useVocabulario();
+  const avisar = useAviso();
+  const [aberto, setAberto] = useState(false);
+  const [finalidade, setFinalidade] = useState("");
+  const envio = useEnvio(async () => {
+    await baixarArquivo(`/contatos/exportar${query({ ...filtro, finalidade })}`, "contatos.csv");
+    avisar("Planilha gerada. A exportação ficou registrada na auditoria.");
+    setAberto(false);
+    setFinalidade("");
+  });
+  return (
+    <>
+      <button type="button" className="botao botao-secundario" onClick={() => setAberto(true)}>
+        Exportar
+      </button>
+      {aberto && (
+        <Modal aberto titulo={termos.t("Exportar {contatos}")} aoFechar={() => setAberto(false)}>
+          <form onSubmit={envio.enviar}>
+            <p className="dica">
+              Sai uma planilha com o que a lista mostra agora (mesma busca e filtros), até {LIMITE_EXPORTACAO_CONTATOS.toLocaleString("pt-BR")} linhas. O CPF/CNPJ vai mascarado.
+            </p>
+            <Escolha
+              rotulo="Para que é esta exportação?"
+              nome="exportar-finalidade"
+              valor={finalidade}
+              aoMudar={setFinalidade}
+              opcoes={FINALIDADES_EXPORTACAO.map((f) => ({ valor: f, texto: NOMES_FINALIDADES_EXPORTACAO[f] }))}
+              vazio="Escolha a finalidade…"
+              obrigatorio
+              erro={envio.campos.finalidade}
+            />
+            {!finalidade && <p className="dica">A finalidade é obrigatória (LGPD) e fica registrada com quem exportou, quando e quantos registros.</p>}
+            <Mensagem tipo="erro">{envio.resumo(["finalidade"])}</Mensagem>
+            <div className="modal-acoes">
+              <button type="button" className="botao botao-secundario" onClick={() => setAberto(false)}>
+                Cancelar
+              </button>
+              <button type="submit" className="botao" disabled={envio.enviando || !finalidade}>
+                {envio.enviando ? "Gerando…" : "Baixar planilha"}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+    </>
   );
 }
 
@@ -170,6 +255,9 @@ export function Contatos() {
               <Link to="/importar" className="botao botao-secundario">
                 Importar planilha
               </Link>
+            )}
+            {pode("crm", "exportar") && (
+              <ExportarContatos filtro={{ busca: buscaAplicada || undefined, etiquetaId: etiquetaId || undefined, responsavelId: responsavelId || undefined, arquivados: arquivados ? "sim" : "nao" }} />
             )}
             {pode("crm", "criar") && <BotaoAlternar aberto={criando} aoMudar={setCriando} texto={termos.t("{Novo contato}")} />}
           </div>

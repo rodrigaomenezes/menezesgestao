@@ -1,15 +1,33 @@
 // Contatos: cadastro com telefone normalizado (chave de deduplicação), carteira com responsável,
 // etiquetas, campos personalizados, arquivar/restaurar, ações em massa e histórico único.
+import { createHmac } from "node:crypto";
 import { and, eq } from "drizzle-orm";
-import { normalizarTelefone, temPermissao, type ContatoDto, type Escopo, type HistoricoDto, type Pagina } from "@mg/shared";
+import {
+  LIMITE_EXPORTACAO_CONTATOS,
+  NOMES_FINALIDADES_EXPORTACAO,
+  finalDoDocumento,
+  formatarDocumento,
+  formatarTelefone,
+  mascararDocumento,
+  normalizarDocumento,
+  normalizarTelefone,
+  temPermissao,
+  type ContatoDto,
+  type Escopo,
+  type HistoricoDto,
+  type Pagina,
+  type TipoDocumento,
+} from "@mg/shared";
 import { comEmpresa, type Tx } from "../../infra/banco.js";
 import { contato } from "../../infra/esquema.js";
-import { ErroApp, codigoPg, invalido, naoEncontrado, semPermissao } from "../../infra/erros.js";
+import { ErroApp, codigoPg, invalido, naoEncontrado, restricaoPg, semPermissao } from "../../infra/erros.js";
+import { cifrar, decifrar } from "../../infra/seguranca/cripto.js";
 import { iso, montarPagina } from "../../infra/paginacao.js";
 import type { Servicos } from "../../app.js";
 import type { ContextoEmpresa } from "../acesso/acesso.js";
 import { registrar, type Origem } from "../auditoria/registro.js";
 import { validarCampos } from "./campos.js";
+import { montarCsv } from "./csv.js";
 import { validarResponsavel } from "./carteira.js";
 import { definicoesDeCampos } from "./configuracao.servico.js";
 import * as repo from "./contatos.repositorio.js";
@@ -25,10 +43,12 @@ export interface DadosContato {
   campos?: Record<string, unknown>;
   naoContatar?: boolean;
   consentimentoEm?: string | null;
+  documento?: string | null;
 }
 
-const dto = (c: repo.LinhaContato, etiquetas: ContatoDto["etiquetas"]): ContatoDto => ({
+const dto = ({ documentoFinal, ...c }: repo.LinhaContato, etiquetas: ContatoDto["etiquetas"]): ContatoDto => ({
   ...c,
+  documentoMascarado: c.documentoTipo && documentoFinal ? mascararDocumento(c.documentoTipo, documentoFinal) : null,
   campos: c.campos ?? {},
   consentimentoEm: iso(c.consentimentoEm),
   criadoEm: iso(c.criadoEm),
@@ -47,7 +67,40 @@ export function telefoneOuErro(entrada: string | null | undefined): string | nul
 }
 
 export function criarServicoContatos(s: Servicos) {
-  const { banco } = s;
+  const { banco, config } = s;
+
+  /** HMAC do documento com a chave do CRM: acha e impede o repetido sem guardar o número em claro. */
+  const hashDocumento = (digitos: string) => createHmac("sha256", config.crmChave).update(`documento:${digitos}`).digest("hex");
+
+  /** CPF/CNPJ digitado → as 4 colunas (cifrado, hash, final, tipo); vazio tira o documento; inválido é erro no campo. */
+  function colunasDocumento(entrada: string | null | undefined) {
+    if (!entrada?.trim()) return { documentoTipo: null, documentoFinal: null, documentoCifrado: null, documentoHash: null };
+    const doc = normalizarDocumento(entrada);
+    if (!doc) {
+      const mensagem = "CPF ou CNPJ inválido. Confira os números (os dígitos finais não batem).";
+      throw invalido(mensagem, { campos: [{ campo: "documento", mensagem }] });
+    }
+    return {
+      documentoTipo: doc.tipo as TipoDocumento,
+      documentoFinal: finalDoDocumento(doc.tipo, doc.digitos),
+      documentoCifrado: cifrar(config.crmChave, doc.digitos),
+      documentoHash: hashDocumento(doc.digitos),
+    };
+  }
+
+  /** Documento repetido: como o telefone, aponta o existente quando a pessoa pode vê-lo. */
+  async function erroDocumentoRepetido(tx: Tx, ctx: ContextoEmpresa, escopo: Escopo, hash: string): Promise<ErroApp> {
+    const existente = await repo.buscarPorDocumento(tx, ctx.empresaId, hash);
+    const visivel = existente ? await repo.buscarVisivel(tx, ctx.empresaId, ctx, escopo, existente.id) : null;
+    return new ErroApp(
+      409,
+      "CONFLITO",
+      visivel
+        ? `Já existe {um contato} com este CPF/CNPJ: ${visivel.nome}${visivel.arquivadoEm ? " (arquivado — restaure em vez de cadastrar de novo)" : ""}.`
+        : "Já existe {um contato} com este CPF/CNPJ na empresa, na carteira de outra pessoa. Peça ao gestor para transferir.",
+      visivel ? { contatoId: visivel.id } : undefined,
+    );
+  }
 
   async function carregar(tx: Tx, ctx: ContextoEmpresa, escopo: Escopo, id: string) {
     const c = await repo.buscarVisivel(tx, ctx.empresaId, ctx, escopo, id);
@@ -80,9 +133,21 @@ export function criarServicoContatos(s: Servicos) {
     if (!org || org.tipo !== "empresa") throw invalido("Escolha {um contato} do tipo empresa como organização.");
   }
 
+  /** Busca por CPF/CNPJ vai mascarada para a auditoria (o número inteiro não fica em claro em lugar nenhum). */
+  const filtroParaAuditoria = <F extends { busca?: string }>(f: F) => {
+    const doc = f.busca ? normalizarDocumento(f.busca) : null;
+    return doc ? { ...f, busca: mascararDocumento(doc.tipo, finalDoDocumento(doc.tipo, doc.digitos)) } : f;
+  };
+
+  /** Busca que é um CPF/CNPJ válido também acha pelo documento (pelo hash, sem decifrar nada). */
+  const comDocumento = <F extends { busca?: string }>(f: F) => {
+    const doc = f.busca ? normalizarDocumento(f.busca) : null;
+    return doc ? { ...f, documentoHash: hashDocumento(doc.digitos) } : f;
+  };
+
   async function listar(ctx: ContextoEmpresa, escopo: Escopo, f: repo.FiltroContatos): Promise<Pagina<ContatoDto>> {
     return comEmpresa(banco, ctx.empresaId, async (tx) => {
-      const linhas = await repo.listar(tx, ctx.empresaId, ctx, escopo, f);
+      const linhas = await repo.listar(tx, ctx.empresaId, ctx, escopo, comDocumento(f));
       const etiquetas = await repo.etiquetasDe(tx, linhas.slice(0, f.limite).map((l) => l.id));
       return montarPagina(linhas, f.limite, (l) => dto(l, etiquetas.get(l.id) ?? []));
     });
@@ -95,6 +160,7 @@ export function criarServicoContatos(s: Servicos) {
   async function criar(ctx: ContextoEmpresa, escopo: Escopo, origem: Origem, dados: DadosContato & { nome: string; etiquetaIds?: string[] }): Promise<ContatoDto> {
     return comEmpresa(banco, ctx.empresaId, async (tx) => {
       const telefone = telefoneOuErro(dados.telefone);
+      const documento = colunasDocumento(dados.documento);
       const responsavelId = await validarResponsavel(tx, ctx, escopo, dados.responsavelId);
       await validarOrganizacao(tx, ctx, escopo, dados.organizacaoId);
       const campos = validarCampos(await definicoesDeCampos(tx, ctx.empresaId, "contato"), dados.campos ?? {}, { exigirObrigatorios: true });
@@ -116,10 +182,15 @@ export function criarServicoContatos(s: Servicos) {
             campos,
             naoContatar: dados.naoContatar ?? false,
             consentimentoEm: dados.consentimentoEm ? new Date(dados.consentimentoEm) : null,
+            ...documento,
             criadoPor: ctx.usuarioId,
           })
           .returning({ id: contato.id });
       } catch (err) {
+        if (codigoPg(err) === "23505" && documento.documentoHash && restricaoPg(err) === "contato_documento_uk") {
+          await tx.cliente.query("ROLLBACK TO SAVEPOINT novo_contato");
+          throw await erroDocumentoRepetido(tx, ctx, escopo, documento.documentoHash);
+        }
         if (codigoPg(err) === "23505" && telefone) {
           await tx.cliente.query("ROLLBACK TO SAVEPOINT novo_contato");
           throw await erroTelefoneRepetido(tx, ctx, escopo, telefone);
@@ -134,7 +205,7 @@ export function criarServicoContatos(s: Servicos) {
         entidadeId: id,
         contatoId: id,
         responsavelId,
-        depois: { nome: criado.nome, telefone, email: criado.email, origem: criado.origem },
+        depois: { nome: criado.nome, telefone, email: criado.email, origem: criado.origem, documento: dto(criado, []).documentoMascarado },
       });
       return comEtiquetas(tx, criado);
     });
@@ -151,6 +222,7 @@ export function criarServicoContatos(s: Servicos) {
       if (dados.naoContatar !== undefined) mudancas.naoContatar = dados.naoContatar;
       if (dados.consentimentoEm !== undefined) mudancas.consentimentoEm = dados.consentimentoEm ? new Date(dados.consentimentoEm) : null;
       if (dados.telefone !== undefined) mudancas.telefone = telefoneOuErro(dados.telefone);
+      if (dados.documento !== undefined) Object.assign(mudancas, colunasDocumento(dados.documento));
       if (dados.organizacaoId !== undefined) {
         await validarOrganizacao(tx, ctx, escopo, dados.organizacaoId, id);
         mudancas.organizacaoId = dados.organizacaoId;
@@ -171,6 +243,10 @@ export function criarServicoContatos(s: Servicos) {
           .set({ ...mudancas, atualizadoEm: new Date() })
           .where(and(eq(contato.id, id), eq(contato.empresaId, ctx.empresaId)));
       } catch (err) {
+        if (codigoPg(err) === "23505" && mudancas.documentoHash && restricaoPg(err) === "contato_documento_uk") {
+          await tx.cliente.query("ROLLBACK TO SAVEPOINT altera_contato");
+          throw await erroDocumentoRepetido(tx, ctx, escopo, mudancas.documentoHash);
+        }
         if (codigoPg(err) === "23505" && mudancas.telefone) {
           await tx.cliente.query("ROLLBACK TO SAVEPOINT altera_contato");
           throw await erroTelefoneRepetido(tx, ctx, escopo, mudancas.telefone);
@@ -328,5 +404,81 @@ export function criarServicoContatos(s: Servicos) {
     });
   }
 
-  return { listar, obter, criar, atualizar, definirEtiquetas, alternarArquivo, acaoEmMassa, historico };
+  // Documento inteiro e exportação (Konecta: campo mascarado e RF-MIG-002) -------------------------------------
+
+  /** Documento inteiro: só com permissão de exportar (a rota confere) e só de quem a pessoa vê; cada vez fica na auditoria. */
+  async function revelarDocumento(ctx: ContextoEmpresa, escopo: Escopo, origem: Origem, id: string) {
+    return comEmpresa(banco, ctx.empresaId, async (tx) => {
+      const c = await carregar(tx, ctx, escopo, id);
+      const doc = await repo.documentoCifrado(tx, ctx.empresaId, id);
+      if (!doc?.tipo || !doc.cifrado) throw naoEncontrado("Documento");
+      await registrar(tx, origem, {
+        acao: "contato.documento_revelado",
+        entidade: "contato",
+        entidadeId: id,
+        contatoId: id,
+        responsavelId: c.responsavelId,
+        silencioso: true,
+        depois: { documento: c.documentoTipo && c.documentoFinal ? mascararDocumento(c.documentoTipo, c.documentoFinal) : null },
+      });
+      return { tipo: doc.tipo, documento: formatarDocumento(doc.tipo, decifrar(config.crmChave, doc.cifrado)) };
+    });
+  }
+
+  /** Para o pacote do titular (LGPD): o documento é dele, vai inteiro. Quem chama já conferiu a visibilidade. */
+  async function documentoDoTitular(ctx: ContextoEmpresa, id: string): Promise<string | null> {
+    return comEmpresa(banco, ctx.empresaId, async (tx) => {
+      const doc = await repo.documentoCifrado(tx, ctx.empresaId, id);
+      return doc?.tipo && doc.cifrado ? formatarDocumento(doc.tipo, decifrar(config.crmChave, doc.cifrado)) : null;
+    });
+  }
+
+  /**
+   * Planilha do que a lista mostra (mesmos filtros e carteira), com o documento só mascarado. A finalidade, os filtros e
+   * a quantidade ficam na auditoria; acima do limite, recusa e pede para filtrar mais (nunca corta em silêncio).
+   */
+  async function exportar(
+    ctx: ContextoEmpresa,
+    escopo: Escopo,
+    origem: Origem,
+    f: Omit<repo.FiltroContatos, "cursor" | "limite"> & { finalidade: keyof typeof NOMES_FINALIDADES_EXPORTACAO },
+  ): Promise<{ nomeArquivo: string; csv: string; quantidade: number }> {
+    return comEmpresa(banco, ctx.empresaId, async (tx) => {
+      const { finalidade, ...filtro } = f;
+      const linhas = await repo.paraExportar(tx, ctx.empresaId, ctx, escopo, comDocumento(filtro), LIMITE_EXPORTACAO_CONTATOS);
+      if (linhas.length > LIMITE_EXPORTACAO_CONTATOS) {
+        throw invalido(`O filtro traz mais de ${LIMITE_EXPORTACAO_CONTATOS.toLocaleString("pt-BR")} registros. Filtre mais (etiqueta, responsável ou busca) e exporte em partes.`);
+      }
+      const etiquetas = await repo.etiquetasDe(tx, linhas.map((l) => l.id));
+      const csv = montarCsv(
+        ["Nome", "Tipo", "Telefone", "E-mail", "CPF/CNPJ", "Organização", "Responsável", "Origem", "Etiquetas", "Não contatar", "Criado em"],
+        linhas.map((l) => {
+          const c = dto(l, etiquetas.get(l.id) ?? []);
+          return [
+            c.nome,
+            c.tipo === "empresa" ? "Empresa" : "Pessoa",
+            c.telefone ? formatarTelefone(c.telefone) : "",
+            c.email,
+            c.documentoMascarado,
+            c.organizacaoNome,
+            c.responsavelNome,
+            c.origem,
+            c.etiquetas.map((e) => e.nome).join(", "),
+            c.naoContatar ? "Sim" : "Não",
+            c.criadoEm.slice(0, 10),
+          ];
+        }),
+      );
+      await registrar(tx, origem, {
+        acao: "contatos.exportados",
+        entidade: "contato",
+        silencioso: true,
+        // Na auditoria (RF-MIG-002): quem, quando, finalidade, filtros e volume — sem o conteúdo exportado.
+        depois: { finalidade, finalidadeNome: NOMES_FINALIDADES_EXPORTACAO[finalidade], filtros: filtroParaAuditoria(filtro), quantidade: linhas.length },
+      });
+      return { nomeArquivo: `contatos-${new Date().toISOString().slice(0, 10)}.csv`, csv, quantidade: linhas.length };
+    });
+  }
+
+  return { listar, obter, criar, atualizar, definirEtiquetas, alternarArquivo, acaoEmMassa, historico, revelarDocumento, documentoDoTitular, exportar };
 }

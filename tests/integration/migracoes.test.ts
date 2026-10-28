@@ -41,7 +41,10 @@ describe("0002 — permissões em tabela e slug", () => {
 
     expect(await migrar(pool)).toContain("0002_permissao_e_slug.sql");
 
-    const permissoes = await pool.query("SELECT modulo, acao, escopo FROM permissao ORDER BY modulo, acao");
+    // Só as do perfil copiado do JSON (migrações seguintes, como a 0021, criam outros perfis com permissões próprias).
+    const permissoes = await pool.query(
+      "SELECT pe.modulo, pe.acao, pe.escopo FROM permissao pe JOIN perfil p ON p.id = pe.perfil_id WHERE p.base = 'dono' ORDER BY modulo, acao",
+    );
     expect(permissoes.rows).toEqual([
       { modulo: "crm", acao: "ver", escopo: "proprio" },
       { modulo: "usuarios", acao: "administrar", escopo: "empresa" },
@@ -49,6 +52,14 @@ describe("0002 — permissões em tabela e slug", () => {
     ]);
     const slugs = await pool.query("SELECT slug FROM empresa ORDER BY id");
     expect(slugs.rows.map((r) => r.slug)).toEqual(["clinica-sao-jose", "clinica-sao-jose-22222222"]);
+
+    // As empresas que já existiam recebem os perfis da Konecta (0021), cada uma uma vez.
+    const novos = await pool.query("SELECT base, count(*)::int AS n FROM perfil WHERE base IN ('empresario','supervisor','auditor') GROUP BY base ORDER BY base");
+    expect(novos.rows).toEqual([
+      { base: "auditor", n: 2 },
+      { base: "empresario", n: 2 },
+      { base: "supervisor", n: 2 },
+    ]);
 
     // Rodar de novo não aplica nada.
     expect(await migrar(pool)).toEqual([]);

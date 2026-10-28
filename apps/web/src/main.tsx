@@ -56,10 +56,11 @@ import { AceitarTermos } from "./features/plataforma/AceitarTermos";
 import { Ajuda } from "./features/plataforma/Ajuda";
 import { PainelPlataforma } from "./features/plataforma/PainelPlataforma";
 import { Demonstracao } from "./features/plataforma/Demonstracao";
+import { Carregando } from "./ui/ui";
 
 function App() {
   const { eu, carregando } = useSessao();
-  if (carregando) return <p className="carregando">Carregando…</p>;
+  if (carregando) return <Carregando />;
 
   // Telas abertas (convite e senha) funcionam com ou sem sessão.
   const abertas = [

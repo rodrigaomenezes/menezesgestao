@@ -259,6 +259,14 @@ na **Rotina**, no **BPI** e em **Comissões**, cada linha abre o painel que a ex
 Conversas e Auditoria guardam o filtro no endereço (abrir e voltar mantém a busca). Em números onde subir é ruim
 (perdas, cancelamentos, não atendidas, dias), a cor se inverte.
 
+### Princípios da Konecta (ADR-044)
+
+O documento de requisitos da Konecta está em `docs/konecta/`. Já valem no Menezes Gestão: erro no próprio campo com
+foco nele, contagem regressiva no login bloqueado, formulários desligados sem internet, esqueleto ao carregar, aviso de
+cadastro repetido com "Abrir o existente", limites visíveis (50 campos por tipo, 200 etiquetas), `x-request-id` em toda
+resposta e os perfis Empresário, Supervisor e Auditor. O contato aceita CPF/CNPJ (cifrado; na tela só o final, com
+"Mostrar" para quem pode exportar, auditado) e a lista exporta planilha com finalidade obrigatória.
+
 ## Testes
 
 ```bash

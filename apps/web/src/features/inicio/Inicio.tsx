@@ -22,7 +22,7 @@ import { useTempoReal } from "../../app/tempo-real";
 import { useVocabulario } from "../../app/vocabulario";
 import { Icone, type NomeIcone } from "../../ui/Icone";
 import { useAviso } from "../../ui/sobreposicoes";
-import { ListaVazia, Mensagem } from "../../ui/ui";
+import { Carregando, ListaVazia, Mensagem } from "../../ui/ui";
 import { formatarDinheiro } from "../crm/comum";
 import { useFuso } from "../operacao/comum";
 import { BlocoAgenda, BlocoChecklist, BlocoConversas, BlocoMetas, BlocoRetornos, BlocoTarefas, Ponto, useRotina } from "../operacao/Rotina";
@@ -92,7 +92,7 @@ function BlocoFunil() {
   useEffect(carregar, [carregar]);
   useTempoReal(["oportunidade."], carregar);
   if (vazio) return <ListaVazia>Nenhum funil ainda.</ListaVazia>;
-  if (!k) return <p className="carregando">Carregando…</p>;
+  if (!k) return <Carregando />;
   const maior = Math.max(1, ...k.colunas.map((c) => c.total));
   return (
     <ul className="barras" aria-label={termos.t(`{Oportunidades} por etapa em ${k.funil.nome}`)}>
@@ -124,7 +124,7 @@ function BlocoRanking() {
     get<DesempenhoDto>("/desempenho?periodo=mes&limite=50").then(setD, (e) => setErro(e instanceof ErroApi ? e.message : "Não foi possível carregar."));
   }, []);
   if (erro) return <Mensagem tipo="erro">{erro}</Mensagem>;
-  if (!d) return <p className="carregando">Carregando…</p>;
+  if (!d) return <Carregando />;
   const lideres = [...d.itens].sort((a, b) => (b.valores.vendas ?? 0) - (a.valores.vendas ?? 0)).slice(0, 5);
   if (!lideres.length) return <ListaVazia>Ninguém no ranking ainda.</ListaVazia>;
   return (
@@ -152,7 +152,7 @@ function BlocoComissao() {
     get<ComissoesDoMesDto>(`/comissoes?mes=${mes}`).then(setC, (e) => setErro(e instanceof ErroApi ? e.message : "Não foi possível carregar."));
   }, [fuso]);
   if (erro) return <Mensagem tipo="erro">{erro}</Mensagem>;
-  if (!c) return <p className="carregando">Carregando…</p>;
+  if (!c) return <Carregando />;
   return (
     <div className="numero-grande">
       <strong>{formatarDinheiro(c.totalCentavos)}</strong>
@@ -169,7 +169,7 @@ function BlocoAvisos() {
   }, []);
   useEffect(carregar, [carregar]);
   useTempoReal(["notificacao."], carregar);
-  if (!p) return <p className="carregando">Carregando…</p>;
+  if (!p) return <Carregando />;
   const naoLidas = p.itens.filter((n) => !n.lidaEm);
   if (!naoLidas.length) return <ListaVazia>Tudo lido por aqui.</ListaVazia>;
   return (
@@ -200,7 +200,7 @@ function BlocoFilaBre() {
   }, []);
   useEffect(carregar, [carregar]);
   useTempoReal(["bre."], carregar);
-  if (!p) return <p className="carregando">Carregando…</p>;
+  if (!p) return <Carregando />;
   if (!p.itens.length) return <ListaVazia>Ninguém para contatar hoje.</ListaVazia>;
   return (
     <ul className="lista">
@@ -228,7 +228,7 @@ function ConteudoBloco({ id, rotina }: { id: BlocoInicioId; rotina: ReturnType<t
   if (id === "bre") return <BlocoFilaBre />;
   if (rotina.erro) return <Mensagem tipo="erro">{rotina.erro}</Mensagem>;
   const r: RotinaDto | null = rotina.r;
-  if (!r) return <p className="carregando">Carregando…</p>;
+  if (!r) return <Carregando />;
   if (id === "conversas") return <BlocoConversas r={r} />;
   if (id === "metas") return <BlocoMetas r={r} />;
   if (id === "agenda") return <BlocoAgenda r={r} />;

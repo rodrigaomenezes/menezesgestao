@@ -8,6 +8,8 @@ export class ErroApi extends Error {
     public readonly status: number,
     public readonly codigo: CodigoErro | "SEM_CONEXAO",
     mensagem: string,
+    /** O `details` da resposta (ex.: `campos` com o erro de cada campo, `contatoId` do registro repetido). */
+    public readonly detalhes: Record<string, unknown> = {},
   ) {
     super(mensagem);
   }
@@ -38,7 +40,7 @@ export async function api<T>(metodo: Metodo, caminho: string, corpo?: unknown): 
   const dados = (await res.json().catch(() => null)) as unknown;
   if (!res.ok) {
     const erro = (dados as Partial<RespostaErro> | null)?.error;
-    throw new ErroApi(res.status, erro?.code ?? "ERRO_INTERNO", erro?.message ?? "Não foi possível concluir. Tente de novo em instantes.");
+    throw new ErroApi(res.status, erro?.code ?? "ERRO_INTERNO", erro?.message ?? "Não foi possível concluir. Tente de novo em instantes.", erro?.details ?? {});
   }
   return dados as T;
 }
@@ -48,6 +50,30 @@ export const post = <T,>(caminho: string, corpo?: unknown) => api<T>("POST", cam
 export const patch = <T,>(caminho: string, corpo?: unknown) => api<T>("PATCH", caminho, corpo);
 export const put = <T,>(caminho: string, corpo?: unknown) => api<T>("PUT", caminho, corpo);
 export const del = <T,>(caminho: string) => api<T>("DELETE", caminho);
+
+/**
+ * Baixa um arquivo gerado pela API (ex.: planilha exportada) sem guardar nada no navegador. Erro da API vira ErroApi
+ * com a mensagem de sempre; o nome do arquivo vem do servidor (content-disposition).
+ */
+export async function baixarArquivo(caminho: string, nomePadrao: string): Promise<void> {
+  let res: Response;
+  try {
+    res = await fetch(`/api${caminho}`, { credentials: "same-origin" });
+  } catch {
+    throw new ErroApi(0, "SEM_CONEXAO", "Sem conexão com o servidor. Confira a internet e tente de novo.");
+  }
+  if (!res.ok) {
+    const erro = ((await res.json().catch(() => null)) as Partial<RespostaErro> | null)?.error;
+    throw new ErroApi(res.status, erro?.code ?? "ERRO_INTERNO", erro?.message ?? "Não foi possível gerar o arquivo. Tente de novo em instantes.", erro?.details ?? {});
+  }
+  const nome = /filename="([^"]+)"/.exec(res.headers.get("content-disposition") ?? "")?.[1] ?? nomePadrao;
+  const url = URL.createObjectURL(await res.blob());
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = nome;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 /** Envia um arquivo (campo "arquivo") por multipart/form-data. */
 export function enviarArquivo<T>(caminho: string, arquivo: File, campos: Record<string, string> = {}): Promise<T> {

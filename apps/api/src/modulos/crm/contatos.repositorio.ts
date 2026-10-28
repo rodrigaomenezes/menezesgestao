@@ -24,6 +24,9 @@ const colunas = {
   campos: contato.campos,
   naoContatar: contato.naoContatar,
   consentimentoEm: contato.consentimentoEm,
+  // Do documento, só o tipo e o final (para a máscara); o cifrado e o hash nunca saem daqui.
+  documentoTipo: contato.documentoTipo,
+  documentoFinal: contato.documentoFinal,
   criadoEm: contato.criadoEm,
   atualizadoEm: contato.atualizadoEm,
   arquivadoEm: contato.arquivadoEm,
@@ -48,35 +51,63 @@ export interface FiltroContatos {
   etiquetaId?: string;
   responsavelId?: string;
   tipo?: "pessoa" | "empresa";
+  /** Hash do documento quando a busca é um CPF/CNPJ válido (calculado no serviço, que tem a chave). */
+  documentoHash?: string;
   cursor?: string;
   limite: number;
 }
 
-export function listar(tx: Tx, empresaId: string, quem: QuemVe, escopo: Escopo, f: FiltroContatos) {
+/** Filtros da lista (e da exportação, que usa os mesmos): empresa, carteira, arquivados, busca, tipo, responsável, etiqueta. */
+function condicoes(empresaId: string, quem: QuemVe, escopo: Escopo, f: Omit<FiltroContatos, "cursor" | "limite">) {
   const digitos = f.busca?.replace(/\D/g, "") ?? "";
+  return and(
+    eq(contato.empresaId, empresaId),
+    visivel(quem, escopo),
+    f.arquivados === "sim" ? isNotNull(contato.arquivadoEm) : isNull(contato.arquivadoEm),
+    f.busca
+      ? or(
+          ilike(contato.nome, `%${f.busca}%`),
+          ilike(contato.email, `%${f.busca}%`),
+          digitos.length >= 4 ? ilike(contato.telefone, `%${digitos}%`) : undefined,
+          f.documentoHash ? eq(contato.documentoHash, f.documentoHash) : undefined,
+        )
+      : undefined,
+    f.tipo ? eq(contato.tipo, f.tipo) : undefined,
+    f.responsavelId ? eq(contato.responsavelId, f.responsavelId) : undefined,
+    f.etiquetaId ? sql`EXISTS (SELECT 1 FROM contato_etiqueta ce WHERE ce.contato_id = ${contato.id} AND ce.etiqueta_id = ${f.etiquetaId})` : undefined,
+  );
+}
+
+export function listar(tx: Tx, empresaId: string, quem: QuemVe, escopo: Escopo, f: FiltroContatos) {
   return consulta(tx)
-    .where(
-      and(
-        eq(contato.empresaId, empresaId),
-        visivel(quem, escopo),
-        f.arquivados === "sim" ? isNotNull(contato.arquivadoEm) : isNull(contato.arquivadoEm),
-        f.busca
-          ? or(
-              ilike(contato.nome, `%${f.busca}%`),
-              ilike(contato.email, `%${f.busca}%`),
-              digitos.length >= 4 ? ilike(contato.telefone, `%${digitos}%`) : undefined,
-            )
-          : undefined,
-        f.tipo ? eq(contato.tipo, f.tipo) : undefined,
-        f.responsavelId ? eq(contato.responsavelId, f.responsavelId) : undefined,
-        f.etiquetaId
-          ? sql`EXISTS (SELECT 1 FROM contato_etiqueta ce WHERE ce.contato_id = ${contato.id} AND ce.etiqueta_id = ${f.etiquetaId})`
-          : undefined,
-        condicaoCursor(contato.criadoEm, contato.id, lerCursor(f.cursor)),
-      ),
-    )
+    .where(and(condicoes(empresaId, quem, escopo, f), condicaoCursor(contato.criadoEm, contato.id, lerCursor(f.cursor))))
     .orderBy(desc(contato.criadoEm), desc(contato.id))
     .limit(f.limite + 1);
+}
+
+/** Todos os que o filtro da lista mostra, até `maximo` + 1 (o + 1 diz que passou do limite). */
+export function paraExportar(tx: Tx, empresaId: string, quem: QuemVe, escopo: Escopo, f: Omit<FiltroContatos, "cursor" | "limite">, maximo: number) {
+  return consulta(tx)
+    .where(condicoes(empresaId, quem, escopo, f))
+    .orderBy(asc(contato.nome), asc(contato.id))
+    .limit(maximo + 1);
+}
+
+export function buscarPorDocumento(tx: Tx, empresaId: string, hash: string) {
+  return tx.db
+    .select({ id: contato.id })
+    .from(contato)
+    .where(and(eq(contato.empresaId, empresaId), eq(contato.documentoHash, hash)))
+    .then((r) => r[0] ?? null);
+}
+
+/** O documento cifrado (só para quem pode revelar ou para o pedido do titular). */
+export function documentoCifrado(tx: Tx, empresaId: string, id: string) {
+  return tx.db
+    .select({ tipo: contato.documentoTipo, cifrado: contato.documentoCifrado })
+    .from(contato)
+    .where(and(eq(contato.empresaId, empresaId), eq(contato.id, id)))
+    .then((r) => r[0] ?? null);
 }
 
 export function buscarVisivel(tx: Tx, empresaId: string, quem: QuemVe, escopo: Escopo, id: string) {

@@ -30,6 +30,8 @@ export function criarServicoLgpd(s: Servicos) {
   async function exportar(ctx: ContextoEmpresa, escopo: Escopo, origem: Origem, contatoId: string): Promise<DadosTitularDto> {
     // Mesma regra de visibilidade da ficha: quem não vê o contato não exporta.
     const c = await contatos.obter(ctx, escopo, contatoId);
+    // O documento é do titular: no pacote dele vai inteiro (na tela, só mascarado).
+    const documento = await contatos.documentoDoTitular(ctx, contatoId);
     return comEmpresa(banco, ctx.empresaId, async (tx) => {
       const p = [ctx.empresaId, contatoId, LIMITE_EXPORTACAO];
       const [empresaNome] = await linhas(tx, "SELECT nome FROM empresa WHERE id = $1", [ctx.empresaId]);
@@ -87,6 +89,7 @@ export function criarServicoLgpd(s: Servicos) {
           nome: c.nome,
           telefone: c.telefone,
           email: c.email,
+          documento,
           organizacao: c.organizacaoNome,
           origem: c.origem,
           campos: c.campos,
@@ -108,7 +111,7 @@ export function criarServicoLgpd(s: Servicos) {
   async function anonimizarNaTransacao(tx: Tx, empresaId: string, contatoId: string): Promise<void> {
     const q = (sql: string, valores: unknown[] = [empresaId, contatoId]) => tx.cliente.query(sql, valores);
     await q(
-      `UPDATE contato SET nome = '${NOME_ANONIMO}', telefone = NULL, email = NULL, campos = '{}', origem = NULL, organizacao_id = NULL,
+      `UPDATE contato SET nome = '${NOME_ANONIMO}', telefone = NULL, email = NULL, documento_tipo = NULL, documento_final = NULL, documento_cifrado = NULL, documento_hash = NULL, campos = '{}', origem = NULL, organizacao_id = NULL,
               consentimento_em = NULL, nao_contatar = true, anonimizado_em = now(), arquivado_em = coalesce(arquivado_em, now()), atualizado_em = now()
         WHERE empresa_id = $1 AND id = $2`,
     );

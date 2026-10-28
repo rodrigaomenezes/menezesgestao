@@ -97,6 +97,10 @@ Marcos: **primeiro cliente pagante** ao fim da Fase 9 · **venda em escala** ao 
       Início, Rotina, BPI e Comissões levando ao painel filtrado; conversão entre etapas do funil (quem parou em cada uma); Breaks do Motor BRE por categoria, motivo e pessoa;
       filtros no endereço em Contatos, Tarefas, Conversas e Auditoria (dias no fuso da empresa); listas que recarregam
       sem encolher nem mostrar resposta de um filtro antigo.
+- [~] Fase 9.2 — Princípios da Konecta (ADR-044; feito: entrega 1 — erro por campo, bloqueio com contagem, offline,
+      esqueleto, duplicidade com "Abrir o existente", limites visíveis, x-request-id e 3 perfis; entrega 2 — CPF/CNPJ
+      cifrado e mascarado com "Mostrar" auditado e exportação da lista com finalidade; falta: vários contatos e
+      endereços, duplicados e fusão).
 - [ ] Fase 10 — WhatsApp em escala (3 sprints): arquivos em S3/R2 (sem limite de 16 MB); mensagens modelo da API
       oficial fora da janela de 24 h; campanhas em massa só pela API oficial, com descadastro, limite de envio e
       "não contatar"; chatbot de triagem por menu; QR com mais de um servidor (trava por canal); mensagens enviadas

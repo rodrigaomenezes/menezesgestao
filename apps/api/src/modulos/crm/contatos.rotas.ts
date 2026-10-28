@@ -4,8 +4,10 @@ import {
   AtualizarContatoEntrada,
   ContatoDto,
   ContatoEntrada,
+  DocumentoReveladoDto,
   EtiquetasContatoEntrada,
   FiltroContatos,
+  FiltroExportacaoContatos,
   HistoricoDto,
   Ok,
   Paginacao,
@@ -21,13 +23,37 @@ export const rotasContatos =
   (s: Servicos): FastifyPluginAsyncZod =>
   async (app) => {
     const contatos = criarServicoContatos(s);
-    const acesso = (acao: "ver" | "criar" | "editar" | "arquivar") => ({ acesso: { modulo: "crm" as const, acao } });
+    const acesso = (acao: "ver" | "criar" | "editar" | "arquivar" | "exportar") => ({ acesso: { modulo: "crm" as const, acao } });
     const tags = ["CRM — contatos"];
 
     app.get(
       "/api/contatos",
       { config: acesso("ver"), schema: { tags, summary: "Listar contatos da carteira (busca, etiqueta, responsável)", querystring: FiltroContatos, response: { 200: pagina(ContatoDto) } } },
       async (req) => contatos.listar(exigirEmpresa(req), exigirEscopo(req), req.query),
+    );
+
+    // Planilha do que a lista mostra, com finalidade obrigatória (fica na auditoria com os filtros e a quantidade).
+    app.get(
+      "/api/contatos/exportar",
+      {
+        config: acesso("exportar"),
+        schema: { tags, summary: "Exportar a lista filtrada em CSV (finalidade obrigatória, documento mascarado)", querystring: FiltroExportacaoContatos },
+      },
+      async (req, reply) => {
+        const r = await contatos.exportar(exigirEmpresa(req), exigirEscopo(req), origemDe(req), req.query);
+        return reply
+          .header("content-type", "text/csv; charset=utf-8")
+          .header("content-disposition", `attachment; filename="${r.nomeArquivo}"`)
+          .header("cache-control", "no-store")
+          .send(r.csv);
+      },
+    );
+
+    // Documento inteiro: só quem pode exportar, e cada vez fica na auditoria.
+    app.post(
+      "/api/contatos/:id/documento/revelar",
+      { config: acesso("exportar"), schema: { tags, summary: "Mostrar o CPF/CNPJ inteiro (auditado)", params: ParamId, response: { 200: DocumentoReveladoDto } } },
+      async (req) => contatos.revelarDocumento(exigirEmpresa(req), exigirEscopo(req), origemDe(req), req.params.id),
     );
 
     app.get(

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { SENHA_MINIMO } from "@mg/shared";
 import { ErroApi, get, post } from "../../app/api";
-import { Campo, Mensagem, useEnvio } from "../../ui/ui";
+import { Campo, Carregando, Mensagem, useEnvio } from "../../ui/ui";
 import { useSessao } from "../../app/sessao";
 
 interface Convite {
@@ -50,7 +50,7 @@ export function AceitarConvite() {
             </Link>
           </>
         )}
-        {!problema && !convite && <p>Carregando…</p>}
+        {!problema && !convite && <Carregando />}
         {convite && (
           <>
             <p className="subtitulo">

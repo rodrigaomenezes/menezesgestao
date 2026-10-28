@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   MARCOS_BRE,
+  MAX_CAMPOS_POR_TIPO,
+  MAX_ETIQUETAS,
   NOMES_TIPOS_CAMPO,
   NOMES_TIPOS_ETAPA,
   TIPOS_CAMPO,
@@ -205,12 +207,18 @@ function ListasSimples() {
     setMotivo("");
     recarregar();
   });
+  const termos = useVocabulario();
+  // Contador visível do limite (o servidor também recusa acima dele).
+  const ativasEtiquetas = dados.etiquetas.filter((e) => !e.arquivadoEm).length;
+  const etiquetasNoLimite = ativasEtiquetas >= MAX_ETIQUETAS;
   return (
     <>
       <Mensagem tipo="erro">{erro}</Mensagem>
       <section className="cartao" aria-labelledby="titulo-etiquetas">
-        <h2 id="titulo-etiquetas">Etiquetas</h2>
-        {!dados.etiquetas.length && <ListaVazia>Nenhuma etiqueta.</ListaVazia>}
+        <h2 id="titulo-etiquetas">
+          Etiquetas <span className="item-detalhe">· {ativasEtiquetas} de {MAX_ETIQUETAS}</span>
+        </h2>
+        {!dados.etiquetas.length && <ListaVazia>Nenhuma etiqueta. Crie a primeira abaixo para marcar {termos.t("{contatos}")} (ex.: “Indicação”, “VIP”).</ListaVazia>}
         <ul className="lista">
           {dados.etiquetas.map((e) => (
             <li key={e.id} className="item">
@@ -227,10 +235,11 @@ function ListasSimples() {
         <form className="form-linha" onSubmit={novaEtiqueta.enviar}>
           <Campo rotulo="Nova etiqueta" nome="nova-etiqueta" valor={etiqueta} aoMudar={setEtiqueta} obrigatorio />
           <Campo rotulo="Cor" nome="nova-etiqueta-cor" tipo="color" valor={cor} aoMudar={setCor} />
-          <button type="submit" className="botao" disabled={novaEtiqueta.enviando}>
+          <button type="submit" className="botao" disabled={novaEtiqueta.enviando || etiquetasNoLimite}>
             Criar
           </button>
         </form>
+        {etiquetasNoLimite && <p className="dica">Limite de {MAX_ETIQUETAS} etiquetas ativas atingido. Arquive uma que não usa mais para criar outra.</p>}
         <Mensagem tipo="erro">{novaEtiqueta.erro}</Mensagem>
       </section>
       <section className="cartao" aria-labelledby="titulo-motivos">
@@ -302,6 +311,8 @@ function Campos() {
     recarregar();
   };
   const nomeEntidade = (e: string) => (e === "contato" ? termos.Contato : termos.Oportunidade);
+  const ativosDoTipo = campos.filter((c) => c.entidade === entidade && !c.arquivadoEm).length;
+  const camposNoLimite = ativosDoTipo >= MAX_CAMPOS_POR_TIPO;
   return (
     <section className="cartao" aria-labelledby="titulo-campos">
       <h2 id="titulo-campos">Campos personalizados</h2>
@@ -339,7 +350,7 @@ function Campos() {
         <h3>Novo campo</h3>
         <div className="grade-campos">
           <Escolha rotulo="Em" nome="campo-entidade" valor={entidade} aoMudar={setEntidade} opcoes={[{ valor: "contato", texto: termos.Contato }, { valor: "oportunidade", texto: termos.Oportunidade }]} />
-          <Campo rotulo="Nome do campo" nome="campo-rotulo" valor={rotulo} aoMudar={setRotulo} obrigatorio />
+          <Campo rotulo="Nome do campo" nome="campo-rotulo" valor={rotulo} aoMudar={setRotulo} obrigatorio erro={criar.campos.rotulo ?? criar.campos.chave} />
           <Escolha rotulo="Tipo" nome="campo-tipo" valor={tipo} aoMudar={setTipo} opcoes={TIPOS_CAMPO.map((t) => ({ valor: t, texto: NOMES_TIPOS_CAMPO[t] }))} />
         </div>
         {tipo === "lista" && (
@@ -352,8 +363,12 @@ function Campos() {
           <input type="checkbox" checked={obrigatorio} onChange={(e) => setObrigatorio(e.target.checked)} />
           Obrigatório no cadastro
         </label>
-        <Mensagem tipo="erro">{criar.erro}</Mensagem>
-        <button type="submit" className="botao" disabled={criar.enviando || !paraChave(rotulo)}>
+        <p className={camposNoLimite ? "mensagem mensagem-aviso" : "dica"}>
+          {ativosDoTipo} de {MAX_CAMPOS_POR_TIPO} campos em {nomeEntidade(entidade)}
+          {camposNoLimite ? ". Limite atingido: arquive um campo que não usa mais para criar outro." : "."}
+        </p>
+        <Mensagem tipo="erro">{criar.resumo(["rotulo", "chave"])}</Mensagem>
+        <button type="submit" className="botao" disabled={criar.enviando || !paraChave(rotulo) || camposNoLimite}>
           Criar campo
         </button>
       </form>

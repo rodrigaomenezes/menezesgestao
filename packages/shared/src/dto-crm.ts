@@ -2,6 +2,7 @@
 // campos personalizados, histórico e importação.
 import { z } from "zod";
 import { DataIso, FiltroLista, Id, IdOpcional, MAX_DIAS_ANALISE, Paginacao, validarIntervalo } from "./dto.js";
+import { TIPOS_DOCUMENTO } from "./documento.js";
 import { DataDia } from "./dto-operacao.js";
 import { CODIGOS_MARCOS } from "./dto-bre.js";
 
@@ -134,6 +135,9 @@ export const ContatoDto = z.object({
   campos: z.record(z.string(), z.unknown()),
   naoContatar: z.boolean(),
   consentimentoEm: DataIso.nullable(),
+  /** CPF/CNPJ só mascarado (•••.•••.123-45); o inteiro sai por /documento/revelar, com permissão e auditoria. */
+  documentoTipo: z.enum(TIPOS_DOCUMENTO).nullable(),
+  documentoMascarado: z.string().nullable(),
   etiquetas: z.array(z.object({ id: Id, nome: z.string(), cor: z.string() })),
   criadoEm: DataIso,
   atualizadoEm: DataIso,
@@ -154,6 +158,8 @@ export const ContatoEntrada = z.object({
   campos: ValoresCampos.default({}),
   naoContatar: z.boolean().default(false),
   consentimentoEm: opcional(z.iso.datetime({ error: "Data de consentimento inválida." })),
+  /** CPF ou CNPJ, com ou sem pontuação; vazio ou null tira o documento. */
+  documento: opcional(z.string().trim().max(30)),
   etiquetaIds: z.array(Id).max(30).default([]),
 });
 export const AtualizarContatoEntrada = ContatoEntrada.omit({ etiquetaIds: true }).partial();
@@ -162,6 +168,24 @@ export const FiltroContatos = FiltroLista.extend({
   etiquetaId: Id.optional(),
   responsavelId: Id.optional(),
   tipo: z.enum(TIPOS_CONTATO).optional(),
+});
+
+export const DocumentoReveladoDto = z.object({ tipo: z.enum(TIPOS_DOCUMENTO), documento: z.string() });
+export type DocumentoReveladoDto = z.infer<typeof DocumentoReveladoDto>;
+
+/** Finalidade obrigatória para exportar (LGPD; Konecta RF-MIG-002): fica registrada na auditoria com os filtros. */
+export const FINALIDADES_EXPORTACAO = ["relatorio_interno", "migracao_de_sistema", "campanha_autorizada", "pedido_do_titular", "auditoria"] as const;
+export const NOMES_FINALIDADES_EXPORTACAO: Record<(typeof FINALIDADES_EXPORTACAO)[number], string> = {
+  relatorio_interno: "Relatório interno",
+  migracao_de_sistema: "Migração de sistema",
+  campanha_autorizada: "Campanha com consentimento",
+  pedido_do_titular: "Pedido do próprio titular",
+  auditoria: "Auditoria ou fiscalização",
+};
+/** Quantas linhas uma exportação traz no máximo (acima disso, filtre mais). */
+export const LIMITE_EXPORTACAO_CONTATOS = 10_000;
+export const FiltroExportacaoContatos = FiltroContatos.omit({ cursor: true, limite: true }).extend({
+  finalidade: z.enum(FINALIDADES_EXPORTACAO, { error: "Escolha a finalidade da exportação." }),
 });
 
 export const ACOES_EM_MASSA = ["transferir", "arquivar", "restaurar", "etiquetar", "desetiquetar"] as const;

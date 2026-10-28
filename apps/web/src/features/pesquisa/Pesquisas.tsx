@@ -6,7 +6,7 @@ import { ErroApi, get, patch, post } from "../../app/api";
 import { useDataHora, useSessao } from "../../app/sessao";
 import { useTempoReal } from "../../app/tempo-real";
 import { useAviso } from "../../ui/sobreposicoes";
-import { BotaoAlternar, CarregarMais, Campo, Escolha, ListaVazia, Mensagem, Titulo, useEnvio, usePaginado } from "../../ui/ui";
+import { BotaoAlternar, Campo, Carregando, CarregarMais, Titulo, ListaVazia, Mensagem, Escolha, useEnvio, usePaginado } from "../../ui/ui";
 import { useVocabulario } from "../../app/vocabulario";
 
 interface Rascunho {
@@ -139,7 +139,7 @@ export function ResultadoPesquisa() {
   useEffect(carregar, [id]);
   useTempoReal(["pesquisa."], (a) => (a.entidadeId === id ? carregar() : undefined));
   if (erro) return <Mensagem tipo="erro">{erro}</Mensagem>;
-  if (!p || !r) return <p className="carregando">Carregando…</p>;
+  if (!p || !r) return <Carregando />;
   const alternar = async () => {
     try {
       await patch(`/pesquisas/${id}`, { aberta: !p.aberta });

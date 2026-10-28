@@ -12,7 +12,7 @@ import {
 import { ErroApi, get, post } from "../../app/api";
 import { useDataHora, useSessao } from "../../app/sessao";
 import { useAviso } from "../../ui/sobreposicoes";
-import { Campo, Mensagem, Titulo, useEnvio } from "../../ui/ui";
+import { Campo, Carregando, Titulo, Mensagem, useEnvio } from "../../ui/ui";
 
 /** Mostra os códigos de recuperação uma única vez. */
 function CodigosRecuperacao({ codigos, aoFechar }: { codigos: string[]; aoFechar(): void }) {
@@ -148,7 +148,7 @@ export function Seguranca() {
   useEffect(carregar, [carregar]);
 
   if (erro) return <Mensagem tipo="erro">{erro}</Mensagem>;
-  if (!estado) return <p className="carregando">Carregando…</p>;
+  if (!estado) return <Carregando />;
   return (
     <>
       <Titulo>Segurança da conta</Titulo>

@@ -5,13 +5,13 @@ import { PASSOS_ASSISTENTE, SEGMENTOS, type OnboardingDto } from "@mg/shared";
 import { ErroApi, get, post } from "../../app/api";
 import { useSessao } from "../../app/sessao";
 import { useAviso } from "../../ui/sobreposicoes";
-import { Campo, Escolha, Mensagem, Titulo, useEnvio } from "../../ui/ui";
+import { Campo, Carregando, Titulo, Mensagem, Escolha, useEnvio } from "../../ui/ui";
 import { EnviarLogo, FormCores, useConfigMarca } from "./Marca";
 
 function PassoMarca({ aoSeguir }: { aoSeguir(): void }) {
   const { config, setConfig, erro } = useConfigMarca();
   if (erro) return <Mensagem tipo="erro">{erro}</Mensagem>;
-  if (!config) return <p className="carregando">Carregando…</p>;
+  if (!config) return <Carregando />;
   return (
     <>
       <p>Escolha as cores e, se tiver, envie o logo. Dá para mudar depois em “Empresa e marca”.</p>
@@ -174,7 +174,7 @@ export function PrimeirosPassos() {
     }
   };
   if (erro) return <Mensagem tipo="erro">{erro}</Mensagem>;
-  if (!estado) return <p className="carregando">Carregando…</p>;
+  if (!estado) return <Carregando />;
   return (
     <>
       <Titulo>Primeiros passos</Titulo>

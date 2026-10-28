@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { get, patch } from "../../app/api";
-import { Campo, Escolha, Mensagem, Titulo, useEnvio } from "../../ui/ui";
+import { Campo, Carregando, Titulo, Mensagem, Escolha, useEnvio } from "../../ui/ui";
 import { useSessao } from "../../app/sessao";
 import { Link } from "react-router-dom";
 import { SegurancaEmpresa } from "./SegurancaEmpresa";
@@ -51,7 +51,7 @@ export function Empresa() {
   });
 
   if (erroCarga) return <Mensagem tipo="erro">{erroCarga}</Mensagem>;
-  if (!dados) return <p>Carregando…</p>;
+  if (!dados) return <Carregando />;
 
   const mudar = (parcial: Partial<DadosEmpresa>) => {
     setOk("");
