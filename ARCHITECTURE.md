@@ -37,7 +37,8 @@ Toda resposta da API leva `x-request-id`, o mesmo do log da requisição. CPF/CN
 
 Limite entre módulos (ADR-041): o repositório é interno do módulo dono; outro módulo chama o serviço. O lint barra
 importação do repositório de outro módulo, sem exceções; interfaces públicas: `crm/carteira.ts` (contato na carteira,
-responsável) e `permissoes/interface.ts` (permissões do perfil, criar perfil com permissões). Regras permanentes:
+responsável), `crm/telefones.ts` (contato pelo telefone, principal ou extra, com trava por número) e
+`permissoes/interface.ts` (permissões do perfil, criar perfil com permissões). Regras permanentes:
 `docs/POLITICA_ENGENHARIA.md`.
 
 ## Repositório
@@ -127,7 +128,9 @@ tests/      integration/ (Vitest + PostgreSQL real), e2e/ (Playwright, 5 largura
 - Permissões: `permissao (perfil × módulo × ação × escopo)` com CHECK nos catálogos.
 - `evento` e `auditoria` são somente inserção (gatilhos).
 - CRM: `contato` tem índice único `(empresa_id, telefone)` com telefone em E.164 (CHECK no banco) — a chave de
-  deduplicação. A carteira é `contato.responsavel_id`, filtrada pelo escopo. `evento.contato_id` liga o histórico.
+  deduplicação. Telefones e e-mails extras ficam em `contato_canal` (telefone ativo único por empresa) e endereços em
+  `contato_endereco` (um principal por contato); entre as duas tabelas, a regra "um telefone, um contato" é de
+  `crm/telefones.ts` (consulta + trava por número), usada por quem acha contato pelo telefone (ADR-044). A carteira é `contato.responsavel_id`, filtrada pelo escopo. `evento.contato_id` liga o histórico.
 - Conversas: `mensagem` tem índice único `(canal_id, id_externo)` — webhook repetido nunca duplica; `conversa` tem
   índice único `(canal_id, telefone)` entre as ativas e `ids_externos text[]` (GIN) com todos os ids do cliente no
   provedor. Duplicadas antigas são juntadas apontando `mesclada_em_id` (nada é apagado).

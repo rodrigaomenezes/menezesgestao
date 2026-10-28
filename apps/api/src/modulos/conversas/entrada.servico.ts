@@ -1,10 +1,10 @@
 // Entrada de mensagens (webhook, conexão por QR ou simulação). Regra de ouro: a resposta do cliente cai sempre
 // na mesma conversa, e evento repetido nunca duplica nada.
 // Busca em cascata: (1) id da mensagem já visto → ignora; (2) id do cliente no provedor; (3) telefone com e sem
-// o nono dígito; (4) contato com esse telefone. Só então cria contato/conversa. Corrida entre dois webhooks do
+// o nono dígito; (4) contato com esse telefone (principal ou extra). Só então cria contato/conversa. Corrida entre dois webhooks do
 // mesmo cliente novo é resolvida pelo índice único (canal, telefone) + nova tentativa.
 import { erroSeguro, registrarLog } from "../../infra/log.js";
-import { and, asc, desc, eq, gt, inArray, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, isNull, sql } from "drizzle-orm";
 import { formatarTelefone, variantesTelefone } from "@mg/shared";
 import { comEmpresa, type Tx } from "../../infra/banco.js";
 import { automacao, canal, contato, conversa, empresa, mensagem } from "../../infra/esquema.js";
@@ -13,6 +13,7 @@ import type { Servicos } from "../../app.js";
 import { registrar, type Origem } from "../auditoria/registro.js";
 import { publicar } from "../eventos/publicar.js";
 import type { ProvedorArquivos } from "../arquivos/armazenamento.js";
+import { temTelefone } from "../crm/telefones.js";
 import { paraProvedor, type RegistroProvedores } from "./canais.servico.js";
 import { FILAS_CONVERSAS, type ServicoEnvio } from "./envio.servico.js";
 import { dentroDoHorario } from "./horario.js";
@@ -43,7 +44,7 @@ async function acharConversa(tx: Tx, empresaId: string, canalId: string, ids: st
     .limit(1);
   if (porIdOuTelefone[0]) return porIdOuTelefone[0];
   if (!telefones.length) return null;
-  const [ct] = await tx.db.select({ id: contato.id }).from(contato).where(and(eq(contato.empresaId, empresaId), inArray(contato.telefone, telefones))).limit(1);
+  const [ct] = await tx.db.select({ id: contato.id }).from(contato).where(and(eq(contato.empresaId, empresaId), temTelefone(empresaId, telefones))).limit(1);
   if (!ct) return null;
   const [porContato] = await tx.db
     .select()
@@ -71,7 +72,7 @@ export function criarServicoEntrada(s: Servicos, provedores: RegistroProvedores,
       // Contato: reaproveita o que já tem este telefone (mesmo na lixeira); senão cria.
       const telefones = ev.telefone ? variantesTelefone(ev.telefone) : [];
       let [ct] = telefones.length
-        ? await tx.db.select({ id: contato.id, responsavelId: contato.responsavelId }).from(contato).where(and(eq(contato.empresaId, cn.empresaId), inArray(contato.telefone, telefones))).limit(1)
+        ? await tx.db.select({ id: contato.id, responsavelId: contato.responsavelId }).from(contato).where(and(eq(contato.empresaId, cn.empresaId), temTelefone(cn.empresaId, telefones))).limit(1)
         : [];
       if (!ct) {
         const nome = ev.nome?.trim() || (ev.telefone ? formatarTelefone(ev.telefone) : "Contato do WhatsApp");

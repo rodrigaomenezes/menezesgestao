@@ -1,5 +1,6 @@
-// Ficha do contato: dados, etiquetas, oportunidades, tarefas, notas e linha do tempo (histórico).
+// Ficha do contato: dados, outros telefones/e-mails e endereços, etiquetas, oportunidades, tarefas, notas e linha do tempo (histórico).
 import { Privacidade } from "./Privacidade";
+import { CanaisDoContato, EnderecosDoContato } from "./ContatoExtras";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { CRITERIOS_ENCERRAMENTO, mascararDigitando, type ContatoDto, type DocumentoReveladoDto, type HistoricoDto, type NotaDto, type OportunidadeDto, type TarefaDto } from "@mg/shared";
@@ -329,6 +330,13 @@ const TEXTOS_EVENTO: Record<string, string> = {
   "contato.restaurado": "Restaurado da lixeira",
   "contato.responsavel_alterado": "Responsável alterado",
   "contato.etiquetas_alteradas": "Etiquetas alteradas",
+  "contato.canal_adicionado": "Telefone ou e-mail incluído",
+  "contato.canal_alterado": "Rótulo alterado",
+  "contato.canal_removido": "Telefone ou e-mail retirado",
+  "contato.canal_principal": "Novo principal",
+  "contato.endereco_adicionado": "Endereço incluído",
+  "contato.endereco_alterado": "Endereço alterado",
+  "contato.endereco_removido": "Endereço retirado",
   "oportunidade.criada": "{Oportunidade} criad{o|a:oportunidade}",
   "oportunidade.atualizada": "{Oportunidade} alterad{o|a:oportunidade}",
   "oportunidade.etapa_alterada": "Mudou de etapa",
@@ -376,6 +384,11 @@ function detalheEvento(h: HistoricoDto): string {
     return d.atendida ? `atendida, ${Math.floor(seg / 60)}min ${String(seg % 60).padStart(2, "0")}s` : `não atendida${d.motivo ? ` (${String(d.motivo)})` : ""}`;
   }
   if (h.tipo.startsWith("mensagem.") && typeof d.resumo === "string") return d.resumo;
+  if (h.tipo.startsWith("contato.canal_")) {
+    const valor = String(d.principal ?? d.valor ?? "");
+    return d.tipo === "telefone" ? formatarTelefone(valor) : valor;
+  }
+  if (h.tipo.startsWith("contato.endereco_") && typeof d.endereco === "string") return `${d.endereco} · ${String(d.cidade ?? "")}`;
   if (h.tipo.startsWith("entrega.") && typeof d.entrega === "string") return d.entrega;
   if (h.tipo === "avaliacao.registrada" && typeof d.notaFinal === "number") return `nota ${d.notaFinal.toLocaleString("pt-BR")}`;
   if (typeof d.titulo === "string") return d.titulo;
@@ -607,6 +620,8 @@ export function Contato() {
       </section>
       <div className="duas-colunas">
         <div>
+          <CanaisDoContato contato={contato} aoMudarPrincipal={carregar} />
+          <EnderecosDoContato contato={contato} />
           <Oportunidades contato={contato} config={config} />
           <VendasDoContato contato={contato} />
           <Tarefas contato={contato} />

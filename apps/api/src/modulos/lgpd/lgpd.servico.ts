@@ -78,6 +78,18 @@ export function criarServicoLgpd(s: Servicos) {
         `SELECT tipo, criado_em AS "criadoEm" FROM evento WHERE empresa_id = $1 AND contato_id = $2 ORDER BY criado_em LIMIT $3`,
         p,
       );
+      // Telefones, e-mails e endereços extras ativos (até o limite por contato, então sem LIMIT de lista).
+      const canais = await linhas(
+        tx,
+        `SELECT tipo, valor, rotulo FROM contato_canal WHERE empresa_id = $1 AND contato_id = $2 AND arquivado_em IS NULL ORDER BY criado_em`,
+        [ctx.empresaId, contatoId],
+      );
+      const enderecos = await linhas(
+        tx,
+        `SELECT rotulo, cep, logradouro, numero, complemento, bairro, cidade, uf, principal
+           FROM contato_endereco WHERE empresa_id = $1 AND contato_id = $2 AND arquivado_em IS NULL ORDER BY principal DESC, criado_em`,
+        [ctx.empresaId, contatoId],
+      );
       const listas = { oportunidades, tarefas, notas, mensagens, ligacoes, compromissos, vendas, historico };
       // O pedido de exportação fica na auditoria (quem tirou os dados e quando), sem o conteúdo.
       await auditar(tx, origem, { acao: "contato.dados_exportados", entidade: "contato", entidadeId: contatoId });
@@ -89,6 +101,9 @@ export function criarServicoLgpd(s: Servicos) {
           nome: c.nome,
           telefone: c.telefone,
           email: c.email,
+          outrosTelefones: canais.filter((x) => x.tipo === "telefone").map(({ valor, rotulo }) => ({ valor, rotulo })),
+          outrosEmails: canais.filter((x) => x.tipo === "email").map(({ valor, rotulo }) => ({ valor, rotulo })),
+          enderecos,
           documento,
           organizacao: c.organizacaoNome,
           origem: c.origem,
@@ -114,6 +129,16 @@ export function criarServicoLgpd(s: Servicos) {
       `UPDATE contato SET nome = '${NOME_ANONIMO}', telefone = NULL, email = NULL, documento_tipo = NULL, documento_final = NULL, documento_cifrado = NULL, documento_hash = NULL, campos = '{}', origem = NULL, organizacao_id = NULL,
               consentimento_em = NULL, nao_contatar = true, anonimizado_em = now(), arquivado_em = coalesce(arquivado_em, now()), atualizado_em = now()
         WHERE empresa_id = $1 AND id = $2`,
+    );
+    // Extras: o conteúdo some e a linha sai do ar (arquivada), para o número não achar mais ninguém.
+    await q(
+      `UPDATE contato_canal SET valor = '${TEXTO_ANONIMO}', arquivado_em = coalesce(arquivado_em, now())
+        WHERE empresa_id = $1 AND contato_id = $2`,
+    );
+    await q(
+      `UPDATE contato_endereco SET cep = NULL, logradouro = '${TEXTO_ANONIMO}', numero = NULL, complemento = NULL, bairro = NULL,
+              cidade = '${TEXTO_ANONIMO}', uf = 'XX', principal = false, arquivado_em = coalesce(arquivado_em, now()), atualizado_em = now()
+        WHERE empresa_id = $1 AND contato_id = $2`,
     );
     const { rows: ops } = await q(
       `UPDATE oportunidade SET titulo = 'Oportunidade anonimizada', campos = '{}', atualizado_em = now()

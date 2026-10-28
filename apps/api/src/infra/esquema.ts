@@ -312,6 +312,38 @@ export const contato = pgTable("contato", {
   arquivadoEm: ts("arquivado_em"),
 });
 
+/** Telefones e e-mails extras do contato (os principais ficam em `contato`). */
+export const contatoCanal = pgTable("contato_canal", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  empresaId: uuid("empresa_id").notNull(),
+  contatoId: uuid("contato_id").notNull(),
+  tipo: text("tipo").$type<"telefone" | "email">().notNull(),
+  valor: text("valor").notNull(),
+  rotulo: text("rotulo").$type<"celular" | "whatsapp" | "comercial" | "residencial" | "pessoal" | "outro">().notNull().default("outro"),
+  criadoPor: uuid("criado_por"),
+  criadoEm: criadoEm(),
+  arquivadoEm: ts("arquivado_em"),
+});
+
+export const contatoEndereco = pgTable("contato_endereco", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  empresaId: uuid("empresa_id").notNull(),
+  contatoId: uuid("contato_id").notNull(),
+  rotulo: text("rotulo").$type<"residencial" | "comercial" | "entrega" | "cobranca" | "outro">().notNull().default("residencial"),
+  cep: text("cep"),
+  logradouro: text("logradouro").notNull(),
+  numero: text("numero"),
+  complemento: text("complemento"),
+  bairro: text("bairro"),
+  cidade: text("cidade").notNull(),
+  uf: text("uf").notNull(),
+  principal: boolean("principal").notNull().default(false),
+  criadoPor: uuid("criado_por"),
+  criadoEm: criadoEm(),
+  atualizadoEm: atualizadoEm(),
+  arquivadoEm: ts("arquivado_em"),
+});
+
 export const contatoEtiqueta = pgTable(
   "contato_etiqueta",
   {

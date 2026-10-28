@@ -2,27 +2,37 @@ import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import {
   AcaoEmMassaEntrada,
   AtualizarContatoEntrada,
+  CanalContatoDto,
+  CanalContatoEntrada,
   ContatoDto,
   ContatoEntrada,
   DocumentoReveladoDto,
+  EnderecoContatoDto,
+  EnderecoContatoEntrada,
   EtiquetasContatoEntrada,
   FiltroContatos,
   FiltroExportacaoContatos,
   HistoricoDto,
   Ok,
   Paginacao,
+  ParamCanal,
+  ParamEndereco,
   ParamId,
+  ROTULOS_CANAL,
   ResultadoEmMassaDto,
   pagina,
 } from "@mg/shared";
 import type { Servicos } from "../../app.js";
 import { exigirEmpresa, exigirEscopo, origemDe } from "../acesso/acesso.js";
+import { z } from "zod";
+import { criarServicoCanais } from "./canais.servico.js";
 import { criarServicoContatos } from "./contatos.servico.js";
 
 export const rotasContatos =
   (s: Servicos): FastifyPluginAsyncZod =>
   async (app) => {
     const contatos = criarServicoContatos(s);
+    const canais = criarServicoCanais(s);
     const acesso = (acao: "ver" | "criar" | "editar" | "arquivar" | "exportar") => ({ acesso: { modulo: "crm" as const, acao } });
     const tags = ["CRM — contatos"];
 
@@ -104,5 +114,68 @@ export const rotasContatos =
       "/api/contatos/acoes",
       { config: acesso("editar"), schema: { tags, summary: "Ações em massa: transferir, arquivar, restaurar, etiquetar", body: AcaoEmMassaEntrada, response: { 200: ResultadoEmMassaDto } } },
       async (req) => contatos.acaoEmMassa(exigirEmpresa(req), exigirEscopo(req), origemDe(req), req.body),
+    );
+
+    // Telefones, e-mails e endereços extras (listas curtas, com limite por contato: sem paginação).
+    const tagsExtras = ["CRM — telefones, e-mails e endereços"];
+    app.get(
+      "/api/contatos/:id/canais",
+      { config: acesso("ver"), schema: { tags: tagsExtras, summary: "Telefones e e-mails extras do contato", params: ParamId, response: { 200: z.array(CanalContatoDto) } } },
+      async (req) => canais.listarCanais(exigirEmpresa(req), exigirEscopo(req), req.params.id),
+    );
+    app.post(
+      "/api/contatos/:id/canais",
+      {
+        config: acesso("editar"),
+        schema: { tags: tagsExtras, summary: "Incluir telefone ou e-mail extra (telefone único na empresa)", params: ParamId, body: CanalContatoEntrada, response: { 201: CanalContatoDto } },
+      },
+      async (req, reply) => reply.status(201).send(await canais.adicionarCanal(exigirEmpresa(req), exigirEscopo(req), origemDe(req), req.params.id, req.body)),
+    );
+    app.patch(
+      "/api/contatos/:id/canais/:canalId",
+      {
+        config: acesso("editar"),
+        schema: { tags: tagsExtras, summary: "Trocar o rótulo do telefone ou e-mail extra", params: ParamCanal, body: z.object({ rotulo: z.enum(ROTULOS_CANAL) }), response: { 200: CanalContatoDto } },
+      },
+      async (req) => canais.alterarCanal(exigirEmpresa(req), exigirEscopo(req), origemDe(req), req.params.id, req.params.canalId, req.body.rotulo),
+    );
+    app.post(
+      "/api/contatos/:id/canais/:canalId/arquivar",
+      { config: acesso("editar"), schema: { tags: tagsExtras, summary: "Tirar o telefone ou e-mail extra (fica arquivado)", params: ParamCanal, response: { 200: Ok } } },
+      async (req) => {
+        await canais.arquivarCanal(exigirEmpresa(req), exigirEscopo(req), origemDe(req), req.params.id, req.params.canalId);
+        return { ok: true as const };
+      },
+    );
+    app.post(
+      "/api/contatos/:id/canais/:canalId/principal",
+      { config: acesso("editar"), schema: { tags: tagsExtras, summary: "Tornar o extra o principal (o principal de antes vira extra)", params: ParamCanal, response: { 200: Ok } } },
+      async (req) => {
+        await canais.tornarPrincipal(exigirEmpresa(req), exigirEscopo(req), origemDe(req), req.params.id, req.params.canalId);
+        return { ok: true as const };
+      },
+    );
+    app.get(
+      "/api/contatos/:id/enderecos",
+      { config: acesso("ver"), schema: { tags: tagsExtras, summary: "Endereços do contato (o principal primeiro)", params: ParamId, response: { 200: z.array(EnderecoContatoDto) } } },
+      async (req) => canais.listarEnderecos(exigirEmpresa(req), exigirEscopo(req), req.params.id),
+    );
+    app.post(
+      "/api/contatos/:id/enderecos",
+      { config: acesso("editar"), schema: { tags: tagsExtras, summary: "Incluir endereço", params: ParamId, body: EnderecoContatoEntrada, response: { 201: EnderecoContatoDto } } },
+      async (req, reply) => reply.status(201).send(await canais.adicionarEndereco(exigirEmpresa(req), exigirEscopo(req), origemDe(req), req.params.id, req.body)),
+    );
+    app.put(
+      "/api/contatos/:id/enderecos/:enderecoId",
+      { config: acesso("editar"), schema: { tags: tagsExtras, summary: "Alterar endereço", params: ParamEndereco, body: EnderecoContatoEntrada, response: { 200: EnderecoContatoDto } } },
+      async (req) => canais.alterarEndereco(exigirEmpresa(req), exigirEscopo(req), origemDe(req), req.params.id, req.params.enderecoId, req.body),
+    );
+    app.post(
+      "/api/contatos/:id/enderecos/:enderecoId/arquivar",
+      { config: acesso("editar"), schema: { tags: tagsExtras, summary: "Tirar o endereço (fica arquivado)", params: ParamEndereco, response: { 200: Ok } } },
+      async (req) => {
+        await canais.arquivarEndereco(exigirEmpresa(req), exigirEscopo(req), origemDe(req), req.params.id, req.params.enderecoId);
+        return { ok: true as const };
+      },
     );
   };

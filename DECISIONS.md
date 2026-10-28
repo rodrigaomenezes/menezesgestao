@@ -736,3 +736,16 @@ pacote do titular (LGPD) vai inteiro. CPF/CNPJ não vai para o log nem para a au
 na busca registrada). **Exportação** (RF-MIG-002): `GET /api/contatos/exportar` gera CSV para o Excel brasileiro
 (`;`, BOM, proteção contra fórmula) com os mesmos filtros e carteira da lista, finalidade obrigatória, limite de 10 mil
 linhas (acima, recusa e pede para filtrar) e registro `contatos.exportados` com finalidade, filtros e quantidade.
+
+Adendo (entrega 3): **vários telefones, e-mails e endereços** (RF-CRM-002). O telefone e o e-mail principais continuam
+em `contato` (o telefone segue como chave contra duplicidade e como número de ligação e da fila); os extras ficam em
+`contato_canal` (tipo, valor em E.164 ou minúsculo, rótulo) e os endereços em `contato_endereco` (no máximo um
+principal ativo por contato, por índice parcial). Alternativa descartada: mover o principal para a tabela nova —
+mexeria em todo consumidor de `contato.telefone` (fila, ligação, conversas, automações, importação) sem ganho para a
+pessoa. Regra: **um telefone ativo é de um contato só**, seja principal ou extra. Cada tabela tem seu índice único; entre
+as duas, quem grava (cadastro, edição, extra, "tornar principal") pega uma trava curta por empresa + número
+(`pg_advisory_xact_lock`) e confere em `crm/telefones.ts`, que é também a consulta usada pela entrada do WhatsApp, pela
+importação, pela checagem de "não contatar" da telefonia e pela busca. E-mail pode repetir entre contatos (como o
+principal), nunca no mesmo. Limites: 10 extras e 5 endereços por contato (listas curtas, sem paginação). Tirar arquiva
+a linha (nada some) e libera o número; toda mudança vai para o histórico. LGPD: o pacote do titular traz os extras e
+anonimizar apaga o conteúdo e arquiva as linhas.
