@@ -33,6 +33,8 @@ import { definicoesDeCampos } from "./configuracao.servico.js";
 import * as repo from "./contatos.repositorio.js";
 import { canaisDeVarios } from "./canais.repositorio.js";
 import { donoDoTelefone, travarTelefone } from "./telefones.js";
+import { comFundidos } from "./fusao.repositorio.js";
+import { erroRestaurarFundido } from "./fusao.servico.js";
 
 export interface DadosContato {
   tipo?: "pessoa" | "empresa";
@@ -319,6 +321,7 @@ export function criarServicoContatos(s: Servicos) {
   async function alternarArquivo(ctx: ContextoEmpresa, escopo: Escopo, origem: Origem, id: string, arquivar: boolean): Promise<void> {
     await comEmpresa(banco, ctx.empresaId, async (tx) => {
       const c = await carregar(tx, ctx, escopo, id);
+      if (!arquivar && c.fundidoEmId) throw erroRestaurarFundido();
       // Arquivar não mexe em oportunidades, tarefas, notas nem histórico: restaurar devolve tudo como estava.
       await tx.db
         .update(contato)
@@ -374,7 +377,7 @@ export function criarServicoContatos(s: Servicos) {
           case "arquivar":
           case "restaurar": {
             const arquivar = dados.acao === "arquivar";
-            if (Boolean(alvo.arquivadoEm) === arquivar) continue;
+            if (Boolean(alvo.arquivadoEm) === arquivar || (!arquivar && alvo.fundidoEmId)) continue;
             await tx.db.update(contato).set({ arquivadoEm: arquivar ? new Date() : null, atualizadoEm: new Date() }).where(eq(contato.id, alvo.id));
             await registrar(tx, origem, {
               acao: arquivar ? "contato.arquivado" : "contato.restaurado",
@@ -414,7 +417,8 @@ export function criarServicoContatos(s: Servicos) {
   async function historico(ctx: ContextoEmpresa, escopo: Escopo, id: string, cursor: string | undefined, limite: number): Promise<Pagina<HistoricoDto>> {
     return comEmpresa(banco, ctx.empresaId, async (tx) => {
       await carregar(tx, ctx, escopo, id);
-      const linhas = await repo.historico(tx, ctx.empresaId, id, cursor, limite);
+      // Os cadastros fundidos neste trazem a história deles junto (o evento não muda: é somente inserção).
+      const linhas = await repo.historico(tx, ctx.empresaId, await comFundidos(tx, ctx.empresaId, id), cursor, limite);
       return montarPagina(linhas, limite, (l) => ({ ...l, dados: (l.dados ?? {}) as Record<string, unknown>, criadoEm: iso(l.criadoEm) }));
     });
   }

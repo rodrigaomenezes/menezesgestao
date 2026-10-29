@@ -12,9 +12,13 @@ import {
   EtiquetasContatoEntrada,
   FiltroContatos,
   FiltroExportacaoContatos,
+  FusaoDto,
+  FusaoEntrada,
   HistoricoDto,
   Ok,
   Paginacao,
+  ParContatosEntrada,
+  ParDuplicadoDto,
   ParamCanal,
   ParamEndereco,
   ParamId,
@@ -27,12 +31,14 @@ import { exigirEmpresa, exigirEscopo, origemDe } from "../acesso/acesso.js";
 import { z } from "zod";
 import { criarServicoCanais } from "./canais.servico.js";
 import { criarServicoContatos } from "./contatos.servico.js";
+import { criarServicoFusao } from "./fusao.servico.js";
 
 export const rotasContatos =
   (s: Servicos): FastifyPluginAsyncZod =>
   async (app) => {
     const contatos = criarServicoContatos(s);
     const canais = criarServicoCanais(s);
+    const fusao = criarServicoFusao(s);
     const acesso = (acao: "ver" | "criar" | "editar" | "arquivar" | "exportar") => ({ acesso: { modulo: "crm" as const, acao } });
     const tags = ["CRM — contatos"];
 
@@ -177,5 +183,29 @@ export const rotasContatos =
         await canais.arquivarEndereco(exigirEmpresa(req), exigirEscopo(req), origemDe(req), req.params.id, req.params.enderecoId);
         return { ok: true as const };
       },
+    );
+
+    // Duplicados e fusão (Konecta RF-CRM-004/008): quem arquiva na carteira da equipe ou da empresa (não a própria).
+    const tagsFusao = ["CRM — duplicados e fusão"];
+    app.get(
+      "/api/contatos/duplicados",
+      { config: acesso("arquivar"), schema: { tags: tagsFusao, summary: "Possíveis duplicados (mesmo e-mail ou mesmo nome)", querystring: Paginacao, response: { 200: pagina(ParDuplicadoDto) } } },
+      async (req) => fusao.pares(exigirEmpresa(req), exigirEscopo(req), req.query.cursor, req.query.limite),
+    );
+    app.post(
+      "/api/contatos/duplicados/ignorar",
+      { config: acesso("arquivar"), schema: { tags: tagsFusao, summary: "Marcar o par como \"não é duplicado\"", body: ParContatosEntrada, response: { 200: Ok } } },
+      async (req) => {
+        await fusao.ignorarPar(exigirEmpresa(req), exigirEscopo(req), origemDe(req), req.body.contatoA, req.body.contatoB);
+        return { ok: true as const };
+      },
+    );
+    app.post(
+      "/api/contatos/:id/fundir",
+      {
+        config: acesso("arquivar"),
+        schema: { tags: tagsFusao, summary: "Fundir outro cadastro neste (o outro fica arquivado; tudo passa para este)", params: ParamId, body: FusaoEntrada, response: { 200: FusaoDto } },
+      },
+      async (req) => fusao.fundir(exigirEmpresa(req), exigirEscopo(req), origemDe(req), req.params.id, req.body),
     );
   };

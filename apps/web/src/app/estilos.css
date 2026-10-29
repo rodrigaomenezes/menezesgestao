@@ -3114,3 +3114,22 @@ a.acao-link:hover {
   background: var(--cor-primaria-suave);
 }
 
+
+/* Fusão de duplicados: cada campo é um grupo de opções; no par, os dois cadastros lado a lado no computador. */
+.escolha-fusao {
+  border: 1px solid var(--borda);
+  border-radius: 8px;
+  margin: 0 0 1rem;
+  padding: 0.5rem 0.75rem;
+  min-width: 0;
+}
+.escolha-fusao legend {
+  font-weight: 600;
+  padding: 0 0.25rem;
+}
+.escolha-fusao .marcar {
+  overflow-wrap: anywhere;
+}
+.par-duplicado {
+  flex-wrap: wrap;
+}

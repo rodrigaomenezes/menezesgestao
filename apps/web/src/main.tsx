@@ -21,6 +21,7 @@ import { Dispositivos } from "./features/conta/Dispositivos";
 import { Seguranca } from "./features/conta/Seguranca";
 import { Contatos } from "./features/crm/Contatos";
 import { Contato } from "./features/crm/Contato";
+import { Duplicados, Fundir } from "./features/crm/Duplicados";
 import { Funil } from "./features/crm/Funil";
 import { Tarefas } from "./features/crm/Tarefas";
 import { Importar } from "./features/crm/Importar";
@@ -149,6 +150,8 @@ function App() {
               <Route path="/plano" element={<Plano />} />
               <Route path="/automacoes" element={<Automacoes />} />
               <Route path="/contatos" element={<Contatos />} />
+              <Route path="/contatos/duplicados" element={<Duplicados />} />
+              <Route path="/contatos/fundir" element={<Fundir />} />
               <Route path="/contatos/:id" element={<Contato />} />
               <Route path="/funil" element={<Funil />} />
               <Route path="/tarefas" element={<Tarefas />} />

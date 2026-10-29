@@ -310,7 +310,35 @@ export const contato = pgTable("contato", {
   atualizadoEm: atualizadoEm(),
   anonimizadoEm: ts("anonimizado_em"),
   arquivadoEm: ts("arquivado_em"),
+  /** Fundido em outro cadastro (arquivado; o histórico aparece no destino). */
+  fundidoEmId: uuid("fundido_em_id"),
 });
+
+/** Registro de cada fusão de duplicados (somente inserção). */
+export const contatoFusao = pgTable("contato_fusao", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  empresaId: uuid("empresa_id").notNull(),
+  origemId: uuid("origem_id").notNull(),
+  destinoId: uuid("destino_id").notNull(),
+  usuarioId: uuid("usuario_id"),
+  origemResumo: jsonb("origem_resumo").$type<Record<string, unknown>>().notNull().default({}),
+  escolhas: jsonb("escolhas").$type<Record<string, unknown>>().notNull().default({}),
+  incorporados: jsonb("incorporados").$type<Record<string, unknown>>().notNull().default({}),
+  movidos: jsonb("movidos").$type<Record<string, number>>().notNull().default({}),
+  criadoEm: criadoEm(),
+});
+
+export const contatoParIgnorado = pgTable(
+  "contato_par_ignorado",
+  {
+    empresaId: uuid("empresa_id").notNull(),
+    contatoA: uuid("contato_a").notNull(),
+    contatoB: uuid("contato_b").notNull(),
+    usuarioId: uuid("usuario_id"),
+    criadoEm: criadoEm(),
+  },
+  (t) => [primaryKey({ columns: [t.contatoA, t.contatoB] })],
+);
 
 /** Telefones e e-mails extras do contato (os principais ficam em `contato`). */
 export const contatoCanal = pgTable("contato_canal", {

@@ -253,3 +253,42 @@ test("outros telefones e endereços na ficha: incluir, tornar principal e endere
   await expect(enderecos.getByText("Residencial · principal")).toBeVisible();
   await semRolagemLateral(page);
 });
+
+test("duplicados e fusão em 3 passos: escolher quem fica, campo a campo, conferir e fundir (RF-CRM-004/008)", async ({ page }, info) => {
+  const { a } = dados();
+  await entrar(page, pessoa(a, "dono").email);
+  const csrf = (await page.context().cookies()).find((c) => c.name === "mg_csrf")?.value ?? "";
+  const emailComum = `fusao-${info.project.name}-${Date.now()}@exemplo.com.br`;
+  const criar = async (nome: string, telefone: string) => {
+    const r = await page.request.post("/api/contatos", { headers: { "x-csrf-token": csrf }, data: { nome, telefone, email: emailComum } });
+    expect(r.status(), await r.text()).toBe(201);
+    return (await r.json()).id as string;
+  };
+  const telFica = telefoneUnico(info.project.name, 5);
+  const telSai = telefoneUnico(info.project.name, 6);
+  const fica = await criar(`Fica ${info.project.name}`, telFica);
+  const sai = await criar(`Sai ${info.project.name}`, telSai);
+
+  await page.goto("/contatos");
+  await page.getByRole("link", { name: "Possíveis duplicados" }).click();
+  await expect(page.getByRole("heading", { name: "Possíveis duplicados", level: 1 })).toBeVisible();
+  await semRolagemLateral(page);
+
+  await page.goto(`/contatos/fundir?a=${fica}&b=${sai}`);
+  await expect(page.getByRole("radio", { name: new RegExp(`Fica ${info.project.name}`) })).toBeChecked();
+  await semRolagemLateral(page);
+  await page.getByRole("button", { name: "Continuar" }).click();
+  // Passo 2: os dois têm nome e telefone diferentes; o telefone que fica é o do cadastro que sai.
+  await page.getByRole("group", { name: "Telefone principal" }).getByRole("radio", { name: telSai }).check();
+  await semRolagemLateral(page);
+  await page.getByRole("button", { name: "Continuar" }).click();
+  await expect(page.getByRole("region", { name: "Passo 3: conferir e fundir" }).getByText(telSai)).toBeVisible();
+  await page.getByRole("button", { name: "Fundir cadastros" }).click();
+
+  await expect(page).toHaveURL(new RegExp(`/contatos/${fica}$`));
+  await expect(page.getByText("Cadastros fundidos. O histórico dos dois está aqui.")).toBeVisible();
+  await expect(page.getByRole("region", { name: "Outros telefones e e-mails" }).getByText(telFica, { exact: true })).toBeVisible();
+  await page.goto(`/contatos/${sai}`);
+  await expect(page.getByRole("link", { name: "Abrir o cadastro que ficou" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Restaurar" })).toHaveCount(0);
+});

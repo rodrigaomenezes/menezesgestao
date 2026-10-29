@@ -1,6 +1,6 @@
 // Início em blocos que cada pessoa monta: o perfil traz um padrão; "Personalizar início" deixa subir, descer,
 // tirar e adicionar blocos. A ordem fica salva no servidor (vale no celular e no computador).
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import {
   BLOCOS_INICIO,
@@ -287,11 +287,19 @@ export function Inicio() {
     get<InicioDto>("/inicio").then(setInicio, (e) => setErro(e instanceof ErroApi ? e.message : "Não foi possível carregar o seu início."));
   }, []);
 
+  // Cliques seguidos (tirar, descer, adicionar) salvam um depois do outro: em paralelo, o servidor podia gravar uma
+  // versão antiga por último, e a tela voltava diferente do que a pessoa montou.
+  const fila = useRef<Promise<unknown>>(Promise.resolve());
+  const emOrdem = <T,>(fazer: () => Promise<T>) => {
+    const vez = fila.current.then(fazer, fazer);
+    fila.current = vez.catch(() => undefined);
+    return vez;
+  };
   const salvar = async (novos: BlocoInicioId[]) => {
     const antes = inicio;
     setInicio({ blocos: novos, padrao: false });
     try {
-      setInicio(await put<InicioDto>("/inicio", { blocos: novos }));
+      setInicio(await emOrdem(() => put<InicioDto>("/inicio", { blocos: novos })));
     } catch (e) {
       setInicio(antes);
       avisar(e instanceof ErroApi ? e.message : "Não foi possível salvar o seu início.", "erro");
@@ -304,7 +312,7 @@ export function Inicio() {
   };
   const restaurar = async () => {
     try {
-      setInicio(await del<InicioDto>("/inicio"));
+      setInicio(await emOrdem(() => del<InicioDto>("/inicio")));
       avisar("Início de volta ao padrão do seu perfil.");
     } catch (e) {
       avisar(e instanceof ErroApi ? e.message : "Não foi possível voltar ao padrão.", "erro");
