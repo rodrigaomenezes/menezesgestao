@@ -749,3 +749,18 @@ importação, pela checagem de "não contatar" da telefonia e pela busca. E-mail
 principal), nunca no mesmo. Limites: 10 extras e 5 endereços por contato (listas curtas, sem paginação). Tirar arquiva
 a linha (nada some) e libera o número; toda mudança vai para o histórico. LGPD: o pacote do titular traz os extras e
 anonimizar apaga o conteúdo e arquiva as linhas.
+
+Adendo (entrega 4): **duplicados e fusão** (RF-CRM-004/008). A lista de possíveis duplicados é calculada na hora,
+paginada, entre os contatos ativos que a pessoa vê: mesmo e-mail (principal ou extra) ou mesmo nome (sem diferença de
+maiúsculas e espaços); "não é duplicado" grava o par em `contato_par_ignorado`. A fusão é em 3 passos na tela (qual
+fica, campo a campo, conferir) e uma transação no servidor: trava os dois cadastros e os telefones; a origem larga o
+que é único (telefone, documento), vai para o arquivo com `fundido_em_id` e não pode ser restaurada; o destino recebe
+os valores escolhidos (lado vazio nunca apaga valor), o telefone e o e-mail que não ficaram viram extras, e endereços,
+etiquetas, campos vazios e tudo o que aponta para a origem passam para ele (`fusao.repositorio.ts`, `TRANSFERENCIAS`).
+Linha em conflito com índice único do destino (mesma fila, ciclo BRE aberto…) fica no cadastro arquivado. `evento` e
+`bre_automacao_execucao` não mudam (somente inserção): o histórico do destino lê também o dos fundidos nele (em cadeia).
+Cada fusão grava `contato_fusao` (somente inserção: origem, destino, quem, quando, escolhas, incorporados, movidos;
+documento só mascarado) e o evento `contato.fundido`. Um teste falha se surgir tabela com `contato_id` sem regra de
+fusão. **Divergência da Konecta:** lá fundir é de Administrador e Gestor; aqui é de quem tem `crm:arquivar` em escopo
+de equipe ou empresa (dono, gestor, supervisor, empresário), sem ação nova na matriz — vendedor (só a própria carteira)
+não vê a lista nem funde.

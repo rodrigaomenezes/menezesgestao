@@ -130,7 +130,9 @@ tests/      integration/ (Vitest + PostgreSQL real), e2e/ (Playwright, 5 largura
 - CRM: `contato` tem índice único `(empresa_id, telefone)` com telefone em E.164 (CHECK no banco) — a chave de
   deduplicação. Telefones e e-mails extras ficam em `contato_canal` (telefone ativo único por empresa) e endereços em
   `contato_endereco` (um principal por contato); entre as duas tabelas, a regra "um telefone, um contato" é de
-  `crm/telefones.ts` (consulta + trava por número), usada por quem acha contato pelo telefone (ADR-044). A carteira é `contato.responsavel_id`, filtrada pelo escopo. `evento.contato_id` liga o histórico.
+  `crm/telefones.ts` (consulta + trava por número), usada por quem acha contato pelo telefone (ADR-044). Fusão:
+  `contato.fundido_em_id` + `contato_fusao` (registro); o que cada tabela com `contato_id` faz na fusão está em
+  `crm/fusao.repositorio.ts` (tabela nova com `contato_id` precisa entrar lá; um teste confere). A carteira é `contato.responsavel_id`, filtrada pelo escopo. `evento.contato_id` liga o histórico.
 - Conversas: `mensagem` tem índice único `(canal_id, id_externo)` — webhook repetido nunca duplica; `conversa` tem
   índice único `(canal_id, telefone)` entre as ativas e `ids_externos text[]` (GIN) com todos os ids do cliente no
   provedor. Duplicadas antigas são juntadas apontando `mesclada_em_id` (nada é apagado).

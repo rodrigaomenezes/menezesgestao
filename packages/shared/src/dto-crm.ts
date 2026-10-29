@@ -144,6 +144,8 @@ export const ContatoDto = z.object({
   arquivadoEm: DataIso.nullable(),
   /** LGPD: dados pessoais apagados a pedido do titular ou pelo prazo de retenção. */
   anonimizadoEm: DataIso.nullable(),
+  /** Fundido em outro cadastro (Konecta RF-CRM-008): este fica arquivado e o histórico aparece no destino. */
+  fundidoEmId: Id.nullable(),
 });
 export type ContatoDto = z.infer<typeof ContatoDto>;
 
@@ -260,6 +262,52 @@ export const EnderecoContatoEntrada = z.object({
   principal: z.boolean().default(false),
 });
 export const ParamEndereco = z.object({ id: Id, enderecoId: Id });
+
+// Duplicados e fusão (Konecta RF-CRM-004/008) ---------------------------------------------------------------
+
+export const MOTIVOS_DUPLICIDADE = ["email", "nome"] as const;
+export const NOMES_MOTIVOS_DUPLICIDADE: Record<(typeof MOTIVOS_DUPLICIDADE)[number], string> = { email: "Mesmo e-mail", nome: "Mesmo nome" };
+const ResumoDuplicado = z.object({
+  id: Id,
+  nome: z.string(),
+  telefone: z.string().nullable(),
+  email: z.string().nullable(),
+  responsavelNome: z.string().nullable(),
+  criadoEm: DataIso,
+});
+export const ParDuplicadoDto = z.object({ a: ResumoDuplicado, b: ResumoDuplicado, motivos: z.array(z.enum(MOTIVOS_DUPLICIDADE)) });
+export type ParDuplicadoDto = z.infer<typeof ParDuplicadoDto>;
+export const ParContatosEntrada = z.object({ contatoA: Id, contatoB: Id }).refine((p) => p.contatoA !== p.contatoB, { error: "Escolha dois cadastros diferentes." });
+
+/** Campos em que a pessoa escolhe qual lado fica; o que não fica vira extra (telefone, e-mail) ou vai para o registro. */
+export const CAMPOS_FUSAO = ["nome", "tipo", "telefone", "email", "documento", "origem", "responsavel", "organizacao"] as const;
+export type CampoFusao = (typeof CAMPOS_FUSAO)[number];
+export const NOMES_CAMPOS_FUSAO: Record<CampoFusao, string> = {
+  nome: "Nome",
+  tipo: "Tipo",
+  telefone: "Telefone principal",
+  email: "E-mail principal",
+  documento: "CPF/CNPJ",
+  origem: "Origem",
+  responsavel: "Responsável",
+  organizacao: "Empresa",
+};
+const Lado = z.enum(["destino", "origem"]);
+export const FusaoEntrada = z.object({
+  /** O cadastro que some (fica arquivado, marcado como fundido no destino da rota). */
+  origemId: Id,
+  /** Para cada campo, de qual lado vem o valor; o que faltar fica com o destino. */
+  manter: z.partialRecord(z.enum(CAMPOS_FUSAO), Lado).default({}),
+});
+export const FusaoDto = z.object({
+  id: Id,
+  destinoId: Id,
+  origemId: Id,
+  /** Quantos registros de cada tipo passaram para o destino (oportunidades, tarefas, conversas…). */
+  movidos: z.record(z.string(), z.number().int()),
+  incorporados: z.record(z.string(), z.unknown()),
+});
+export type FusaoDto = z.infer<typeof FusaoDto>;
 
 export const ACOES_EM_MASSA = ["transferir", "arquivar", "restaurar", "etiquetar", "desetiquetar"] as const;
 export const AcaoEmMassaEntrada = z.object({

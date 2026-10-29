@@ -267,7 +267,9 @@ cadastro repetido com "Abrir o existente", limites visíveis (50 campos por tipo
 resposta e os perfis Empresário, Supervisor e Auditor. O contato aceita CPF/CNPJ (cifrado; na tela só o final, com
 "Mostrar" para quem pode exportar, auditado) e a lista exporta planilha com finalidade obrigatória. A ficha guarda
 outros telefones e e-mails (com rótulo e "Tornar principal") e vários endereços, um deles principal; um telefone extra
-vale como o principal na busca, no WhatsApp e na importação, e não pode ser de outro cadastro.
+vale como o principal na busca, no WhatsApp e na importação, e não pode ser de outro cadastro. "Possíveis
+duplicados" (mesmo e-mail ou nome) leva à fusão em 3 passos — qual fica, campo a campo, conferir —, registrada; o
+cadastro que sai fica arquivado e o histórico dos dois aparece no que fica.
 
 ## Testes
 

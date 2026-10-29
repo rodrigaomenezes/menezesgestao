@@ -9,6 +9,7 @@ import { useTempoReal } from "../../app/tempo-real";
 import { Modal, useAviso, useConfirmar } from "../../ui/sobreposicoes";
 import { BotaoAlternar, Campo, CarregarMais, Escolha, FiltroArquivados, ListaVazia, Mensagem, Titulo, useEnvio, usePaginado } from "../../ui/ui";
 import { CamposPersonalizados, EscolhaEtiquetas, Etiquetas, formatarTelefone, useConfigCrm, type ValoresCampos } from "./comum";
+import { usePodeFundir } from "./Duplicados";
 import { useVocabulario } from "../../app/vocabulario";
 
 type Config = ReturnType<typeof useConfigCrm>["config"];
@@ -220,6 +221,7 @@ function AcoesEmMassa({ ids, config, arquivados, aoConcluir }: { ids: string[]; 
 
 export function Contatos() {
   const { pode } = useSessao();
+  const podeFundir = usePodeFundir();
   const termos = useVocabulario();
   const navegar = useNavigate();
   const { config } = useConfigCrm();
@@ -254,6 +256,11 @@ export function Contatos() {
             {pode("crm", "criar") && (
               <Link to="/importar" className="botao botao-secundario">
                 Importar planilha
+              </Link>
+            )}
+            {podeFundir && (
+              <Link to="/contatos/duplicados" className="botao botao-secundario">
+                Possíveis duplicados
               </Link>
             )}
             {pode("crm", "exportar") && (

@@ -337,6 +337,7 @@ const TEXTOS_EVENTO: Record<string, string> = {
   "contato.endereco_adicionado": "Endereço incluído",
   "contato.endereco_alterado": "Endereço alterado",
   "contato.endereco_removido": "Endereço retirado",
+  "contato.fundido": "Cadastros fundidos",
   "oportunidade.criada": "{Oportunidade} criad{o|a:oportunidade}",
   "oportunidade.atualizada": "{Oportunidade} alterad{o|a:oportunidade}",
   "oportunidade.etapa_alterada": "Mudou de etapa",
@@ -388,6 +389,7 @@ function detalheEvento(h: HistoricoDto): string {
     const valor = String(d.principal ?? d.valor ?? "");
     return d.tipo === "telefone" ? formatarTelefone(valor) : valor;
   }
+  if (h.tipo === "contato.fundido" && typeof d.origemNome === "string") return `${d.origemNome} incorporado a este cadastro`;
   if (h.tipo.startsWith("contato.endereco_") && typeof d.endereco === "string") return `${d.endereco} · ${String(d.cidade ?? "")}`;
   if (h.tipo.startsWith("entrega.") && typeof d.entrega === "string") return d.entrega;
   if (h.tipo === "avaliacao.registrada" && typeof d.notaFinal === "number") return `nota ${d.notaFinal.toLocaleString("pt-BR")}`;
@@ -551,7 +553,13 @@ export function Contato() {
         <Link to="/contatos">{termos.Contatos}</Link>
       </p>
       <Titulo>{contato.nome}</Titulo>
-      {contato.arquivadoEm && !contato.anonimizadoEm && <Mensagem tipo="info">Este cadastro está na lixeira. Restaure para voltar a trabalhar com ele.</Mensagem>}
+      {contato.fundidoEmId ? (
+        <Mensagem tipo="info">
+          Este cadastro foi fundido em outro e não volta da lixeira. <Link to={`/contatos/${contato.fundidoEmId}`}>Abrir o cadastro que ficou</Link>
+        </Mensagem>
+      ) : (
+        contato.arquivadoEm && !contato.anonimizadoEm && <Mensagem tipo="info">Este cadastro está na lixeira. Restaure para voltar a trabalhar com ele.</Mensagem>
+      )}
       <section className="cartao">
         <div className="contato-resumo">
           {contato.telefone && (
@@ -599,7 +607,7 @@ export function Contato() {
               {editando ? "Fechar edição" : "Editar"}
             </button>
           )}
-          {pode("crm", "arquivar") && !contato.anonimizadoEm && (
+          {pode("crm", "arquivar") && !contato.anonimizadoEm && !contato.fundidoEmId && (
             <button type="button" className="botao botao-secundario" disabled={arquivar.enviando} onClick={() => void arquivar.enviar()}>
               {contato.arquivadoEm ? "Restaurar" : "Arquivar"}
             </button>

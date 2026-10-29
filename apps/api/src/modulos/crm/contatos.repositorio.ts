@@ -32,6 +32,7 @@ const colunas = {
   atualizadoEm: contato.atualizadoEm,
   arquivadoEm: contato.arquivadoEm,
   anonimizadoEm: contato.anonimizadoEm,
+  fundidoEmId: contato.fundidoEmId,
 };
 
 function consulta(tx: Tx) {
@@ -123,7 +124,7 @@ export function buscarVisivel(tx: Tx, empresaId: string, quem: QuemVe, escopo: E
 /** Visíveis entre os ids pedidos (ações em massa). */
 export function idsVisiveis(tx: Tx, empresaId: string, quem: QuemVe, escopo: Escopo, ids: string[]) {
   return tx.db
-    .select({ id: contato.id, responsavelId: contato.responsavelId, arquivadoEm: contato.arquivadoEm })
+    .select({ id: contato.id, responsavelId: contato.responsavelId, arquivadoEm: contato.arquivadoEm, fundidoEmId: contato.fundidoEmId })
     .from(contato)
     .where(and(eq(contato.empresaId, empresaId), inArray(contato.id, ids), visivel(quem, escopo)));
 }
@@ -166,7 +167,7 @@ export async function trocarEtiquetas(tx: Tx, empresaId: string, contatoId: stri
   }
 }
 
-export function historico(tx: Tx, empresaId: string, contatoId: string, cursor: string | undefined, limite: number) {
+export function historico(tx: Tx, empresaId: string, contatoIds: string[], cursor: string | undefined, limite: number) {
   const ator = alias(usuario, "ator");
   return tx.db
     .select({
@@ -180,7 +181,7 @@ export function historico(tx: Tx, empresaId: string, contatoId: string, cursor: 
     })
     .from(evento)
     .leftJoin(ator, eq(ator.id, evento.atorId))
-    .where(and(eq(evento.empresaId, empresaId), eq(evento.contatoId, contatoId), condicaoCursor(evento.criadoEm, evento.id, lerCursor(cursor))))
+    .where(and(eq(evento.empresaId, empresaId), inArray(evento.contatoId, contatoIds), condicaoCursor(evento.criadoEm, evento.id, lerCursor(cursor))))
     .orderBy(desc(evento.criadoEm), desc(evento.id))
     .limit(limite + 1);
 }
