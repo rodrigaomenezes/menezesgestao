@@ -22,7 +22,7 @@ jobs:
     env:
       DATABASE_URL_TESTE: postgres://postgres:postgres@localhost:5432/menezesgestao_teste
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v4
         with: { node-version: 20, cache: npm }
       - run: npm ci
